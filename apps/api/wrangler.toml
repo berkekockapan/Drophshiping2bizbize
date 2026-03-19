@@ -1,0 +1,12 @@
+name = "trendyol-etsy-api"
+main = "src/worker.ts"
+compatibility_date = "2026-03-20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trendyol-etsy"
+database_id = "local-trendyol-etsy-db"
+
+[[queues.producers]]
+binding = "REFRESH_QUEUE"
+queue = "trendyol-refresh"

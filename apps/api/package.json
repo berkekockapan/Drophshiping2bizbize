@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "@trendyol-etsy/api",
   "version": "0.0.0",
   "private": true,
@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "cheerio": "^1.1.2",
     "drizzle-orm": "^0.44.4",
     "hono": "^4.7.10"
   },

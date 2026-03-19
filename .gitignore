@@ -1,0 +1,11 @@
+﻿node_modules
+.pnpm-store
+.wrangler
+.dev.vars
+coverage
+playwright-report
+blob-report
+test-results
+*.tsbuildinfo
+dist
+.DS_Store

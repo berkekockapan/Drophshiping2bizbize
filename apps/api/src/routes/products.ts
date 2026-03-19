@@ -1,18 +1,18 @@
 import { Hono } from "hono";
 
 import type { Env } from "../config/bindings";
-import { createProductsRepo } from "../db/repositories/productsRepo";
+import { buildProductDetailView } from "../modules/tracking/buildProductDetailView";
 
 export function createProductsRouter() {
   const app = new Hono<{ Bindings: Env }>();
 
   app.get("/:productId", async (c) => {
-    const product = await createProductsRepo(c.env.DB).getRefreshSnapshot(c.req.param("productId"));
-    if (!product) {
+    const detail = await buildProductDetailView(c.env.DB, c.req.param("productId"));
+    if (!detail) {
       return c.json({ error: "Product not found" }, 404);
     }
 
-    return c.json(product);
+    return c.json(detail);
   });
 
   return app;

@@ -48,5 +48,33 @@ export function createHistoryRepo(db: D1Database) {
           .run();
       }
     },
+    async listPriceHistory(productId: string) {
+      const result = await db
+        .prepare(
+          `select id, product_id as productId, variant_id as variantId, previous_price as previousPrice,
+                  new_price as newPrice, changed_at as changedAt, change_reason as changeReason
+           from price_history
+           where product_id = ?
+           order by changed_at desc`,
+        )
+        .bind(productId)
+        .all();
+
+      return result.results;
+    },
+    async listStockHistory(productId: string) {
+      const result = await db
+        .prepare(
+          `select id, product_id as productId, variant_id as variantId, previous_stock_state as previousStockState,
+                  new_stock_state as newStockState, changed_at as changedAt
+           from stock_history
+           where product_id = ?
+           order by changed_at desc`,
+        )
+        .bind(productId)
+        .all();
+
+      return result.results;
+    },
   };
 }

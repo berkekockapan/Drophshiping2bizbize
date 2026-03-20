@@ -6,9 +6,9 @@
 
 ## Deploy Akışı
 1. Dry run:
-   - `npx pnpm --filter @trendyol-etsy/api deploy --dry-run`
+   - `npx pnpm --filter @trendyol-etsy/api run deploy --dry-run`
 2. Gerçek deploy:
-   - `npx pnpm --filter @trendyol-etsy/api deploy`
+   - `npx pnpm --filter @trendyol-etsy/api run deploy`
 3. Sağlık kontrolü:
    - `GET /health`
 4. Kritik rotaları doğrulayın:

@@ -7,6 +7,10 @@ const statusMap: Record<string, string> = {
   ACTIVE: "bg-sky-100 text-sky-700",
   REVIEW_NEEDED: "bg-amber-100 text-amber-700",
   PARSE_ERROR: "bg-rose-100 text-rose-700",
+  IN_STOCK: "bg-emerald-100 text-emerald-700",
+  OUT_OF_STOCK: "bg-rose-100 text-rose-700",
+  warning: "bg-amber-100 text-amber-700",
+  info: "bg-sky-100 text-sky-700",
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {

@@ -146,4 +146,107 @@ describe("DraftEditor", () => {
     await userEvent.click(await screen.findByRole("button", { name: /başlık üret/i }));
     expect(await screen.findByDisplayValue(/handmade hoodie/i)).toBeInTheDocument();
   });
+
+  it("saves manual draft edits through PATCH /drafts/:productId", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1")) {
+        return new Response(
+          JSON.stringify({
+            product: {
+              id: "prod_1",
+              trendyolUrl: "https://www.trendyol.com/example",
+              sourceProductId: "123",
+              title: "Oversize Hoodie",
+              brand: "North Apparel",
+              category: "Sweatshirt",
+              descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+              attributes: [{ key: "Kumaş", value: "Pamuk" }],
+              images: [],
+              status: "ACTIVE",
+              parseStatus: "OK",
+              lastCheckedAt: Date.now(),
+            },
+            currentState: {
+              currentPrice: 44990,
+              minPrice: 34990,
+              maxPrice: 44990,
+              inStockVariantCount: 2,
+              totalVariantCount: 3,
+              lastChangeAt: Date.now(),
+              lastCheckedAt: Date.now(),
+            },
+            variants: [],
+            priceHistory: [],
+            stockHistory: [],
+            notifications: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("/drafts/prod_1") && (!init?.method || init?.method === "GET")) {
+        return new Response(
+          JSON.stringify({
+            draft: {
+              id: "draft_1",
+              productId: "prod_1",
+              englishTitle: "Initial",
+              shortDescription: "",
+              longDescription: "",
+              tags: [],
+              materials: [],
+              attributes: [],
+              seoNotes: null,
+              policyNotes: null,
+              generatedVersion: 0,
+              editedVersion: 0,
+              lastGeneratedAt: null,
+              manualEditsPresent: false,
+            },
+            prompt: null,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("/drafts/prod_1") && init?.method === "PATCH") {
+        return new Response(
+          JSON.stringify({
+            id: "draft_1",
+            productId: "prod_1",
+            englishTitle: "Saved Title",
+            shortDescription: "",
+            longDescription: "",
+            tags: [],
+            materials: [],
+            attributes: [],
+            seoNotes: null,
+            policyNotes: null,
+            generatedVersion: 0,
+            editedVersion: 1,
+            lastGeneratedAt: null,
+            manualEditsPresent: true,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<SeoEditorPage />, {
+      route: "/products/prod_1/seo",
+      path: "/products/:productId/seo",
+    });
+
+    await userEvent.clear(await screen.findByLabelText(/english title/i));
+    await userEvent.type(screen.getByLabelText(/english title/i), "Saved Title");
+    await userEvent.click(screen.getByRole("button", { name: /taslağı kaydet/i }));
+
+    expect(
+      fetchSpy.mock.calls.some(([input, init]) => String(input).includes("/drafts/prod_1") && init?.method === "PATCH"),
+    ).toBe(true);
+  });
 });

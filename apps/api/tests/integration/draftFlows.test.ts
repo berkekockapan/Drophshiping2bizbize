@@ -95,6 +95,20 @@ describe("draft flows", () => {
 
     expect(editResponse.status).toBe(200);
 
+    const clearResponse = await app.request(
+      `http://localhost/drafts/${seeded.product.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shortDescription: null }),
+      },
+      env,
+    );
+
+    expect(clearResponse.status).toBe(200);
+    const clearJson = await clearResponse.json();
+    expect(clearJson.shortDescription).toBeNull();
+
     const generateNoOverwrite = await app.request(
       `http://localhost/drafts/${seeded.product.id}/generate`,
       {

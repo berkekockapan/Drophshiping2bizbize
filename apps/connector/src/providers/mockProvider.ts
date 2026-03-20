@@ -1,4 +1,4 @@
-import type { AIProvider, GenerateRequest, GenerateResponse } from "./base";
+ï»¿import type { AIProvider, GenerateRequest, GenerateResponse, UpsertProfileInput } from "./base";
 import type { ConnectorProfile, ProfileStore } from "../store/profileStore";
 
 function normalizeTag(value: string) {
@@ -63,16 +63,26 @@ export class MockProvider implements AIProvider {
     return this.store.setActiveProfile(profileId);
   }
 
+  async upsertProfile(input: UpsertProfileInput) {
+    const profile = await this.store.saveProfile(input);
+
+    if (input.makeActive) {
+      return this.store.setActiveProfile(profile.id);
+    }
+
+    return profile;
+  }
+
   async generate(request: GenerateRequest): Promise<GenerateResponse> {
     const titleStem = request.sourceTitle.trim() || "Handmade Product";
     const tags = buildTags(titleStem);
 
     return {
       englishTitle: `${titleStem} | Handmade Etsy Listing`,
-      shortDescription: `${titleStem} için Etsy optimize kýsa açýklama.`,
+      shortDescription: `${titleStem} iÃ§in Etsy optimize kÄ±sa aÃ§Ä±klama.`,
       longDescription: [
-        `${titleStem} ürününün güçlü özelliklerini öne çýkaran detaylý açýklama.`,
-        "Malzeme, kullaným alaný ve bakým notlarý doðal bir akýþta verilir.",
+        `${titleStem} Ã¼rÃ¼nÃ¼nÃ¼n gÃ¼Ã§lÃ¼ Ã¶zelliklerini Ã¶ne Ã§Ä±karan detaylÄ± aÃ§Ä±klama.`,
+        "Malzeme, kullanÄ±m alanÄ± ve bakÄ±m notlarÄ± doÄŸal bir akÄ±ÅŸta verilir.",
       ].join(" "),
       tags,
       materials: ["cotton", "polyester"],

@@ -43,10 +43,38 @@ describe("connector server", () => {
     const health = await context.server.inject({ method: "GET", url: "/health" });
     expect(health.statusCode).toBe(200);
     expect(health.json().status).toBe("online");
+    expect(health.headers["access-control-allow-origin"]).toBe("*");
+
+    const preflight = await context.server.inject({
+      method: "OPTIONS",
+      url: "/generate",
+      headers: {
+        origin: "https://example.com",
+        "access-control-request-method": "POST",
+      },
+    });
+
+    expect(preflight.statusCode).toBe(204);
+    expect(preflight.headers["access-control-allow-origin"]).toBe("*");
+    expect(preflight.headers["access-control-allow-methods"]).toContain("POST");
 
     const profiles = await context.server.inject({ method: "GET", url: "/profiles" });
     expect(profiles.statusCode).toBe(200);
     expect(profiles.json().items).toHaveLength(1);
+
+    const upsertProfile = await context.server.inject({
+      method: "POST",
+      url: "/profiles",
+      payload: {
+        id: "secondary",
+        label: "Secondary",
+        emailMasked: "se***@company.com",
+        provider: "chatgpt-web",
+      },
+    });
+
+    expect(upsertProfile.statusCode).toBe(200);
+    expect(upsertProfile.json().profile.id).toBe("secondary");
 
     const activate = await context.server.inject({ method: "POST", url: "/profiles/primary/activate" });
     expect(activate.statusCode).toBe(200);

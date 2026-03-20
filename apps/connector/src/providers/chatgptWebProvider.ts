@@ -1,6 +1,6 @@
 import { BrowserSession } from "../browser/browserSession";
 import { runPrompt } from "../browser/runPrompt";
-import type { AIProvider, GenerateRequest, GenerateResponse } from "./base";
+import type { AIProvider, GenerateRequest, GenerateResponse, UpsertProfileInput } from "./base";
 import type { ConnectorProfile, ProfileStore } from "../store/profileStore";
 
 export class ChatGptWebProvider implements AIProvider {
@@ -23,7 +23,22 @@ export class ChatGptWebProvider implements AIProvider {
     return this.store.setActiveProfile(profileId);
   }
 
+  async upsertProfile(input: UpsertProfileInput) {
+    const profile = await this.store.saveProfile(input);
+
+    if (input.makeActive) {
+      return this.store.setActiveProfile(profile.id);
+    }
+
+    return profile;
+  }
+
   async generate(request: GenerateRequest): Promise<GenerateResponse> {
+    const activeProfile = await this.store.getActiveProfile();
+    if (!activeProfile) {
+      throw new Error("No active ChatGPT profile. Add and activate a profile first.");
+    }
+
     const page = await this.browserSession.ensurePage();
     return runPrompt(page, request);
   }

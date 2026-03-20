@@ -1,6 +1,16 @@
 import type { FastifyInstance } from "fastify";
 
 import type { AIProvider } from "../providers/base";
+import type { ProviderId } from "../store/profileStore";
+
+interface UpsertProfilePayload {
+  id?: string;
+  label?: string;
+  emailMasked?: string | null;
+  provider?: ProviderId;
+  sessionSecret?: string | null;
+  makeActive?: boolean;
+}
 
 export function registerProfilesRoutes(server: FastifyInstance, deps: { provider: AIProvider }) {
   server.get("/profiles", async () => {
@@ -12,6 +22,28 @@ export function registerProfilesRoutes(server: FastifyInstance, deps: { provider
     return {
       items: profiles,
       activeProfile,
+    };
+  });
+
+  server.post<{ Body: UpsertProfilePayload }>("/profiles", async (request, reply) => {
+    const body = request.body;
+
+    if (!body?.id || !body.label || !body.provider) {
+      return reply.code(400).send({ error: "id, label and provider are required" });
+    }
+
+    const profile = await deps.provider.upsertProfile({
+      id: body.id,
+      label: body.label,
+      emailMasked: body.emailMasked ?? null,
+      provider: body.provider,
+      sessionSecret: body.sessionSecret ?? null,
+      makeActive: body.makeActive ?? false,
+    });
+
+    return {
+      ok: true,
+      profile,
     };
   });
 

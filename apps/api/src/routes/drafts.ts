@@ -100,16 +100,35 @@ export function createDraftsRouter() {
       return c.json({ error: "Invalid JSON payload" }, 400);
     }
 
+    const patchPayload: ManualDraftPatchPayload = {};
+    if ("englishTitle" in body) {
+      patchPayload.englishTitle = body.englishTitle ?? null;
+    }
+    if ("shortDescription" in body) {
+      patchPayload.shortDescription = body.shortDescription ?? null;
+    }
+    if ("longDescription" in body) {
+      patchPayload.longDescription = body.longDescription ?? null;
+    }
+    if ("tags" in body) {
+      patchPayload.tags = ensureStringArray(body.tags);
+    }
+    if ("materials" in body) {
+      patchPayload.materials = ensureStringArray(body.materials);
+    }
+    if ("attributes" in body) {
+      patchPayload.attributes = ensureAttributes(body.attributes);
+    }
+    if ("seoNotes" in body) {
+      patchPayload.seoNotes = body.seoNotes ?? null;
+    }
+    if ("policyNotes" in body) {
+      patchPayload.policyNotes = body.policyNotes ?? null;
+    }
+
     const draftsRepo = createDraftsRepo(c.env.DB);
     const updated = await draftsRepo.applyManualEdits(productId, {
-      englishTitle: body.englishTitle,
-      shortDescription: body.shortDescription,
-      longDescription: body.longDescription,
-      tags: body.tags ? ensureStringArray(body.tags) : undefined,
-      materials: body.materials ? ensureStringArray(body.materials) : undefined,
-      attributes: body.attributes ? ensureAttributes(body.attributes) : undefined,
-      seoNotes: body.seoNotes,
-      policyNotes: body.policyNotes,
+      ...patchPayload,
     });
 
     return c.json(updated);

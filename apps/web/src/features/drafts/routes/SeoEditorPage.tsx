@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery } from "@tanstack/react-query";
+﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -6,12 +6,14 @@ import {
   connectorGenerate,
   fetchDraft,
   fetchProductDetail,
+  patchDraft,
   saveGeneratedDraft,
 } from "../../../app/api";
 import { DraftEditor } from "../components/DraftEditor";
 import { SourceProductPanel } from "../components/SourceProductPanel";
 
 export function SeoEditorPage() {
+  const queryClient = useQueryClient();
   const params = useParams<{ productId: string }>();
   const productId = params.productId ?? "prod_1";
 
@@ -62,10 +64,31 @@ export function SeoEditorPage() {
 
       return savedDraft;
     },
+    onSuccess: (savedDraft) => {
+      queryClient.setQueryData<{ draft: typeof savedDraft; prompt: unknown } | undefined>(["draft", productId], (previous) => ({
+        draft: savedDraft,
+        prompt: previous?.prompt ?? null,
+      }));
+    },
+  });
+
+  const saveDraftMutation = useMutation({
+    mutationFn: (draft: { englishTitle: string; shortDescription: string; longDescription: string }) =>
+      patchDraft(productId, {
+        englishTitle: draft.englishTitle,
+        shortDescription: draft.shortDescription,
+        longDescription: draft.longDescription,
+      }),
+    onSuccess: (savedDraft) => {
+      queryClient.setQueryData<{ draft: typeof savedDraft; prompt: unknown } | undefined>(["draft", productId], (previous) => ({
+        draft: savedDraft,
+        prompt: previous?.prompt ?? null,
+      }));
+    },
   });
 
   const sourceDetail = detailQuery.data;
-  const draft = generateTitleMutation.data ?? draftQuery.data?.draft;
+  const draft = draftQuery.data?.draft;
 
   return (
     <div className="space-y-6">
@@ -93,8 +116,10 @@ export function SeoEditorPage() {
           }}
           generatedTitle={draft?.englishTitle ?? null}
           isGeneratingTitle={generateTitleMutation.isPending}
+          isSaving={saveDraftMutation.isPending}
           connectorOnline
           onGenerateTitle={() => generateTitleMutation.mutate()}
+          onSave={(nextState) => saveDraftMutation.mutate(nextState)}
           onMetaChange={setDraftMeta}
         />
       </div>

@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 
 import type { ConnectorConfig } from "./config";
 import { loadConfig } from "./config";
@@ -24,6 +24,28 @@ export interface ConnectorServerContext {
   provider: AIProvider;
 }
 
+function applyCorsHeaders(server: FastifyInstance) {
+  const setHeaders = (reply: FastifyReply) => {
+    reply.header("Access-Control-Allow-Origin", "*");
+    reply.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    reply.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    reply.header("Access-Control-Max-Age", "86400");
+  };
+
+  server.addHook("onRequest", async (request, reply) => {
+    setHeaders(reply);
+
+    if (request.method === "OPTIONS") {
+      return reply.code(204).send();
+    }
+  });
+
+  server.addHook("onSend", async (_request, reply, payload) => {
+    setHeaders(reply);
+    return payload;
+  });
+}
+
 function buildProvider(config: ConnectorConfig, store: ProfileStore) {
   return config.provider === "chatgpt-web"
     ? new ChatGptWebProvider(store)
@@ -35,6 +57,7 @@ export function createConnectorServer(options: CreateConnectorServerOptions = {}
   const store = options.store ?? createProfileStore(config.stateDir);
   const provider = options.provider ?? buildProvider(config, store);
   const server = Fastify({ logger: options.logger ?? false });
+  applyCorsHeaders(server);
 
   registerHealthRoute(server, { provider });
   registerProfilesRoutes(server, { provider });

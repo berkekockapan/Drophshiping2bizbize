@@ -10,9 +10,11 @@ interface DraftEditorProps {
   initialValue?: Partial<DraftEditorState>;
   generatedTitle?: string | null;
   isGeneratingTitle?: boolean;
+  isSaving?: boolean;
   connectorOnline?: boolean;
   disabled?: boolean;
   onGenerateTitle?: () => void;
+  onSave?: (state: DraftEditorState) => void;
   onMetaChange?: (meta: { manualEditsPresent: boolean; allowOverwrite: boolean }) => void;
 }
 
@@ -20,9 +22,11 @@ export function DraftEditor({
   initialValue,
   generatedTitle,
   isGeneratingTitle = false,
+  isSaving = false,
   connectorOnline = true,
   disabled = false,
   onGenerateTitle,
+  onSave,
   onMetaChange,
 }: DraftEditorProps) {
   const [state, setState] = useState<DraftEditorState>({
@@ -99,6 +103,15 @@ export function DraftEditor({
             onClick={onGenerateTitle}
           >
             {isGeneratingTitle ? "Üretiliyor..." : "Başlık Üret"}
+          </button>
+
+          <button
+            type="button"
+            className="rounded-xl bg-[#051125] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disabled || isSaving || !onSave}
+            onClick={() => onSave?.(state)}
+          >
+            {isSaving ? "Kaydediliyor..." : "Taslağı Kaydet"}
           </button>
         </div>
 

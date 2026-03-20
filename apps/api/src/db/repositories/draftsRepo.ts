@@ -95,6 +95,10 @@ function mapRow(row: EtsyDraftRow): EtsyDraftRecord {
   };
 }
 
+function hasOwnKey<T extends object>(value: T, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
 async function selectDraftByProductId(db: D1Database, productId: string) {
   return db
     .prepare(
@@ -158,6 +162,18 @@ export function createDraftsRepo(db: D1Database) {
       >,
     ) {
       const existing = await ensureForProduct(productId);
+      const nextEnglishTitle = hasOwnKey(patch, "englishTitle") ? (patch.englishTitle ?? null) : existing.englishTitle;
+      const nextShortDescription = hasOwnKey(patch, "shortDescription")
+        ? (patch.shortDescription ?? null)
+        : existing.shortDescription;
+      const nextLongDescription = hasOwnKey(patch, "longDescription")
+        ? (patch.longDescription ?? null)
+        : existing.longDescription;
+      const nextTags = hasOwnKey(patch, "tags") ? (patch.tags ?? []) : existing.tags;
+      const nextMaterials = hasOwnKey(patch, "materials") ? (patch.materials ?? []) : existing.materials;
+      const nextAttributes = hasOwnKey(patch, "attributes") ? (patch.attributes ?? []) : existing.attributes;
+      const nextSeoNotes = hasOwnKey(patch, "seoNotes") ? (patch.seoNotes ?? null) : existing.seoNotes;
+      const nextPolicyNotes = hasOwnKey(patch, "policyNotes") ? (patch.policyNotes ?? null) : existing.policyNotes;
 
       await db
         .prepare(
@@ -167,14 +183,14 @@ export function createDraftsRepo(db: D1Database) {
            where product_id = ?`,
         )
         .bind(
-          patch.englishTitle ?? existing.englishTitle,
-          patch.shortDescription ?? existing.shortDescription,
-          patch.longDescription ?? existing.longDescription,
-          JSON.stringify(patch.tags ?? existing.tags),
-          JSON.stringify(patch.materials ?? existing.materials),
-          JSON.stringify(patch.attributes ?? existing.attributes),
-          patch.seoNotes ?? existing.seoNotes,
-          patch.policyNotes ?? existing.policyNotes,
+          nextEnglishTitle,
+          nextShortDescription,
+          nextLongDescription,
+          JSON.stringify(nextTags),
+          JSON.stringify(nextMaterials),
+          JSON.stringify(nextAttributes),
+          nextSeoNotes,
+          nextPolicyNotes,
           existing.editedVersion + 1,
           1,
           productId,

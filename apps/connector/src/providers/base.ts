@@ -1,4 +1,4 @@
-import type { ConnectorProfile } from "../store/profileStore";
+import type { ConnectorProfile, ProviderId } from "../store/profileStore";
 
 export interface GenerateRequest {
   productId: string;
@@ -20,10 +20,20 @@ export interface GenerateResponse {
   model: string;
 }
 
+export interface UpsertProfileInput {
+  id: string;
+  label: string;
+  emailMasked: string | null;
+  provider: ProviderId;
+  sessionSecret?: string | null;
+  makeActive?: boolean;
+}
+
 export interface AIProvider {
   readonly id: string;
   listProfiles(): Promise<ConnectorProfile[]>;
   getActiveProfile(): Promise<ConnectorProfile | null>;
   activateProfile(profileId: string): Promise<ConnectorProfile>;
+  upsertProfile(input: UpsertProfileInput): Promise<ConnectorProfile>;
   generate(request: GenerateRequest): Promise<GenerateResponse>;
 }

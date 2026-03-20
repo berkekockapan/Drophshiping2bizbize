@@ -1,6 +1,8 @@
+import { loadDotEnvFile } from "./config";
 import { createConnectorServer } from "./server";
 
 async function bootstrap() {
+  loadDotEnvFile();
   const context = createConnectorServer();
 
   await context.server.listen({

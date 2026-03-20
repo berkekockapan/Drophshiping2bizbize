@@ -10,3 +10,11 @@ database_id = "local-trendyol-etsy-db"
 [[queues.producers]]
 binding = "REFRESH_QUEUE"
 queue = "trendyol-refresh"
+
+[[queues.consumers]]
+queue = "trendyol-refresh"
+max_batch_size = 25
+max_batch_timeout = 30
+
+[triggers]
+crons = ["0 * * * *"]

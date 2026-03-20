@@ -9,3 +9,5 @@ test-results
 *.tsbuildinfo
 dist
 .DS_Store
+.state
+apps/connector/.env

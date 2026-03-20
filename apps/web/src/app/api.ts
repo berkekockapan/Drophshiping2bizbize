@@ -110,6 +110,79 @@ export interface CreateTrackedProductResponse {
   };
 }
 
+export interface DraftAttribute {
+  key: string;
+  value: string;
+}
+
+export interface EtsyDraft {
+  id: string;
+  productId: string;
+  englishTitle: string | null;
+  shortDescription: string | null;
+  longDescription: string | null;
+  tags: string[];
+  materials: string[];
+  attributes: DraftAttribute[];
+  seoNotes: string | null;
+  policyNotes: string | null;
+  generatedVersion: number;
+  editedVersion: number;
+  lastGeneratedAt: number | null;
+  manualEditsPresent: boolean;
+}
+
+export interface DraftPromptResponse {
+  instructions: string;
+  source: {
+    productId: string;
+    productTitle: string;
+    brand: string | null;
+    category: string | null;
+    description: string | null;
+    attributes: DraftAttribute[];
+    variants: Array<{
+      variantKey: string;
+      option1: string | null;
+      option2: string | null;
+      option3: string | null;
+      currentPrice: number | null;
+      currentStockState: string;
+    }>;
+  };
+  constraints: {
+    locale: "en";
+    maxTitleLength: number;
+    requiredTagCount: number;
+  };
+}
+
+export interface ConnectorProfile {
+  id: string;
+  label: string;
+  emailMasked: string | null;
+  provider: string;
+  isActive?: boolean;
+}
+
+export interface ConnectorHealthResponse {
+  status: string;
+  provider?: string;
+  activeProfile: ConnectorProfile | null;
+}
+
+export interface ConnectorProfilesResponse {
+  items: ConnectorProfile[];
+  activeProfile: ConnectorProfile | null;
+}
+
+export interface AppSettingsResponse {
+  id: string;
+  refreshIntervalHours: number;
+  promptPreferences: Record<string, unknown> | null;
+  connectorHealthcheckEnabled: boolean;
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -145,6 +218,142 @@ export async function fetchNotifications(productId?: string): Promise<{ items: N
   const search = productId ? `?productId=${encodeURIComponent(productId)}` : "";
   const response = await fetch(`/notifications${search}`);
   return parseJson<{ items: NotificationItem[] }>(response);
+}
+
+export async function fetchDraft(productId: string): Promise<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }> {
+  const response = await fetch(`/drafts/${productId}`);
+  return parseJson<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }>(response);
+}
+
+export async function patchDraft(
+  productId: string,
+  payload: Partial<
+    Pick<EtsyDraft, "englishTitle" | "shortDescription" | "longDescription" | "tags" | "materials" | "attributes" | "seoNotes" | "policyNotes">
+  >,
+) {
+  const response = await fetch(`/drafts/${productId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<EtsyDraft>(response);
+}
+
+export async function saveGeneratedDraft(
+  productId: string,
+  payload: {
+    overwrite?: boolean;
+    generated: Pick<
+      EtsyDraft,
+      "englishTitle" | "shortDescription" | "longDescription" | "tags" | "materials" | "attributes" | "seoNotes" | "policyNotes"
+    >;
+  },
+) {
+  const response = await fetch(`/drafts/${productId}/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<EtsyDraft>(response);
+}
+
+const connectorBaseUrl = "http://127.0.0.1:4317";
+
+export async function fetchConnectorHealth() {
+  const response = await fetch(`${connectorBaseUrl}/health`);
+  return parseJson<ConnectorHealthResponse>(response);
+}
+
+export async function fetchConnectorProfiles() {
+  const response = await fetch(`${connectorBaseUrl}/profiles`);
+  return parseJson<ConnectorProfilesResponse>(response);
+}
+
+export async function activateConnectorProfile(profileId: string) {
+  const response = await fetch(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}/activate`, {
+    method: "POST",
+  });
+
+  return parseJson<{ ok: true; activeProfile: ConnectorProfile }>(response);
+}
+
+export async function connectorGenerate(payload: {
+  productId: string;
+  language: "en";
+  sourceTitle: string;
+  sourceDescription?: string | null;
+  sourceAttributes?: Array<{ key: string; value: string }>;
+}) {
+  const response = await fetch(`${connectorBaseUrl}/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{
+    englishTitle: string;
+    shortDescription: string;
+    longDescription: string;
+    tags: string[];
+    materials: string[];
+    attributes: Array<{ key: string; value: string }>;
+    seoNotes: string;
+    policyNotes: string;
+    model: string;
+  }>(response);
+}
+
+export async function syncAiProfiles(payload: {
+  connectorStatus: { status: string; provider: string };
+  profiles: Array<{ id: string; label: string; emailMasked: string | null; provider: string; isActive: boolean }>;
+}) {
+  const response = await fetch("/ai-profiles/sync", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{
+    items: Array<ConnectorProfile & { isActive: boolean; connectorStatusSnapshot: string | null; lastSeenAt: number | null }>;
+  }>(response);
+}
+
+export async function fetchAiProfiles() {
+  const response = await fetch("/ai-profiles");
+  return parseJson<{
+    items: Array<ConnectorProfile & { isActive: boolean; connectorStatusSnapshot: string | null; lastSeenAt: number | null }>;
+  }>(response);
+}
+
+export async function fetchSettings() {
+  const response = await fetch("/settings");
+  return parseJson<AppSettingsResponse>(response);
+}
+
+export async function patchSettings(payload: {
+  refreshIntervalHours: number;
+  promptPreferences?: Record<string, unknown> | null;
+  connectorHealthcheckEnabled?: boolean;
+}) {
+  const response = await fetch("/settings", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<AppSettingsResponse>(response);
 }
 
 export function formatPrice(cents: number | null | undefined) {

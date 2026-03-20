@@ -5,7 +5,11 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "dev:api": "pnpm --filter @trendyol-etsy/api dev",
+    "dev:web": "pnpm --filter @trendyol-etsy/web dev",
+    "dev:connector": "pnpm --filter @trendyol-etsy/connector dev",
+    "test:e2e": "pnpm --filter @trendyol-etsy/web test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

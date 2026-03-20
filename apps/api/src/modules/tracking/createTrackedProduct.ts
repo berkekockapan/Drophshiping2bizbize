@@ -10,6 +10,7 @@ export interface CreateTrackedProductInput {
 
 export interface CreateTrackedProductOptions {
   fetchImpl?: typeof fetch;
+  fetchTimeoutMs?: number;
   now?: Date;
 }
 
@@ -39,7 +40,10 @@ export async function createTrackedProduct(
     throw new DuplicateProductError(normalizedUrl);
   }
 
-  const html = await fetchTrendyolHtml(normalizedUrl, options.fetchImpl);
+  const html = await fetchTrendyolHtml(normalizedUrl, {
+    fetchImpl: options.fetchImpl,
+    timeoutMs: options.fetchTimeoutMs,
+  });
   const parsed = parseTrendyolProduct(html);
   const now = options.now ?? new Date();
   const productId = crypto.randomUUID();

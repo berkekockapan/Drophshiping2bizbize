@@ -13,6 +13,8 @@ export function TrackingCenterPage() {
     queryKey: ["tracking-products"],
     queryFn: fetchTrackingView,
   });
+  const trackingErrorMessage =
+    trackingQuery.error instanceof Error ? trackingQuery.error.message : "Ürünler yüklenemedi.";
 
   const filteredItems = useMemo(() => {
     const items = trackingQuery.data?.items ?? [];
@@ -51,7 +53,7 @@ export function TrackingCenterPage() {
       <TrackingFilters search={search} onSearchChange={setSearch} />
 
       {trackingQuery.isLoading ? <p className="text-sm text-slate-500">Ürünler yükleniyor...</p> : null}
-      {trackingQuery.isError ? <p className="text-sm text-rose-600">Ürünler yüklenemedi.</p> : null}
+      {trackingQuery.isError ? <p className="text-sm text-rose-600">{trackingErrorMessage}</p> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         {filteredItems.map((item) => (

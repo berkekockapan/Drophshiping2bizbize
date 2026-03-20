@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import type { Env } from "../config/bindings";
+import { ParseError } from "../modules/scraping/parseErrors";
 import { buildTrackingListView } from "../modules/tracking/buildTrackingListView";
 import { DuplicateProductError, type CreateTrackedProductOptions, createTrackedProduct } from "../modules/tracking/createTrackedProduct";
 
@@ -32,7 +33,15 @@ export function createTrackingRouter(options: CreateTrackedProductOptions = {}) 
         return c.json({ error: error.message }, 409);
       }
 
-      throw error;
+      if (error instanceof ParseError) {
+        return c.json({ error: `Trendyol sayfası ayrıştırılamadı (${error.code})` }, 422);
+      }
+
+      if (error instanceof Error) {
+        return c.json({ error: error.message }, 502);
+      }
+
+      return c.json({ error: "Beklenmeyen bir hata oluştu" }, 500);
     }
   });
 

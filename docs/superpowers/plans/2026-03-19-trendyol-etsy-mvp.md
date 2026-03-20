@@ -183,7 +183,7 @@
 - Create: `apps/connector/tsconfig.json`
 - Test: `apps/api/tests/integration/workspaceSmoke.test.ts`
 
-- [ ] **Step 1: Initialize Git and write the root workspace files**
+- [x] **Step 1: Initialize Git and write the root workspace files**
 
 ```bash
 git init
@@ -202,7 +202,7 @@ git init
 }
 ```
 
-- [ ] **Step 2: Write the failing workspace smoke test**
+- [x] **Step 2: Write the failing workspace smoke test**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -217,12 +217,12 @@ describe("workspace smoke", () => {
 });
 ```
 
-- [ ] **Step 3: Run the smoke test to verify it fails**
+- [x] **Step 3: Run the smoke test to verify it fails**
 
 Run: `npx pnpm run test -- --run apps/api/tests/integration/workspaceSmoke.test.ts`  
 Expected: FAIL with module resolution errors for `apps/api/src/index.ts`
 
-- [ ] **Step 4: Add workspace package manifests, TS config, and placeholder package exports**
+- [x] **Step 4: Add workspace package manifests, TS config, and placeholder package exports**
 
 ```ts
 export * from "./contracts/tracking";
@@ -231,7 +231,7 @@ export * from "./schemas/product";
 export * from "./schemas/draft";
 ```
 
-- [ ] **Step 5: Add the minimal API app factory and health route**
+- [x] **Step 5: Add the minimal API app factory and health route**
 
 ```ts
 import { Hono } from "hono";
@@ -243,12 +243,12 @@ export function createApp() {
 }
 ```
 
-- [ ] **Step 6: Run install, typecheck, and the smoke test**
+- [x] **Step 6: Run install, typecheck, and the smoke test**
 
 Run: `npx pnpm install && npx pnpm run typecheck && npx pnpm run test -- --run apps/api/tests/integration/workspaceSmoke.test.ts`  
 Expected: PASS with `1 passed`
 
-- [ ] **Step 7: Commit the bootstrap**
+- [x] **Step 7: Commit the bootstrap**
 
 ```bash
 git add .gitignore .editorconfig package.json pnpm-workspace.yaml tsconfig.base.json vitest.workspace.ts playwright.config.ts packages/shared apps/api apps/web apps/connector
@@ -271,7 +271,7 @@ git commit -m "chore: bootstrap trendyol etsy workspace"
 - Create: `apps/api/src/db/repositories/settingsRepo.ts`
 - Test: `apps/api/tests/integration/schema.test.ts`
 
-- [ ] **Step 1: Write the failing schema integration test**
+- [x] **Step 1: Write the failing schema integration test**
 
 ```ts
 it("creates all MVP tables", async () => {
@@ -292,12 +292,12 @@ it("creates all MVP tables", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the schema test to verify it fails**
+- [x] **Step 2: Run the schema test to verify it fails**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/schema.test.ts`  
 Expected: FAIL because the migration and schema files do not exist yet
 
-- [ ] **Step 3: Define the D1 tables, enums, and indexes**
+- [x] **Step 3: Define the D1 tables, enums, and indexes**
 
 ```ts
 export const products = sqliteTable("products", {
@@ -310,7 +310,7 @@ export const products = sqliteTable("products", {
 });
 ```
 
-- [ ] **Step 4: Add the initial SQL migration and typed Worker bindings**
+- [x] **Step 4: Add the initial SQL migration and typed Worker bindings**
 
 ```toml
 name = "trendyol-etsy-api"
@@ -322,7 +322,7 @@ binding = "DB"
 database_name = "trendyol-etsy"
 ```
 
-- [ ] **Step 5: Implement repository helpers and the Worker entrypoint**
+- [x] **Step 5: Implement repository helpers and the Worker entrypoint**
 
 ```ts
 export default {
@@ -332,12 +332,12 @@ export default {
 };
 ```
 
-- [ ] **Step 6: Run migrations and the schema test**
+- [x] **Step 6: Run migrations and the schema test**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/schema.test.ts`  
 Expected: PASS with the table list assertion succeeding
 
-- [ ] **Step 7: Commit the schema foundation**
+- [x] **Step 7: Commit the schema foundation**
 
 ```bash
 git add apps/api/wrangler.toml apps/api/drizzle.config.ts apps/api/src apps/api/drizzle apps/api/tests/integration/schema.test.ts
@@ -361,7 +361,7 @@ git commit -m "feat: add cloudflare api and d1 schema foundation"
 - Create: `apps/api/tests/unit/parseTrendyolProduct.test.ts`
 - Create: `apps/api/tests/integration/addTrackedProduct.test.ts`
 
-- [ ] **Step 1: Write the failing normalization and parser tests**
+- [x] **Step 1: Write the failing normalization and parser tests**
 
 ```ts
 it("normalizes Trendyol URLs for duplicate detection", () => {
@@ -378,7 +378,7 @@ it("extracts variant-aware product data from a fixture", () => {
 });
 ```
 
-- [ ] **Step 2: Write the failing add-product integration test**
+- [x] **Step 2: Write the failing add-product integration test**
 
 ```ts
 it("creates a tracked product and rejects a duplicate normalized URL", async () => {
@@ -389,12 +389,12 @@ it("creates a tracked product and rejects a duplicate normalized URL", async () 
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/unit/normalizeTrendyolUrl.test.ts apps/api/tests/unit/parseTrendyolProduct.test.ts apps/api/tests/integration/addTrackedProduct.test.ts`  
 Expected: FAIL with missing parser/tracking modules
 
-- [ ] **Step 4: Implement URL cleanup, source ID extraction, fetch, and the Cheerio parser**
+- [x] **Step 4: Implement URL cleanup, source ID extraction, fetch, and the Cheerio parser**
 
 ```ts
 export function normalizeTrendyolUrl(rawUrl: string) {
@@ -414,7 +414,7 @@ export function parseTrendyolProduct(html: string): ParsedProduct {
 }
 ```
 
-- [ ] **Step 5: Implement `POST /tracking/products` and persist the first snapshot**
+- [x] **Step 5: Implement `POST /tracking/products` and persist the first snapshot**
 
 ```ts
 tracking.post("/products", zValidator("json", addTrackedProductSchema), async (c) => {
@@ -423,12 +423,12 @@ tracking.post("/products", zValidator("json", addTrackedProductSchema), async (c
 });
 ```
 
-- [ ] **Step 6: Run the unit and integration tests**
+- [x] **Step 6: Run the unit and integration tests**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/unit/normalizeTrendyolUrl.test.ts apps/api/tests/unit/parseTrendyolProduct.test.ts apps/api/tests/integration/addTrackedProduct.test.ts`  
 Expected: PASS with normalization, parsing, and duplicate handling all green
 
-- [ ] **Step 7: Commit the intake and parser work**
+- [x] **Step 7: Commit the intake and parser work**
 
 ```bash
 git add apps/api/src/modules/tracking apps/api/src/modules/scraping apps/api/src/routes/tracking.ts apps/api/tests/fixtures/trendyol apps/api/tests/unit/normalizeTrendyolUrl.test.ts apps/api/tests/unit/parseTrendyolProduct.test.ts apps/api/tests/integration/addTrackedProduct.test.ts
@@ -445,7 +445,7 @@ git commit -m "feat: add trendyol intake and parser"
 - Create: `apps/api/tests/unit/diffProductState.test.ts`
 - Create: `apps/api/tests/integration/processRefreshJob.test.ts`
 
-- [ ] **Step 1: Write the failing diff engine tests**
+- [x] **Step 1: Write the failing diff engine tests**
 
 ```ts
 it("updates min and max price without duplicating unchanged price history", () => {
@@ -461,7 +461,7 @@ it("creates stock history only when a variant state changes", () => {
 });
 ```
 
-- [ ] **Step 2: Write the failing refresh integration test**
+- [x] **Step 2: Write the failing refresh integration test**
 
 ```ts
 it("marks parse failures without deleting the product", async () => {
@@ -471,12 +471,12 @@ it("marks parse failures without deleting the product", async () => {
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/unit/diffProductState.test.ts apps/api/tests/integration/processRefreshJob.test.ts`  
 Expected: FAIL because the sync modules are not implemented
 
-- [ ] **Step 4: Implement the diff engine and history writers**
+- [x] **Step 4: Implement the diff engine and history writers**
 
 ```ts
 export function diffProductState(previous: Snapshot, incoming: Snapshot): ChangeSet {
@@ -488,7 +488,7 @@ export function diffProductState(previous: Snapshot, incoming: Snapshot): Change
 }
 ```
 
-- [ ] **Step 5: Apply refreshes transactionally and emit notifications**
+- [x] **Step 5: Apply refreshes transactionally and emit notifications**
 
 ```ts
 await db.transaction(async (tx) => {
@@ -499,12 +499,12 @@ await db.transaction(async (tx) => {
 });
 ```
 
-- [ ] **Step 6: Run the diff and refresh tests**
+- [x] **Step 6: Run the diff and refresh tests**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/unit/diffProductState.test.ts apps/api/tests/integration/processRefreshJob.test.ts`  
 Expected: PASS with correct min/max, history rules, and parse-error handling
 
-- [ ] **Step 7: Commit the sync layer**
+- [x] **Step 7: Commit the sync layer**
 
 ```bash
 git add apps/api/src/modules/sync apps/api/src/routes/products.ts apps/api/src/routes/notifications.ts apps/api/tests/unit/diffProductState.test.ts apps/api/tests/integration/processRefreshJob.test.ts
@@ -520,7 +520,7 @@ git commit -m "feat: add refresh diffing and notifications"
 - Create: `apps/api/src/routes/settings.ts`
 - Create: `apps/api/tests/integration/scheduler.test.ts`
 
-- [ ] **Step 1: Write the failing scheduler integration test**
+- [x] **Step 1: Write the failing scheduler integration test**
 
 ```ts
 it("enqueues active products only when the refresh interval window has elapsed", async () => {
@@ -530,12 +530,12 @@ it("enqueues active products only when the refresh interval window has elapsed",
 });
 ```
 
-- [ ] **Step 2: Run the scheduler test to verify it fails**
+- [x] **Step 2: Run the scheduler test to verify it fails**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/scheduler.test.ts`  
 Expected: FAIL because no scheduled or queue handlers exist yet
 
-- [ ] **Step 3: Implement product selection, queue payloads, and hourly gate logic**
+- [x] **Step 3: Implement product selection, queue payloads, and hourly gate logic**
 
 ```ts
 export async function enqueueTrackedProducts(env: Env, now: Date) {
@@ -545,7 +545,7 @@ export async function enqueueTrackedProducts(env: Env, now: Date) {
 }
 ```
 
-- [ ] **Step 4: Wire the Worker `scheduled` and `queue` entrypoints**
+- [x] **Step 4: Wire the Worker `scheduled` and `queue` entrypoints**
 
 ```ts
 export default {
@@ -558,7 +558,7 @@ export default {
 };
 ```
 
-- [ ] **Step 5: Expose `GET/PATCH /settings` for the single-user interval and prompt preferences**
+- [x] **Step 5: Expose `GET/PATCH /settings` for the single-user interval and prompt preferences**
 
 ```ts
 settings.patch("/", zValidator("json", settingsSchema), async (c) => {
@@ -567,12 +567,12 @@ settings.patch("/", zValidator("json", settingsSchema), async (c) => {
 });
 ```
 
-- [ ] **Step 6: Run the scheduler test and the existing refresh integration suite**
+- [x] **Step 6: Run the scheduler test and the existing refresh integration suite**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/scheduler.test.ts apps/api/tests/integration/processRefreshJob.test.ts`  
 Expected: PASS with products queued once per window and processed successfully
 
-- [ ] **Step 7: Commit the refresh orchestration**
+- [x] **Step 7: Commit the refresh orchestration**
 
 ```bash
 git add apps/api/src/modules/scheduler apps/api/src/worker.ts apps/api/src/routes/settings.ts apps/api/src/db/repositories/settingsRepo.ts apps/api/tests/integration/scheduler.test.ts
@@ -590,7 +590,7 @@ git commit -m "feat: add scheduled refresh orchestration"
 - Modify: `apps/api/src/routes/settings.ts`
 - Create: `apps/api/tests/integration/listViews.test.ts`
 
-- [ ] **Step 1: Write the failing list/detail integration test**
+- [x] **Step 1: Write the failing list/detail integration test**
 
 ```ts
 it("returns dashboard cards, filters, and product detail sections", async () => {
@@ -602,12 +602,12 @@ it("returns dashboard cards, filters, and product detail sections", async () => 
 });
 ```
 
-- [ ] **Step 2: Run the list/detail test to verify it fails**
+- [x] **Step 2: Run the list/detail test to verify it fails**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/listViews.test.ts`  
 Expected: FAIL because the read-model builders and routes are incomplete
 
-- [ ] **Step 3: Implement the tracking list and summary read models**
+- [x] **Step 3: Implement the tracking list and summary read models**
 
 ```ts
 export async function buildTrackingListView(db: DB, filters: TrackingFilters) {
@@ -618,7 +618,7 @@ export async function buildTrackingListView(db: DB, filters: TrackingFilters) {
 }
 ```
 
-- [ ] **Step 4: Implement the product detail, notifications, and settings response shapes**
+- [x] **Step 4: Implement the product detail, notifications, and settings response shapes**
 
 ```ts
 export async function buildProductDetailView(db: DB, productId: string) {
@@ -631,12 +631,12 @@ export async function buildProductDetailView(db: DB, productId: string) {
 }
 ```
 
-- [ ] **Step 5: Run the list/detail test and the existing API suite**
+- [x] **Step 5: Run the list/detail test and the existing API suite**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/listViews.test.ts apps/api/tests/integration/addTrackedProduct.test.ts apps/api/tests/integration/processRefreshJob.test.ts`  
 Expected: PASS with usable dashboard/detail JSON payloads
 
-- [ ] **Step 6: Commit the read API layer**
+- [x] **Step 6: Commit the read API layer**
 
 ```bash
 git add apps/api/src/modules/tracking/buildTrackingListView.ts apps/api/src/modules/tracking/buildProductDetailView.ts apps/api/src/routes/tracking.ts apps/api/src/routes/products.ts apps/api/src/routes/notifications.ts apps/api/src/routes/settings.ts apps/api/tests/integration/listViews.test.ts
@@ -666,7 +666,7 @@ git commit -m "feat: add dashboard and detail read apis"
 - Create: `apps/web/src/features/tracking/components/AddLinkForm.test.tsx`
 - Create: `apps/web/src/features/tracking/routes/TrackingCenterPage.test.tsx`
 
-- [ ] **Step 1: Write the failing tracking center UI tests**
+- [x] **Step 1: Write the failing tracking center UI tests**
 
 ```tsx
 it("submits a Trendyol URL and shows validation errors inline", async () => {
@@ -682,12 +682,12 @@ it("renders summary cards and product cards from the API response", async () => 
 });
 ```
 
-- [ ] **Step 2: Run the web tests to verify they fail**
+- [x] **Step 2: Run the web tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/tracking/components/AddLinkForm.test.tsx src/features/tracking/routes/TrackingCenterPage.test.tsx`  
 Expected: FAIL because the Vite app, router, and components do not exist
 
-- [ ] **Step 3: Implement the app shell, theme tokens, and shared API client**
+- [x] **Step 3: Implement the app shell, theme tokens, and shared API client**
 
 ```tsx
 export function AppShell({ children }: PropsWithChildren) {
@@ -700,7 +700,7 @@ export function AppShell({ children }: PropsWithChildren) {
 }
 ```
 
-- [ ] **Step 4: Implement the tracking page, add-link form, filters, and product cards**
+- [x] **Step 4: Implement the tracking page, add-link form, filters, and product cards**
 
 ```tsx
 export function AddLinkForm() {
@@ -709,12 +709,12 @@ export function AddLinkForm() {
 }
 ```
 
-- [ ] **Step 5: Run the tracking center tests**
+- [x] **Step 5: Run the tracking center tests**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/tracking/components/AddLinkForm.test.tsx src/features/tracking/routes/TrackingCenterPage.test.tsx`  
 Expected: PASS with validation, query loading, and render states all green
 
-- [ ] **Step 6: Commit the dashboard shell**
+- [x] **Step 6: Commit the dashboard shell**
 
 ```bash
 git add apps/web
@@ -731,7 +731,7 @@ git commit -m "feat: add tracking center dashboard"
 - Create: `apps/web/src/features/notifications/components/NotificationList.tsx`
 - Create: `apps/web/src/features/product/routes/ProductDetailPage.test.tsx`
 
-- [ ] **Step 1: Write the failing product detail and notifications tests**
+- [x] **Step 1: Write the failing product detail and notifications tests**
 
 ```tsx
 it("shows variant rows and price history on the product detail screen", async () => {
@@ -746,12 +746,12 @@ it("renders unread notifications grouped by severity", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the UI tests to verify they fail**
+- [x] **Step 2: Run the UI tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/product/routes/ProductDetailPage.test.tsx`  
 Expected: FAIL because the detail and notifications pages are missing
 
-- [ ] **Step 3: Implement the product summary, variant table, and history timeline**
+- [x] **Step 3: Implement the product summary, variant table, and history timeline**
 
 ```tsx
 export function ProductSummary({ detail }: { detail: ProductDetailResponse }) {
@@ -763,7 +763,7 @@ export function ProductSummary({ detail }: { detail: ProductDetailResponse }) {
 }
 ```
 
-- [ ] **Step 4: Implement the notifications page and unread/read interactions**
+- [x] **Step 4: Implement the notifications page and unread/read interactions**
 
 ```tsx
 export function NotificationList({ items }: { items: NotificationItem[] }) {
@@ -771,12 +771,12 @@ export function NotificationList({ items }: { items: NotificationItem[] }) {
 }
 ```
 
-- [ ] **Step 5: Run the detail and notifications tests**
+- [x] **Step 5: Run the detail and notifications tests**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/product/routes/ProductDetailPage.test.tsx`  
 Expected: PASS with variant, history, and notification views working
 
-- [ ] **Step 6: Commit the detail and notifications UI**
+- [x] **Step 6: Commit the detail and notifications UI**
 
 ```bash
 git add apps/web/src/features/product apps/web/src/features/notifications apps/web/src/features/product/routes/ProductDetailPage.test.tsx
@@ -797,7 +797,7 @@ git commit -m "feat: add product detail and notifications views"
 - Create: `apps/web/src/features/drafts/components/SourceProductPanel.tsx`
 - Create: `apps/web/src/features/drafts/components/DraftEditor.test.tsx`
 
-- [ ] **Step 1: Write the failing draft domain tests**
+- [x] **Step 1: Write the failing draft domain tests**
 
 ```ts
 it("builds a prompt payload that includes source product, variants, and etsy constraints", () => {
@@ -812,7 +812,7 @@ it("does not overwrite manually edited fields unless overwrite is explicit", () 
 });
 ```
 
-- [ ] **Step 2: Write the failing draft editor test**
+- [x] **Step 2: Write the failing draft editor test**
 
 ```tsx
 it("marks fields as manually edited and disables silent overwrite", async () => {
@@ -822,12 +822,12 @@ it("marks fields as manually edited and disables silent overwrite", async () => 
 });
 ```
 
-- [ ] **Step 3: Run the draft tests to verify they fail**
+- [x] **Step 3: Run the draft tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/unit/buildDraftPrompt.test.ts apps/api/tests/unit/mergeGeneratedDraft.test.ts apps/api/tests/integration/draftFlows.test.ts && npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/drafts/components/DraftEditor.test.tsx`  
 Expected: FAIL because the draft modules and editor components are missing
 
-- [ ] **Step 4: Implement the draft prompt builder, merge rules, and API endpoints**
+- [x] **Step 4: Implement the draft prompt builder, merge rules, and API endpoints**
 
 ```ts
 export function mergeGeneratedDraft(existing: EtsyDraft, incoming: GeneratedDraft, options: { overwrite: boolean }) {
@@ -838,7 +838,7 @@ export function mergeGeneratedDraft(existing: EtsyDraft, incoming: GeneratedDraf
 }
 ```
 
-- [ ] **Step 5: Implement the SEO editor and source-vs-output split pane**
+- [x] **Step 5: Implement the SEO editor and source-vs-output split pane**
 
 ```tsx
 export function SeoEditorPage() {
@@ -851,12 +851,12 @@ export function SeoEditorPage() {
 }
 ```
 
-- [ ] **Step 6: Run the draft API and UI tests**
+- [x] **Step 6: Run the draft API and UI tests**
 
 Run: `npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/unit/buildDraftPrompt.test.ts apps/api/tests/unit/mergeGeneratedDraft.test.ts apps/api/tests/integration/draftFlows.test.ts && npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/drafts/components/DraftEditor.test.tsx`  
 Expected: PASS with prompt construction, overwrite protection, and manual edit flags verified
 
-- [ ] **Step 7: Commit the draft editor layer**
+- [x] **Step 7: Commit the draft editor layer**
 
 ```bash
 git add apps/api/src/modules/ai apps/api/src/routes/drafts.ts apps/api/tests/unit/buildDraftPrompt.test.ts apps/api/tests/unit/mergeGeneratedDraft.test.ts apps/api/tests/integration/draftFlows.test.ts apps/web/src/features/drafts
@@ -883,7 +883,7 @@ git commit -m "feat: add etsy draft editor and edit protection"
 - Create: `apps/connector/tests/unit/mockProvider.test.ts`
 - Create: `apps/connector/tests/integration/server.test.ts`
 
-- [ ] **Step 1: Write the failing connector tests**
+- [x] **Step 1: Write the failing connector tests**
 
 ```ts
 it("persists profiles without storing raw session secrets in API payloads", async () => {
@@ -898,12 +898,12 @@ it("returns connector health and active profile from the local server", async ()
 });
 ```
 
-- [ ] **Step 2: Run the connector tests to verify they fail**
+- [x] **Step 2: Run the connector tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/connector run test -- --run tests/unit/profileStore.test.ts tests/unit/mockProvider.test.ts tests/integration/server.test.ts`  
 Expected: FAIL because the connector server and providers do not exist
 
-- [ ] **Step 3: Implement the Fastify server, local profile store, and mock provider**
+- [x] **Step 3: Implement the Fastify server, local profile store, and mock provider**
 
 ```ts
 export interface AIProvider {
@@ -913,7 +913,7 @@ export interface AIProvider {
 }
 ```
 
-- [ ] **Step 4: Implement the Playwright-backed `chatgpt-web` provider behind the same interface**
+- [x] **Step 4: Implement the Playwright-backed `chatgpt-web` provider behind the same interface**
 
 ```ts
 export class ChatGptWebProvider implements AIProvider {
@@ -924,7 +924,7 @@ export class ChatGptWebProvider implements AIProvider {
 }
 ```
 
-- [ ] **Step 5: Expose `/health`, `/profiles`, `/profiles/:id/activate`, and `/generate`**
+- [x] **Step 5: Expose `/health`, `/profiles`, `/profiles/:id/activate`, and `/generate`**
 
 ```ts
 server.get("/health", async () => ({
@@ -933,12 +933,12 @@ server.get("/health", async () => ({
 }));
 ```
 
-- [ ] **Step 6: Run the connector test suite**
+- [x] **Step 6: Run the connector test suite**
 
 Run: `npx pnpm --filter @trendyol-etsy/connector run test -- --run tests/unit/profileStore.test.ts tests/unit/mockProvider.test.ts tests/integration/server.test.ts`  
 Expected: PASS with deterministic mock coverage and local API endpoints green
 
-- [ ] **Step 7: Commit the connector service**
+- [x] **Step 7: Commit the connector service**
 
 ```bash
 git add apps/connector
@@ -959,7 +959,7 @@ git commit -m "feat: add local ai connector service"
 - Modify: `apps/web/src/features/drafts/routes/SeoEditorPage.tsx`
 - Modify: `apps/web/src/features/drafts/components/DraftEditor.tsx`
 
-- [ ] **Step 1: Write the failing connector integration tests**
+- [x] **Step 1: Write the failing connector integration tests**
 
 ```tsx
 it("shows local connector status, active account, and account switching actions", async () => {
@@ -975,12 +975,12 @@ it("runs draft generation through the connector and saves the result via the API
 });
 ```
 
-- [ ] **Step 2: Run the UI/API integration tests to verify they fail**
+- [x] **Step 2: Run the UI/API integration tests to verify they fail**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/connections/routes/AIConnectionsPage.test.tsx src/features/drafts/components/DraftEditor.test.tsx && npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/draftFlows.test.ts`  
 Expected: FAIL because connector sync routes and browser-side connector calls are not wired
 
-- [ ] **Step 3: Implement connector metadata sync and API endpoints**
+- [x] **Step 3: Implement connector metadata sync and API endpoints**
 
 ```ts
 aiProfiles.post("/sync", zValidator("json", profileSyncSchema), async (c) => {
@@ -989,7 +989,7 @@ aiProfiles.post("/sync", zValidator("json", profileSyncSchema), async (c) => {
 });
 ```
 
-- [ ] **Step 4: Implement browser-side connector client flows**
+- [x] **Step 4: Implement browser-side connector client flows**
 
 ```ts
 const connector = {
@@ -998,7 +998,7 @@ const connector = {
 };
 ```
 
-- [ ] **Step 5: Add the AI Connections page, settings form, and field-level generate actions**
+- [x] **Step 5: Add the AI Connections page, settings form, and field-level generate actions**
 
 ```tsx
 <button onClick={() => generateField("englishTitle")} disabled={!connectorOnline}>
@@ -1006,12 +1006,12 @@ const connector = {
 </button>
 ```
 
-- [ ] **Step 6: Run the connector integration tests**
+- [x] **Step 6: Run the connector integration tests**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test -- --run src/features/connections/routes/AIConnectionsPage.test.tsx src/features/drafts/components/DraftEditor.test.tsx && npx pnpm --filter @trendyol-etsy/api run test -- --run apps/api/tests/integration/draftFlows.test.ts`  
 Expected: PASS with health, profile sync, generation, and overwrite confirmation working
 
-- [ ] **Step 7: Commit the connector integration**
+- [x] **Step 7: Commit the connector integration**
 
 ```bash
 git add apps/api/src/modules/ai/syncProfileMetadata.ts apps/api/src/routes/aiProfiles.ts apps/api/src/routes/drafts.ts apps/web/src/app/api.ts apps/web/src/features/connections apps/web/src/features/settings apps/web/src/features/drafts
@@ -1028,7 +1028,7 @@ git commit -m "feat: integrate connector-driven draft generation"
 - Create: `docs/runbooks/trendyol-fixture-refresh.md`
 - Modify: `package.json`
 
-- [ ] **Step 1: Write the failing E2E scenarios**
+- [x] **Step 1: Write the failing E2E scenarios**
 
 ```ts
 test("user adds a Trendyol link and sees it on the tracking center", async ({ page }) => {
@@ -1047,12 +1047,12 @@ test("user generates and preserves a manually edited Etsy draft", async ({ page 
 });
 ```
 
-- [ ] **Step 2: Run the E2E suite to verify it fails**
+- [x] **Step 2: Run the E2E suite to verify it fails**
 
 Run: `npx pnpm --filter @trendyol-etsy/web run test:e2e`  
 Expected: FAIL because the test harness, seed data, or connector mock wiring is incomplete
 
-- [ ] **Step 3: Add local run scripts and deployment docs**
+- [x] **Step 3: Add local run scripts and deployment docs**
 
 ```json
 {
@@ -1065,7 +1065,7 @@ Expected: FAIL because the test harness, seed data, or connector mock wiring is 
 }
 ```
 
-- [ ] **Step 4: Document connector setup, Cloudflare deployment, and fixture refresh rules**
+- [x] **Step 4: Document connector setup, Cloudflare deployment, and fixture refresh rules**
 
 ```md
 1. Start the connector with the `mock` provider for local development.
@@ -1073,12 +1073,12 @@ Expected: FAIL because the test harness, seed data, or connector mock wiring is 
 3. Refresh HTML fixtures whenever Trendyol markup changes.
 ```
 
-- [ ] **Step 5: Run the full verification suite**
+- [x] **Step 5: Run the full verification suite**
 
 Run: `npx pnpm run typecheck && npx pnpm run test && npx pnpm --filter @trendyol-etsy/web run test:e2e`  
 Expected: PASS with all unit, integration, and E2E tests green
 
-- [ ] **Step 6: Commit the release-readiness work**
+- [x] **Step 6: Commit the release-readiness work**
 
 ```bash
 git add package.json apps/web/tests/e2e docs/runbooks
@@ -1087,14 +1087,17 @@ git commit -m "chore: add e2e coverage and deployment runbooks"
 
 ## Final Verification Checklist
 
-- [ ] `npx pnpm install`
-- [ ] `npx pnpm run typecheck`
-- [ ] `npx pnpm run test`
-- [ ] `npx pnpm --filter @trendyol-etsy/web run test:e2e`
-- [ ] `npx pnpm --filter @trendyol-etsy/api run deploy --dry-run`
-- [ ] `npx pnpm --filter @trendyol-etsy/connector run build`
+- [x] `npx pnpm install`
+- [x] `npx pnpm run typecheck`
+- [x] `npx pnpm run test`
+- [x] `npx pnpm --filter @trendyol-etsy/web run test:e2e`
+- [x] `npx pnpm --filter @trendyol-etsy/api run deploy --dry-run`
+- [x] `npx pnpm --filter @trendyol-etsy/connector run build`
 
 ## Manual Review Notes
 
 - This single plan keeps the MVP end-to-end and testable; if you later want parallel execution, the connector can be split into its own follow-up plan without changing the API/web contracts.
 - Because delegation was not explicitly requested in this session, this plan was manually reviewed against the spec instead of using a reviewer subagent.
+
+
+

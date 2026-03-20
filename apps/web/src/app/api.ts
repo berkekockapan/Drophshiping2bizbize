@@ -183,22 +183,49 @@ export interface AppSettingsResponse {
   connectorHealthcheckEnabled: boolean;
 }
 
+async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 30_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("İstek zaman aşımına uğradı. Lütfen tekrar deneyin.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? "Request failed");
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    if (contentType.includes("application/json")) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? `Request failed (${response.status})`);
+    }
+
+    const fallbackText = await response.text().catch(() => "");
+    const message = fallbackText.trim().slice(0, 180);
+    throw new Error(message || `Request failed (${response.status})`);
   }
 
   return response.json() as Promise<T>;
 }
 
 export async function fetchTrackingView(): Promise<TrackingViewResponse> {
-  const response = await fetch("/tracking/products");
+  const response = await fetchWithTimeout("/tracking/products");
   return parseJson<TrackingViewResponse>(response);
 }
 
 export async function createTrackedProduct(trendyolUrl: string): Promise<CreateTrackedProductResponse> {
-  const response = await fetch("/tracking/products", {
+  const response = await fetchWithTimeout("/tracking/products", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -210,18 +237,18 @@ export async function createTrackedProduct(trendyolUrl: string): Promise<CreateT
 }
 
 export async function fetchProductDetail(productId: string): Promise<ProductDetailResponse> {
-  const response = await fetch(`/products/${productId}`);
+  const response = await fetchWithTimeout(`/products/${productId}`);
   return parseJson<ProductDetailResponse>(response);
 }
 
 export async function fetchNotifications(productId?: string): Promise<{ items: NotificationItem[] }> {
   const search = productId ? `?productId=${encodeURIComponent(productId)}` : "";
-  const response = await fetch(`/notifications${search}`);
+  const response = await fetchWithTimeout(`/notifications${search}`);
   return parseJson<{ items: NotificationItem[] }>(response);
 }
 
 export async function fetchDraft(productId: string): Promise<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }> {
-  const response = await fetch(`/drafts/${productId}`);
+  const response = await fetchWithTimeout(`/drafts/${productId}`);
   return parseJson<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }>(response);
 }
 
@@ -231,7 +258,7 @@ export async function patchDraft(
     Pick<EtsyDraft, "englishTitle" | "shortDescription" | "longDescription" | "tags" | "materials" | "attributes" | "seoNotes" | "policyNotes">
   >,
 ) {
-  const response = await fetch(`/drafts/${productId}`, {
+  const response = await fetchWithTimeout(`/drafts/${productId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -252,7 +279,7 @@ export async function saveGeneratedDraft(
     >;
   },
 ) {
-  const response = await fetch(`/drafts/${productId}/generate`, {
+  const response = await fetchWithTimeout(`/drafts/${productId}/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -266,17 +293,17 @@ export async function saveGeneratedDraft(
 const connectorBaseUrl = "http://127.0.0.1:4317";
 
 export async function fetchConnectorHealth() {
-  const response = await fetch(`${connectorBaseUrl}/health`);
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/health`);
   return parseJson<ConnectorHealthResponse>(response);
 }
 
 export async function fetchConnectorProfiles() {
-  const response = await fetch(`${connectorBaseUrl}/profiles`);
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles`);
   return parseJson<ConnectorProfilesResponse>(response);
 }
 
 export async function activateConnectorProfile(profileId: string) {
-  const response = await fetch(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}/activate`, {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}/activate`, {
     method: "POST",
   });
 
@@ -290,7 +317,7 @@ export async function connectorGenerate(payload: {
   sourceDescription?: string | null;
   sourceAttributes?: Array<{ key: string; value: string }>;
 }) {
-  const response = await fetch(`${connectorBaseUrl}/generate`, {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -315,7 +342,7 @@ export async function syncAiProfiles(payload: {
   connectorStatus: { status: string; provider: string };
   profiles: Array<{ id: string; label: string; emailMasked: string | null; provider: string; isActive: boolean }>;
 }) {
-  const response = await fetch("/ai-profiles/sync", {
+  const response = await fetchWithTimeout("/ai-profiles/sync", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -329,14 +356,14 @@ export async function syncAiProfiles(payload: {
 }
 
 export async function fetchAiProfiles() {
-  const response = await fetch("/ai-profiles");
+  const response = await fetchWithTimeout("/ai-profiles");
   return parseJson<{
     items: Array<ConnectorProfile & { isActive: boolean; connectorStatusSnapshot: string | null; lastSeenAt: number | null }>;
   }>(response);
 }
 
 export async function fetchSettings() {
-  const response = await fetch("/settings");
+  const response = await fetchWithTimeout("/settings");
   return parseJson<AppSettingsResponse>(response);
 }
 
@@ -345,7 +372,7 @@ export async function patchSettings(payload: {
   promptPreferences?: Record<string, unknown> | null;
   connectorHealthcheckEnabled?: boolean;
 }) {
-  const response = await fetch("/settings", {
+  const response = await fetchWithTimeout("/settings", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",

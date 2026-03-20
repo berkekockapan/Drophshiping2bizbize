@@ -9,6 +9,7 @@ import { diffProductState, toIncomingSnapshot } from "./diffProductState";
 
 export interface ProcessRefreshJobOptions {
   fetchImpl?: typeof fetch;
+  fetchTimeoutMs?: number;
   now?: Date;
 }
 
@@ -32,7 +33,10 @@ export async function processRefreshJob(
   }
 
   try {
-    const html = await fetchTrendyolHtml(product.trendyolUrl, options.fetchImpl);
+    const html = await fetchTrendyolHtml(product.trendyolUrl, {
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.fetchTimeoutMs,
+    });
     const parsed = parseTrendyolProduct(html);
     const diff = diffProductState(
       {

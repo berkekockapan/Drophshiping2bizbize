@@ -1,8 +1,23 @@
 import { defineConfig } from "vite";
 
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8787";
+
+const apiProxyRoutes = ["/health", "/tracking", "/products", "/drafts", "/ai-profiles", "/notifications", "/settings"];
+
 export default defineConfig({
   esbuild: {
     jsx: "automatic",
+  },
+  server: {
+    proxy: Object.fromEntries(
+      apiProxyRoutes.map((route) => [
+        route,
+        {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+      ]),
+    ),
   },
   test: {
     environment: "jsdom",

@@ -1,65 +1,15 @@
 import { readFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type { D1Database, D1PreparedStatement, Env } from "../../src/config/bindings";
 import { processRefreshJob } from "../../src/modules/sync/applyProductRefresh";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
-
-const migrationPath = fileURLToPath(new URL("../../drizzle/0000_initial.sql", import.meta.url));
+import { createTestEnv } from "../support/sqlite";
 const basicProductHtml = readFileSync(new URL("../fixtures/trendyol/basic-product.html", import.meta.url), "utf8");
 const unavailableProductHtml = readFileSync(new URL("../fixtures/trendyol/product-unavailable.html", import.meta.url), "utf8");
 
-class SQLitePreparedStatement implements D1PreparedStatement {
-  constructor(
-    private readonly database: DatabaseSync,
-    private readonly query: string,
-    private readonly values: unknown[] = [],
-  ) {}
-
-  bind(...values: unknown[]) {
-    return new SQLitePreparedStatement(this.database, this.query, values);
-  }
-
-  async first<T = Record<string, unknown>>() {
-    const statement = this.database.prepare(this.query);
-    return (statement.get(...(this.values as any[])) as T | undefined) ?? null;
-  }
-
-  async all<T = Record<string, unknown>>() {
-    const statement = this.database.prepare(this.query);
-    return { results: statement.all(...(this.values as any[])) as T[] };
-  }
-
-  async run() {
-    const statement = this.database.prepare(this.query);
-    statement.run(...(this.values as any[]));
-    return {};
-  }
-}
-
-class SQLiteD1Database implements D1Database {
-  constructor(private readonly database: DatabaseSync) {}
-
-  prepare(query: string) {
-    return new SQLitePreparedStatement(this.database, query);
-  }
-}
-
 function createEnv() {
-  const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(readFileSync(migrationPath, "utf8"));
-
-  const env: Env & { DB: D1Database } = {
-    DB: new SQLiteD1Database(sqlite),
-    REFRESH_QUEUE: {
-      async send() {
-        return;
-      },
-    },
-  };
+  const { sqlite, env } = createTestEnv();
 
   return { env, sqlite };
 }

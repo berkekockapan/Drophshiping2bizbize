@@ -1,20 +1,19 @@
-import { readFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
 
 import { schemaTableNames } from "../../src/db/schema";
-
-const migrationPath = fileURLToPath(new URL("../../drizzle/0000_initial.sql", import.meta.url));
+import { createTestEnv } from "../support/sqlite";
 
 describe("schema integration", () => {
   it("creates all MVP tables", () => {
-    const database = new DatabaseSync(":memory:");
-    const migrationSql = readFileSync(migrationPath, "utf8");
+    const { sqlite: database } = createTestEnv();
 
-    database.exec(migrationSql);
+    const columns = database
+      .prepare("pragma table_info(products)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
 
+    expect(columns).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "is_favorite", dflt_value: "0" })]),
+    );
     const tables = database
       .prepare("select name from sqlite_master where type = 'table' order by name")
       .all() as Array<{ name: string }>;

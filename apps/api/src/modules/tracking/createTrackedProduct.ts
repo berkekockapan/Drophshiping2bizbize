@@ -54,8 +54,8 @@ export async function createTrackedProduct(
     .prepare(
       `insert into products (
         id, trendyol_url, source_product_id, title, brand, category, description_raw, attributes_raw, images_raw,
-        status, parse_status, last_checked_at, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        status, parse_status, is_favorite, last_checked_at, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       productId,
@@ -69,6 +69,7 @@ export async function createTrackedProduct(
       stringify(parsed.images),
       "ACTIVE",
       "OK",
+      false,
       now.getTime(),
       now.getTime(),
       now.getTime()

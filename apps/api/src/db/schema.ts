@@ -13,6 +13,7 @@ export const products = sqliteTable(
     descriptionRaw: text("description_raw"),
     attributesRaw: text("attributes_raw"),
     imagesRaw: text("images_raw"),
+    isFavorite: integer("is_favorite", { mode: "boolean" }).notNull().default(false),
     status: text("status").notNull(),
     parseStatus: text("parse_status").notNull(),
     lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),

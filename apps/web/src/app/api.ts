@@ -11,6 +11,7 @@ export interface TrackingItem {
   brand: string | null;
   status: string;
   parseStatus: string;
+  thumbnailImage: string | null;
   currentPrice: number | null;
   minPrice: number | null;
   maxPrice: number | null;

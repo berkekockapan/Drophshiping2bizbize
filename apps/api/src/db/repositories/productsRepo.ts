@@ -114,6 +114,7 @@ export function createProductsRepo(db: D1Database) {
       const result = await db
         .prepare(
           `select p.id, p.trendyol_url as trendyolUrl, p.title, p.brand, p.status, p.parse_status as parseStatus,
+                  p.images_raw as imagesRaw,
                   pcs.current_price as currentPrice, pcs.min_price as minPrice, pcs.max_price as maxPrice,
                   pcs.in_stock_variant_count as inStockVariantCount, pcs.total_variant_count as totalVariantCount,
                   pcs.last_checked_at as lastCheckedAt
@@ -130,6 +131,7 @@ export function createProductsRepo(db: D1Database) {
           brand: string | null;
           status: string;
           parseStatus: string;
+          imagesRaw: string | null;
           currentPrice: number | null;
           minPrice: number | null;
           maxPrice: number | null;

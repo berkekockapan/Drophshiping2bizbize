@@ -7,12 +7,34 @@ export interface TrackingFilters {
   search?: string | null;
 }
 
+function getThumbnailImage(imagesRaw: string | null): string | null {
+  if (!imagesRaw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(imagesRaw);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    const firstImage = parsed.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+    return firstImage ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function buildTrackingListView(db: D1Database, filters: TrackingFilters = {}) {
   const productsRepo = createProductsRepo(db);
+  const items = await productsRepo.listTrackingCards(filters);
 
   return {
     summary: await productsRepo.getTrackingSummary(),
-    items: await productsRepo.listTrackingCards(filters),
+    items: items.map(({ imagesRaw, ...item }) => ({
+      ...item,
+      thumbnailImage: getThumbnailImage(imagesRaw),
+    })),
     filters,
   };
 }

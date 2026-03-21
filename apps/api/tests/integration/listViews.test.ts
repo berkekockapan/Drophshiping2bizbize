@@ -119,6 +119,7 @@ describe("list and detail views", () => {
         id: seeded.product.id,
         title: "Oversize Hoodie",
         totalVariantCount: 3,
+        thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
       }),
     );
 

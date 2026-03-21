@@ -13,6 +13,13 @@ export interface ProcessRefreshJobOptions {
   now?: Date;
 }
 
+export class RefreshProductNotFoundError extends Error {
+  constructor(public readonly productId: string) {
+    super(`Product ${productId} not found`);
+    this.name = "RefreshProductNotFoundError";
+  }
+}
+
 function stringify(value: unknown) {
   return JSON.stringify(value);
 }
@@ -29,7 +36,7 @@ export async function processRefreshJob(
   const product = await productsRepo.getRefreshSnapshot(job.productId);
 
   if (!product) {
-    throw new Error(`Product ${job.productId} not found`);
+    throw new RefreshProductNotFoundError(job.productId);
   }
 
   try {

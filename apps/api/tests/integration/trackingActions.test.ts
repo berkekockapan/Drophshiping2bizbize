@@ -37,6 +37,11 @@ describe("tracking actions", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ isFavorite: true }),
     }, env);
+    const invalidPayloadResponse = await app.request(`/tracking/products/${seeded.product.id}/favorite`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isFavorite: "yes" }),
+    }, env);
     const unfavoriteResponse = await app.request(`/tracking/products/${seeded.product.id}/favorite`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -49,6 +54,7 @@ describe("tracking actions", () => {
     }, env);
 
     expect(favoriteResponse.status).toBe(200);
+    expect(invalidPayloadResponse.status).toBe(400);
     expect(unfavoriteResponse.status).toBe(200);
     expect(missingResponse.status).toBe(404);
 
@@ -87,9 +93,17 @@ describe("tracking actions", () => {
               ),
             { status: 200 },
           ),
-        now: new Date("2026-03-20T06:00:00.000Z"),
+      now: new Date("2026-03-20T06:00:00.000Z"),
       },
     );
+
+    const beforeDelete = {
+      variants: sqlite.prepare("select count(*) as count from product_variants where product_id = ?").get(seeded.product.id) as { count: number },
+      currentState: sqlite.prepare("select count(*) as count from product_current_state where product_id = ?").get(seeded.product.id) as { count: number },
+      priceHistory: sqlite.prepare("select count(*) as count from price_history where product_id = ?").get(seeded.product.id) as { count: number },
+      stockHistory: sqlite.prepare("select count(*) as count from stock_history where product_id = ?").get(seeded.product.id) as { count: number },
+      notifications: sqlite.prepare("select count(*) as count from notifications where product_id = ?").get(seeded.product.id) as { count: number },
+    };
 
     sqlite
       .prepare(
@@ -125,6 +139,14 @@ describe("tracking actions", () => {
 
     expect(deleteResponse.status).toBe(204);
     expect(missingResponse.status).toBe(404);
+
+    expect(beforeDelete).toEqual({
+      variants: { count: 3 },
+      currentState: { count: 1 },
+      priceHistory: { count: 1 },
+      stockHistory: { count: 1 },
+      notifications: { count: 2 },
+    });
 
     const counts = {
       products: sqlite.prepare("select count(*) as count from products where id = ?").get(seeded.product.id) as { count: number },

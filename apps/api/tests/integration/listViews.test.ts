@@ -113,7 +113,7 @@ describe("list and detail views", () => {
       undefined,
       env,
     );
-    const notFavoriteResponse = await app.request(
+    const notFavoriteBeforeToggleResponse = await app.request(
       "http://localhost/tracking/products?favorite=false",
       undefined,
       env,
@@ -123,6 +123,11 @@ describe("list and detail views", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ isFavorite: true }),
     }, env);
+    const notFavoriteAfterToggleResponse = await app.request(
+      "http://localhost/tracking/products?favorite=false",
+      undefined,
+      env,
+    );
     const refilteredResponse = await app.request(
       "http://localhost/tracking/products?favorite=true",
       undefined,
@@ -130,25 +135,31 @@ describe("list and detail views", () => {
     );
 
     expect(favoriteResponse.status).toBe(200);
-    expect(notFavoriteResponse.status).toBe(200);
+    expect(notFavoriteBeforeToggleResponse.status).toBe(200);
+    expect(notFavoriteAfterToggleResponse.status).toBe(200);
     expect(toggleResponse.status).toBe(200);
     expect(refilteredResponse.status).toBe(200);
 
     const favoriteJson = await favoriteResponse.json();
-    const notFavoriteJson = await notFavoriteResponse.json();
+    const notFavoriteBeforeToggleJson = await notFavoriteBeforeToggleResponse.json();
+    const notFavoriteAfterToggleJson = await notFavoriteAfterToggleResponse.json();
     const refilteredJson = await refilteredResponse.json();
 
     expect(favoriteJson.summary.trackedCount).toBe(2);
-    expect(notFavoriteJson.summary.trackedCount).toBe(2);
+    expect(notFavoriteBeforeToggleJson.summary.trackedCount).toBe(2);
+    expect(notFavoriteAfterToggleJson.summary.trackedCount).toBe(2);
     expect(refilteredJson.summary.trackedCount).toBe(2);
 
     expect(favoriteJson.items).toEqual([]);
-    expect(notFavoriteJson.items).toEqual(
+    expect(notFavoriteBeforeToggleJson.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: first.product.id, isFavorite: false }),
         expect.objectContaining({ id: second.product.id, isFavorite: false }),
       ]),
     );
+    expect(notFavoriteAfterToggleJson.items).toEqual([
+      expect.objectContaining({ id: second.product.id, isFavorite: false }),
+    ]);
     expect(refilteredJson.items).toEqual([
       expect.objectContaining({
         id: first.product.id,

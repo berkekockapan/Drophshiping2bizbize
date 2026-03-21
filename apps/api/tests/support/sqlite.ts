@@ -47,6 +47,24 @@ class SQLiteD1Database implements D1Database {
   prepare(query: string) {
     return new SQLitePreparedStatement(this.database, query);
   }
+
+  async batch<T = unknown>(statements: D1PreparedStatement[]) {
+    this.database.exec("BEGIN");
+
+    try {
+      const results: T[] = [];
+
+      for (const statement of statements) {
+        results.push((await statement.run()) as T);
+      }
+
+      this.database.exec("COMMIT");
+      return results;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+  }
 }
 
 export function applyMigrations(database: DatabaseSync) {

@@ -172,13 +172,24 @@ export function createProductsRepo(db: D1Database) {
         .run();
     },
     async deleteTrackedProduct(productId: string) {
-      await db.prepare("delete from product_variants where product_id = ?").bind(productId).run();
-      await db.prepare("delete from product_current_state where product_id = ?").bind(productId).run();
-      await db.prepare("delete from price_history where product_id = ?").bind(productId).run();
-      await db.prepare("delete from stock_history where product_id = ?").bind(productId).run();
-      await db.prepare("delete from notifications where product_id = ?").bind(productId).run();
-      await db.prepare("delete from etsy_drafts where product_id = ?").bind(productId).run();
-      await db.prepare("delete from products where id = ?").bind(productId).run();
+      const statements = [
+        db.prepare("delete from product_variants where product_id = ?").bind(productId),
+        db.prepare("delete from product_current_state where product_id = ?").bind(productId),
+        db.prepare("delete from price_history where product_id = ?").bind(productId),
+        db.prepare("delete from stock_history where product_id = ?").bind(productId),
+        db.prepare("delete from notifications where product_id = ?").bind(productId),
+        db.prepare("delete from etsy_drafts where product_id = ?").bind(productId),
+        db.prepare("delete from products where id = ?").bind(productId),
+      ];
+
+      if (db.batch) {
+        await db.batch(statements);
+        return;
+      }
+
+      for (const statement of statements) {
+        await statement.run();
+      }
     },
     async getProductDetail(productId: string) {
       const product = await db

@@ -5,6 +5,7 @@ export interface TrackingFilters {
   status?: string | null;
   parseStatus?: string | null;
   search?: string | null;
+  favorite?: boolean;
 }
 
 function getThumbnailImage(imagesRaw: string | null): string | null {

@@ -119,11 +119,17 @@ describe("list and detail views", () => {
         id: seeded.product.id,
         title: "Oversize Hoodie",
         totalVariantCount: 3,
+        isFavorite: false,
         thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
       }),
     );
 
-    expect(detailJson.variants[0]).toEqual(expect.objectContaining({ option1: "L" }));
+    expect(detailJson.variants[0]).toEqual(
+      expect.objectContaining({
+        option1: "L",
+        trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-l-siyah-p-123",
+      }),
+    );
     expect(detailJson.priceHistory).toHaveLength(1);
     expect(detailJson.stockHistory).toHaveLength(1);
     expect(detailJson.currentState.currentPrice).toBe(44990);

@@ -10,6 +10,7 @@ CREATE TABLE "products" (
   "description_raw" text,
   "attributes_raw" text,
   "images_raw" text,
+  "is_favorite" integer NOT NULL DEFAULT 0,
   "status" text NOT NULL,
   "parse_status" text NOT NULL,
   "last_checked_at" integer,

@@ -91,7 +91,9 @@ export function createProductsRepo(db: D1Database) {
         reviewNeededCount: reviewNeeded?.count ?? 0,
       };
     },
-    async listTrackingCards(filters: { status?: string | null; parseStatus?: string | null; search?: string | null } = {}) {
+    async listTrackingCards(
+      filters: { status?: string | null; parseStatus?: string | null; search?: string | null; favorite?: boolean } = {},
+    ) {
       const clauses: string[] = [];
       const values: unknown[] = [];
 
@@ -110,11 +112,16 @@ export function createProductsRepo(db: D1Database) {
         values.push(`%${filters.search}%`, `%${filters.search}%`);
       }
 
+      if (filters.favorite !== undefined) {
+        clauses.push("p.is_favorite = ?");
+        values.push(filters.favorite ? 1 : 0);
+      }
+
       const where = clauses.length > 0 ? `where ${clauses.join(" and ")}` : "";
       const result = await db
         .prepare(
           `select p.id, p.trendyol_url as trendyolUrl, p.title, p.brand, p.status, p.parse_status as parseStatus,
-                  p.images_raw as imagesRaw,
+                  p.images_raw as imagesRaw, p.is_favorite as isFavorite,
                   pcs.current_price as currentPrice, pcs.min_price as minPrice, pcs.max_price as maxPrice,
                   pcs.in_stock_variant_count as inStockVariantCount, pcs.total_variant_count as totalVariantCount,
                   pcs.last_checked_at as lastCheckedAt
@@ -132,6 +139,7 @@ export function createProductsRepo(db: D1Database) {
           status: string;
           parseStatus: string;
           imagesRaw: string | null;
+          isFavorite: number | boolean | null;
           currentPrice: number | null;
           minPrice: number | null;
           maxPrice: number | null;
@@ -140,7 +148,30 @@ export function createProductsRepo(db: D1Database) {
           lastCheckedAt: number | null;
         }>();
 
-      return result.results;
+      return result.results.map((item) => ({
+        ...item,
+        isFavorite: Boolean(item.isFavorite),
+      }));
+    },
+    async setFavorite(productId: string, isFavorite: boolean, now: Date) {
+      const existing = await db
+        .prepare("select id from products where id = ? limit 1")
+        .bind(productId)
+        .first<{ id: string }>();
+
+      if (!existing) {
+        return null;
+      }
+
+      await db
+        .prepare("update products set is_favorite = ?, updated_at = ? where id = ?")
+        .bind(isFavorite ? 1 : 0, now.getTime(), productId)
+        .run();
+
+      return {
+        productId,
+        isFavorite,
+      };
     },
     async getProductDetail(productId: string) {
       const product = await db

@@ -15,7 +15,9 @@ export function createHistoryRepo(db: D1Database) {
           .prepare(
             `insert into price_history (
               id, product_id, variant_id, previous_price, new_price, changed_at, change_reason
-            ) values (?, ?, ?, ?, ?, ?, ?)`,
+            )
+            select ?, ?, ?, ?, ?, ?, ?
+            where exists (select 1 from products where id = ?)`,
           )
           .bind(
             crypto.randomUUID(),
@@ -25,6 +27,7 @@ export function createHistoryRepo(db: D1Database) {
             entry.newPrice,
             entry.changedAt,
             entry.changeReason,
+            productId,
           )
           .run();
       }
@@ -35,7 +38,9 @@ export function createHistoryRepo(db: D1Database) {
           .prepare(
             `insert into stock_history (
               id, product_id, variant_id, previous_stock_state, new_stock_state, changed_at
-            ) values (?, ?, ?, ?, ?, ?)`,
+            )
+            select ?, ?, ?, ?, ?, ?
+            where exists (select 1 from products where id = ?)`,
           )
           .bind(
             crypto.randomUUID(),
@@ -44,6 +49,7 @@ export function createHistoryRepo(db: D1Database) {
             entry.previousStockState,
             entry.newStockState,
             entry.changedAt,
+            productId,
           )
           .run();
       }

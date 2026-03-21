@@ -14,7 +14,9 @@ export function createNotificationsRepo(db: D1Database) {
           .prepare(
             `insert into notifications (
               id, product_id, type, severity, title, body, created_at
-            ) values (?, ?, ?, ?, ?, ?, ?)`,
+            )
+            select ?, ?, ?, ?, ?, ?, ?
+            where exists (select 1 from products where id = ?)`,
           )
           .bind(
             crypto.randomUUID(),
@@ -24,6 +26,7 @@ export function createNotificationsRepo(db: D1Database) {
             entry.title,
             entry.body,
             now.getTime(),
+            productId,
           )
           .run();
       }

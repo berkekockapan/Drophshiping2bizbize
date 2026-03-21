@@ -53,6 +53,11 @@ export async function processRefreshJob(
       },
       toIncomingSnapshot(product.id, parsed, now.getTime()),
     );
+    const stillTracked = await productsRepo.getTrackedProduct(product.id);
+
+    if (!stillTracked) {
+      throw new RefreshProductNotFoundError(product.id);
+    }
 
     await productsRepo.updateProductSnapshot(product.id, parsed, diff.currentState, now);
     await productsRepo.upsertVariants(product.id, parsed.variants, now);

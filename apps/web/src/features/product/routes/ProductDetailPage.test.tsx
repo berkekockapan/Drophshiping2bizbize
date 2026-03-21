@@ -16,7 +16,7 @@ const productDetailPayload = {
     category: "Sweatshirt",
     descriptionRaw: "Yumuşak dokulu oversize hoodie.",
     attributes: [{ key: "Renk", value: "Siyah" }],
-    images: [],
+    images: ["https://cdn.example.com/hoodie-1.jpg", "https://cdn.example.com/hoodie-2.jpg"],
     status: "ACTIVE",
     parseStatus: "OK",
     lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
@@ -109,6 +109,10 @@ describe("ProductDetailPage", () => {
     expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
     expect(await screen.findByText(/en düşük/i)).toBeInTheDocument();
     expect(await screen.findByText(/fiyat geçmişi/i)).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /oversize hoodie ana görsel/i })).toHaveAttribute(
+      "src",
+      "https://cdn.example.com/hoodie-1.jpg",
+    );
   });
 
   it("renders unread notifications grouped by severity", async () => {

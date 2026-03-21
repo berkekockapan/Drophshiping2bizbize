@@ -5,6 +5,7 @@ export interface TrackingFilters {
   status?: string | null;
   parseStatus?: string | null;
   search?: string | null;
+  favorite?: boolean | null;
 }
 
 function getThumbnailImage(imagesRaw: string | null): string | null {
@@ -31,8 +32,9 @@ export async function buildTrackingListView(db: D1Database, filters: TrackingFil
 
   return {
     summary: await productsRepo.getTrackingSummary(),
-    items: items.map(({ imagesRaw, ...item }) => ({
+    items: items.map(({ imagesRaw, isFavorite, ...item }) => ({
       ...item,
+      isFavorite: Boolean(isFavorite),
       thumbnailImage: getThumbnailImage(imagesRaw),
     })),
     filters,

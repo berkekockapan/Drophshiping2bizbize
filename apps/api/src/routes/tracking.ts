@@ -4,6 +4,20 @@ import type { Env } from "../config/bindings";
 import { ParseError } from "../modules/scraping/parseErrors";
 import { buildTrackingListView } from "../modules/tracking/buildTrackingListView";
 import { DuplicateProductError, type CreateTrackedProductOptions, createTrackedProduct } from "../modules/tracking/createTrackedProduct";
+import { deleteTrackedProduct } from "../modules/tracking/deleteTrackedProduct";
+import { setTrackedProductFavorite } from "../modules/tracking/setTrackedProductFavorite";
+
+function parseFavoriteFilter(value: string | undefined) {
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return undefined;
+}
 
 export function createTrackingRouter(options: CreateTrackedProductOptions = {}) {
   const app = new Hono<{ Bindings: Env }>();
@@ -13,9 +27,36 @@ export function createTrackingRouter(options: CreateTrackedProductOptions = {}) 
       status: c.req.query("status"),
       parseStatus: c.req.query("parseStatus"),
       search: c.req.query("search"),
+      favorite: parseFavoriteFilter(c.req.query("favorite") ?? undefined),
     });
 
     return c.json(view);
+  });
+
+  app.post("/products/:productId/favorite", async (c) => {
+    const body = await c.req.json<{ isFavorite?: boolean }>().catch(() => null);
+
+    if (typeof body?.isFavorite !== "boolean") {
+      return c.json({ error: "isFavorite is required" }, 400);
+    }
+
+    const result = await setTrackedProductFavorite(c.env.DB, c.req.param("productId"), body.isFavorite);
+
+    if (!result) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return c.json(result);
+  });
+
+  app.delete("/products/:productId", async (c) => {
+    const deleted = await deleteTrackedProduct(c.env.DB, c.req.param("productId"));
+
+    if (!deleted) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return c.body(null, 204);
   });
 
   app.post("/products", async (c) => {

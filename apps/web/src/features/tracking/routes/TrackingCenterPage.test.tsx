@@ -18,6 +18,7 @@ const trackingPayload = {
       brand: "North Apparel",
       status: "ACTIVE",
       parseStatus: "OK",
+      thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
       currentPrice: 42990,
       minPrice: 34990,
       maxPrice: 44990,

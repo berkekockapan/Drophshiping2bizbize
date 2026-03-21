@@ -10,4 +10,5 @@ test-results
 dist
 .DS_Store
 .state
+.superpowers
 apps/connector/.env

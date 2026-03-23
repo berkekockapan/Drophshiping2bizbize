@@ -5,6 +5,12 @@ import { diffProductState, type PreviousProductSnapshot } from "../../src/module
 function createPreviousSnapshot(overrides: Partial<PreviousProductSnapshot> = {}): PreviousProductSnapshot {
   return {
     productId: "prod_1",
+    title: "North Apparel Oversize Hoodie",
+    descriptionRaw: "Soft brushed cotton hoodie with relaxed fit.",
+    imagesRaw: JSON.stringify([
+      "https://cdn.example.com/hoodie-1.jpg",
+      "https://cdn.example.com/hoodie-2.jpg",
+    ]),
     currentState: {
       currentPrice: 42990,
       minPrice: 34900,
@@ -42,6 +48,12 @@ describe("diffProductState", () => {
       createPreviousSnapshot(),
       {
         productId: "prod_1",
+        title: "North Apparel Oversize Hoodie",
+        descriptionRaw: "Soft brushed cotton hoodie with relaxed fit.",
+        imagesRaw: JSON.stringify([
+          "https://cdn.example.com/hoodie-1.jpg",
+          "https://cdn.example.com/hoodie-2.jpg",
+        ]),
         price: 42990,
         checkedAt: 1_710_000_500_000,
         variants: [
@@ -68,6 +80,8 @@ describe("diffProductState", () => {
     );
 
     expect(result.priceHistory).toHaveLength(0);
+    expect(result.contentHistory).toHaveLength(0);
+    expect(result.changedFields).toEqual([]);
     expect(result.currentState.minPrice).toBe(34900);
     expect(result.currentState.maxPrice).toBe(42990);
     expect(result.currentState.lastChangeAt).toBe(1_710_000_000_000);
@@ -78,6 +92,12 @@ describe("diffProductState", () => {
       createPreviousSnapshot(),
       {
         productId: "prod_1",
+        title: "North Apparel Oversize Hoodie",
+        descriptionRaw: "Soft brushed cotton hoodie with relaxed fit.",
+        imagesRaw: JSON.stringify([
+          "https://cdn.example.com/hoodie-1.jpg",
+          "https://cdn.example.com/hoodie-2.jpg",
+        ]),
         price: 39990,
         checkedAt: 1_710_000_900_000,
         variants: [
@@ -123,6 +143,7 @@ describe("diffProductState", () => {
         expect.objectContaining({ type: "OUT_OF_STOCK" }),
       ]),
     );
+    expect(result.changedFields).toEqual(expect.arrayContaining(["PRODUCT_PRICE", "VARIANT_STOCK"]));
     expect(result.currentState.minPrice).toBe(34900);
     expect(result.currentState.maxPrice).toBe(42900);
     expect(result.currentState.lastChangeAt).toBe(1_710_000_900_000);

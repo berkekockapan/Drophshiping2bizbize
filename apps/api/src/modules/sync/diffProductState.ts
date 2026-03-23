@@ -12,6 +12,9 @@ export interface PreviousVariantSnapshot {
 
 export interface PreviousProductSnapshot {
   productId: string;
+  title: string | null;
+  descriptionRaw: string | null;
+  imagesRaw: string | null;
   currentState: {
     currentPrice: number | null;
     minPrice: number | null;
@@ -24,9 +27,19 @@ export interface PreviousProductSnapshot {
 
 export interface IncomingProductSnapshot {
   productId: string;
+  title: string;
+  descriptionRaw: string | null;
+  imagesRaw: string;
   price: number;
   checkedAt: number;
   variants: ParsedVariant[];
+}
+
+export interface ContentHistoryChange {
+  fieldKey: "TITLE" | "DESCRIPTION" | "IMAGES";
+  previousValueRaw: string | null;
+  newValueRaw: string | null;
+  changedAt: number;
 }
 
 export interface PriceHistoryChange {
@@ -60,8 +73,10 @@ export interface ProductStateDiff {
     lastChangeAt: number | null;
     lastCheckedAt: number;
   };
+  contentHistory: ContentHistoryChange[];
   priceHistory: PriceHistoryChange[];
   stockHistory: StockHistoryChange[];
+  changedFields: string[];
   notifications: SyncNotification[];
 }
 
@@ -85,11 +100,60 @@ function buildStockNotification(variant: ParsedVariant): SyncNotification {
   };
 }
 
+function normalizeText(value: string | null) {
+  return value?.trim().replace(/\s+/g, " ") ?? null;
+}
+
+function normalizeJson(value: string | null) {
+  if (value == null) {
+    return null;
+  }
+
+  try {
+    return JSON.stringify(JSON.parse(value));
+  } catch {
+    const normalized = value.trim();
+    return normalized ? normalized : null;
+  }
+}
+
 export function diffProductState(previous: PreviousProductSnapshot, incoming: IncomingProductSnapshot): ProductStateDiff {
   const notifications: SyncNotification[] = [];
+  const contentHistory: ContentHistoryChange[] = [];
   const priceHistory: PriceHistoryChange[] = [];
   const stockHistory: StockHistoryChange[] = [];
+  const changedFields = new Set<string>();
   const previousVariants = new Map(previous.variants.map((variant) => [variant.variantKey, variant] as const));
+
+  if (normalizeText(previous.title) !== normalizeText(incoming.title)) {
+    contentHistory.push({
+      fieldKey: "TITLE",
+      previousValueRaw: previous.title,
+      newValueRaw: incoming.title,
+      changedAt: incoming.checkedAt,
+    });
+    changedFields.add("TITLE");
+  }
+
+  if (normalizeText(previous.descriptionRaw) !== normalizeText(incoming.descriptionRaw)) {
+    contentHistory.push({
+      fieldKey: "DESCRIPTION",
+      previousValueRaw: previous.descriptionRaw,
+      newValueRaw: incoming.descriptionRaw,
+      changedAt: incoming.checkedAt,
+    });
+    changedFields.add("DESCRIPTION");
+  }
+
+  if (normalizeJson(previous.imagesRaw) !== normalizeJson(incoming.imagesRaw)) {
+    contentHistory.push({
+      fieldKey: "IMAGES",
+      previousValueRaw: previous.imagesRaw,
+      newValueRaw: incoming.imagesRaw,
+      changedAt: incoming.checkedAt,
+    });
+    changedFields.add("IMAGES");
+  }
 
   if (previous.currentState.currentPrice !== incoming.price) {
     priceHistory.push({
@@ -98,6 +162,7 @@ export function diffProductState(previous: PreviousProductSnapshot, incoming: In
       changedAt: incoming.checkedAt,
       changeReason: "PRODUCT_PRICE_CHANGED",
     });
+    changedFields.add("PRODUCT_PRICE");
 
     if (previous.currentState.currentPrice !== null) {
       notifications.push(buildPriceNotification(previous.currentState.currentPrice, incoming.price));
@@ -117,13 +182,14 @@ export function diffProductState(previous: PreviousProductSnapshot, incoming: In
         newStockState: variant.stockState,
         changedAt: incoming.checkedAt,
       });
+      changedFields.add("VARIANT_STOCK");
       notifications.push(buildStockNotification(variant));
     }
   }
 
   const currentMin = previous.currentState.minPrice ?? previous.currentState.currentPrice ?? incoming.price;
   const currentMax = previous.currentState.maxPrice ?? previous.currentState.currentPrice ?? incoming.price;
-  const hasChanges = priceHistory.length > 0 || stockHistory.length > 0;
+  const hasChanges = changedFields.size > 0;
 
   return {
     currentState: {
@@ -135,8 +201,10 @@ export function diffProductState(previous: PreviousProductSnapshot, incoming: In
       lastChangeAt: hasChanges ? incoming.checkedAt : previous.currentState.lastChangeAt,
       lastCheckedAt: incoming.checkedAt,
     },
+    contentHistory,
     priceHistory,
     stockHistory,
+    changedFields: [...changedFields],
     notifications,
   };
 }
@@ -144,6 +212,9 @@ export function diffProductState(previous: PreviousProductSnapshot, incoming: In
 export function toIncomingSnapshot(productId: string, parsed: ParsedProduct, checkedAt: number): IncomingProductSnapshot {
   return {
     productId,
+    title: parsed.title,
+    descriptionRaw: parsed.descriptionRaw,
+    imagesRaw: JSON.stringify(parsed.images),
     price: parsed.price,
     checkedAt,
     variants: parsed.variants,

@@ -13,13 +13,21 @@ export function createProductsRepo(db: D1Database) {
     async getRefreshSnapshot(productId: string) {
       const product = await db
         .prepare(
-          `select id, trendyol_url as trendyolUrl, parse_status as parseStatus
+          `select id, trendyol_url as trendyolUrl, parse_status as parseStatus,
+                  title, description_raw as descriptionRaw, images_raw as imagesRaw
            from products
            where id = ?
            limit 1`,
         )
         .bind(productId)
-        .first<{ id: string; trendyolUrl: string; parseStatus: string }>();
+        .first<{
+          id: string;
+          trendyolUrl: string;
+          parseStatus: string;
+          title: string | null;
+          descriptionRaw: string | null;
+          imagesRaw: string | null;
+        }>();
 
       if (!product) {
         return null;

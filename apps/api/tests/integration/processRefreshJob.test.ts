@@ -8,6 +8,10 @@ import { createTestEnv } from "../support/sqlite";
 
 const basicProductHtml = readFileSync(new URL("../fixtures/trendyol/basic-product.html", import.meta.url), "utf8");
 const unavailableProductHtml = readFileSync(new URL("../fixtures/trendyol/product-unavailable.html", import.meta.url), "utf8");
+const changedContentHtml = basicProductHtml
+  .replace("Oversize Hoodie", "Oversize Hoodie Renewed")
+  .replace("Soft brushed cotton hoodie with relaxed fit.", "Soft brushed cotton hoodie with relaxed fit. Yeni sezon kumasi.")
+  .replace("hoodie-1.jpg", "hoodie-3.jpg");
 const envoyRootPriceHtml = `
   <!doctype html>
   <html>
@@ -138,6 +142,99 @@ const envoyWinnerPriceHtml = `
 `;
 
 describe("processRefreshJob", () => {
+  it("writes a NO_CHANGE audit without content rows when tracked fields stay the same", async () => {
+    const { env, sqlite } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(basicProductHtml, { status: 200 }),
+        now: new Date("2026-03-20T00:00:00.000Z"),
+      },
+    );
+
+    await processRefreshJob(
+      env,
+      { productId: seeded.product.id },
+      {
+        source: "MANUAL",
+        fetchImpl: async () => new Response(basicProductHtml, { status: 200 }),
+        now: new Date("2026-03-20T01:00:00.000Z"),
+      },
+    );
+
+    const audit = sqlite
+      .prepare(
+        `select source, status, change_count as changeCount
+         from product_refresh_audits
+         where product_id = ?
+         order by created_at desc
+         limit 1`,
+      )
+      .get(seeded.product.id) as { source: string; status: string; changeCount: number } | undefined;
+    const contentRows = sqlite
+      .prepare("select count(*) as count from product_content_history where product_id = ?")
+      .get(seeded.product.id) as { count: number };
+
+    expect(audit).toEqual({ source: "MANUAL", status: "NO_CHANGE", changeCount: 0 });
+    expect(contentRows.count).toBe(0);
+  });
+
+  it("writes TITLE, DESCRIPTION, and IMAGES history rows only for changed content", async () => {
+    const { env, sqlite } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(basicProductHtml, { status: 200 }),
+        now: new Date("2026-03-20T00:00:00.000Z"),
+      },
+    );
+
+    await processRefreshJob(
+      env,
+      { productId: seeded.product.id },
+      {
+        source: "MANUAL",
+        fetchImpl: async () => new Response(changedContentHtml, { status: 200 }),
+        now: new Date("2026-03-20T01:00:00.000Z"),
+      },
+    );
+
+    const rows = sqlite
+      .prepare(
+        `select field_key as fieldKey, previous_value_raw as previousValueRaw, new_value_raw as newValueRaw
+         from product_content_history
+         where product_id = ?
+         order by field_key asc`,
+      )
+      .all(seeded.product.id) as Array<{ fieldKey: string; previousValueRaw: string | null; newValueRaw: string | null }>;
+
+    expect(rows).toEqual([
+      {
+        fieldKey: "DESCRIPTION",
+        previousValueRaw: "Soft brushed cotton hoodie with relaxed fit.",
+        newValueRaw: "Soft brushed cotton hoodie with relaxed fit. Yeni sezon kumasi.",
+      },
+      {
+        fieldKey: "IMAGES",
+        previousValueRaw: JSON.stringify([
+          "https://cdn.example.com/hoodie-1.jpg",
+          "https://cdn.example.com/hoodie-2.jpg",
+        ]),
+        newValueRaw: JSON.stringify([
+          "https://cdn.example.com/hoodie-3.jpg",
+          "https://cdn.example.com/hoodie-2.jpg",
+        ]),
+      },
+      {
+        fieldKey: "TITLE",
+        previousValueRaw: "Oversize Hoodie",
+        newValueRaw: "Oversize Hoodie Renewed",
+      },
+    ]);
+  });
+
   it("marks parse failures without deleting the product", async () => {
     const { env, sqlite } = createTestEnv();
     const seeded = await createTrackedProduct(

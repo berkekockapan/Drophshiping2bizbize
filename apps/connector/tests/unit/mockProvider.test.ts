@@ -25,4 +25,23 @@ describe("MockProvider", () => {
     expect(result.tags).toHaveLength(13);
     expect(result.model).toBe("mock-v1");
   });
+
+  it("returns deterministic field-level payload", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "connector-mock-"));
+    const store = createProfileStore(dir);
+    const provider = new MockProvider(store);
+
+    await expect(
+      provider.generateField({
+        field: "tags",
+        prompt: "Return ONLY valid JSON with tags.",
+        context: { productId: "prod_1" },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        field: "tags",
+        value: expect.any(String),
+      }),
+    );
+  });
 });

@@ -92,5 +92,24 @@ describe("connector server", () => {
 
     expect(generated.statusCode).toBe(200);
     expect(generated.json().englishTitle).toContain("Oversize Hoodie");
+
+    const generatedField = await context.server.inject({
+      method: "POST",
+      url: "/generate-field",
+      payload: {
+        field: "title",
+        prompt: "Return ONLY valid JSON with a title field value.",
+        context: { productId: "prod_1" },
+      },
+    });
+
+    expect(generatedField.statusCode).toBe(200);
+    expect(generatedField.json()).toEqual(
+      expect.objectContaining({
+        field: "title",
+        value: expect.stringContaining("title"),
+        provider: "mock",
+      }),
+    );
   });
 });

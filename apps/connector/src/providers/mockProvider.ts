@@ -1,4 +1,11 @@
-﻿import type { AIProvider, GenerateRequest, GenerateResponse, UpsertProfileInput } from "./base";
+import type {
+  AIProvider,
+  GenerateFieldRequest,
+  GenerateFieldResponse,
+  GenerateRequest,
+  GenerateResponse,
+  UpsertProfileInput,
+} from "./base";
 import type { ConnectorProfile, ProfileStore } from "../store/profileStore";
 
 function normalizeTag(value: string) {
@@ -27,6 +34,19 @@ function buildTags(title: string): string[] {
   ];
 
   return base.map(normalizeTag).filter(Boolean).slice(0, 13);
+}
+
+function buildFieldValue(request: GenerateFieldRequest) {
+  const productId = String(request.context.productId ?? "unknown-product").trim() || "unknown-product";
+
+  switch (request.field) {
+    case "title":
+      return `mock title for ${productId}`;
+    case "description":
+      return `mock description for ${productId}`;
+    case "tags":
+      return `mock tags for ${productId}`;
+  }
 }
 
 export class MockProvider implements AIProvider {
@@ -90,6 +110,14 @@ export class MockProvider implements AIProvider {
       seoNotes: "Use high-intent long tail keywords in first 40 characters.",
       policyNotes: "Avoid trademarked terms and unverifiable health claims.",
       model: "mock-v1",
+    };
+  }
+
+  async generateField(request: GenerateFieldRequest): Promise<GenerateFieldResponse> {
+    return {
+      field: request.field,
+      value: buildFieldValue(request),
+      provider: this.id,
     };
   }
 }

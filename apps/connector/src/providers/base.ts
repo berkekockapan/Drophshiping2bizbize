@@ -20,6 +20,20 @@ export interface GenerateResponse {
   model: string;
 }
 
+export type GenerateFieldName = "title" | "description" | "tags";
+
+export interface GenerateFieldRequest {
+  field: GenerateFieldName;
+  prompt: string;
+  context: Record<string, unknown>;
+}
+
+export interface GenerateFieldResponse {
+  field: GenerateFieldName;
+  value: string;
+  provider: ProviderId;
+}
+
 export interface UpsertProfileInput {
   id: string;
   label: string;
@@ -36,4 +50,5 @@ export interface AIProvider {
   activateProfile(profileId: string): Promise<ConnectorProfile>;
   upsertProfile(input: UpsertProfileInput): Promise<ConnectorProfile>;
   generate(request: GenerateRequest): Promise<GenerateResponse>;
+  generateField?(request: GenerateFieldRequest): Promise<GenerateFieldResponse>;
 }

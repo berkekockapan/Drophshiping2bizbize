@@ -6,6 +6,7 @@ import { ChatGptWebProvider } from "./providers/chatgptWebProvider";
 import type { AIProvider } from "./providers/base";
 import { MockProvider } from "./providers/mockProvider";
 import { registerGenerateRoute } from "./routes/generate";
+import { registerGenerateFieldRoute } from "./routes/generateField";
 import { registerHealthRoute } from "./routes/health";
 import { registerProfilesRoutes } from "./routes/profiles";
 import { createProfileStore, type ProfileStore } from "./store/profileStore";
@@ -62,6 +63,7 @@ export function createConnectorServer(options: CreateConnectorServerOptions = {}
   registerHealthRoute(server, { provider });
   registerProfilesRoutes(server, { provider });
   registerGenerateRoute(server, { provider });
+  registerGenerateFieldRoute(server, { provider });
 
   return {
     server,

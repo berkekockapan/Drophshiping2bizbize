@@ -1,4 +1,4 @@
-interface RefreshAuditRow {
+export interface RefreshAuditRow {
   id: string;
   source: "MANUAL" | "SCHEDULED";
   status: "SUCCESS" | "NO_CHANGE" | "PARSE_ERROR" | "FETCH_ERROR";
@@ -6,7 +6,7 @@ interface RefreshAuditRow {
   checkedAt: number;
 }
 
-interface ContentHistoryRow {
+export interface ContentHistoryRow {
   id: string;
   refreshAuditId: string;
   fieldKey: "TITLE" | "DESCRIPTION" | "IMAGES";
@@ -15,7 +15,7 @@ interface ContentHistoryRow {
   changedAt: number;
 }
 
-interface PriceHistoryRow {
+export interface PriceHistoryRow {
   id: string;
   variantId: string | null;
   previousPrice: number | null;
@@ -25,7 +25,7 @@ interface PriceHistoryRow {
   refreshAuditId: string | null;
 }
 
-interface StockHistoryRow {
+export interface StockHistoryRow {
   id: string;
   variantId: string;
   previousStockState: string | null;

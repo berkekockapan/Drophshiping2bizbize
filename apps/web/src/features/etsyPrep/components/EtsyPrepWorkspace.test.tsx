@@ -25,8 +25,17 @@ describe("EtsyPrepWorkspace", () => {
     vi.restoreAllMocks();
   });
 
-  it("streams analysis steps, writes generated title directly into the field, and saves the workspace", async () => {
+  it("streams analysis steps, keeps insight blocks read-only, persists risk notes, and resets generation metadata after save", async () => {
     const user = userEvent.setup();
+    const savePayloads: Array<{
+      englishTitle: string | null;
+      longDescription: string | null;
+      tags: string[];
+      seoNotes: string | null;
+      policyNotes: string | null;
+      generatedFields: string[];
+      editedFields: string[];
+    }> = [];
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
@@ -66,6 +75,19 @@ describe("EtsyPrepWorkspace", () => {
           connectorProfileSnapshot: {
             id: "profile_1",
             label: "Mock Connector",
+          },
+        });
+      }
+
+      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          status: "online",
+          provider: "mock",
+          activeProfile: {
+            id: "profile_1",
+            label: "Mock Connector",
+            emailMasked: null,
+            provider: "mock",
           },
         });
       }
@@ -118,9 +140,7 @@ describe("EtsyPrepWorkspace", () => {
           generatedFields: string[];
           editedFields: string[];
         };
-
-        expect(payload.englishTitle).toBe("Handmade Oversize Hoodie");
-        expect(payload.generatedFields).toContain("title");
+        savePayloads.push(payload);
 
         return jsonResponse({
           id: "draft_1",
@@ -143,12 +163,142 @@ describe("EtsyPrepWorkspace", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" />);
+    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByText(/signals/i)).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /title üret/i }));
     expect(await screen.findByLabelText(/title/i)).toHaveValue("Handmade Oversize Hoodie");
+    expect(screen.getByText(/Lead with hoodie keyword\./i)).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /seo notları/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /kaydet/i }));
     expect(await screen.findByText(/^Kaydedildi$/i)).toBeInTheDocument();
+
+    expect(savePayloads).toHaveLength(1);
+    expect(savePayloads[0]?.englishTitle).toBe("Handmade Oversize Hoodie");
+    expect(savePayloads[0]?.generatedFields).toContain("title");
+    expect(savePayloads[0]?.policyNotes).toContain("Care instructions should be explicit.");
+    expect(savePayloads[0]?.policyNotes).toContain("Missing lifestyle context.");
+
+    await user.clear(screen.getByLabelText(/title/i));
+    await user.type(screen.getByLabelText(/title/i), "Handmade Oversize Hoodie Updated");
+    await user.click(screen.getByRole("button", { name: /kaydet/i }));
+
+    expect(await screen.findByText(/^Kaydedildi$/i)).toBeInTheDocument();
+    expect(savePayloads).toHaveLength(2);
+    expect(savePayloads[1]?.generatedFields).toEqual([]);
+  });
+
+  it("disables field generation and shows the AI Baglantilari cta when no connector profile is active", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          product: {
+            id: "prod_1",
+            trendyolUrl: "https://www.trendyol.com/example",
+            sourceProductId: "123",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+            attributes: [{ key: "Renk", value: "Siyah" }],
+            images: ["https://cdn.example.com/hoodie-1.jpg"],
+            status: "ACTIVE",
+            parseStatus: "OK",
+            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+          },
+          draft: {
+            id: "draft_1",
+            productId: "prod_1",
+            englishTitle: null,
+            shortDescription: null,
+            longDescription: null,
+            tags: [],
+            materials: [],
+            attributes: [],
+            seoNotes: null,
+            policyNotes: null,
+            generatedVersion: 0,
+            editedVersion: 0,
+            lastGeneratedAt: null,
+            manualEditsPresent: false,
+          },
+          connectorProfileSnapshot: null,
+        });
+      }
+
+      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+
+    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
+    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
+  });
+
+  it("shows the AI Baglantilari cta when connector health cannot be reached", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          product: {
+            id: "prod_1",
+            trendyolUrl: "https://www.trendyol.com/example",
+            sourceProductId: "123",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+            attributes: [{ key: "Renk", value: "Siyah" }],
+            images: ["https://cdn.example.com/hoodie-1.jpg"],
+            status: "ACTIVE",
+            parseStatus: "OK",
+            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+          },
+          draft: {
+            id: "draft_1",
+            productId: "prod_1",
+            englishTitle: null,
+            shortDescription: null,
+            longDescription: null,
+            tags: [],
+            materials: [],
+            attributes: [],
+            seoNotes: null,
+            policyNotes: null,
+            generatedVersion: 0,
+            editedVersion: 0,
+            lastGeneratedAt: null,
+            manualEditsPresent: false,
+          },
+          connectorProfileSnapshot: {
+            id: "profile_1",
+            label: "Mock Connector",
+          },
+        });
+      }
+
+      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+        throw new Error("Connector offline");
+      }
+
+      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+
+    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
+    expect(screen.getByText(/local connector ulaşılamıyor/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
   });
 });

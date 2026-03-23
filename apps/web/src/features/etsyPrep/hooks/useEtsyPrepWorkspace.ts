@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   connectorGenerateField,
+  fetchConnectorHealth,
   fetchEtsyPrepWorkspace,
   saveEtsyPrepWorkspace,
   streamEtsyPrepAnalysis,
@@ -19,6 +20,11 @@ interface WorkspaceFormState {
   tags: string;
   seoNotes: string;
   policyNotes: string;
+}
+
+interface PersistedInsightState {
+  policyNotes: string;
+  riskNotes: string;
 }
 
 export interface LiveAnalysisStep {
@@ -84,19 +90,81 @@ function toNullableString(value: string) {
   return trimmed ? trimmed : null;
 }
 
-function mapBootstrapToForm(data: EtsyPrepBootstrapResponse): WorkspaceFormState {
+function parsePersistedInsights(policyNotes: string | null): PersistedInsightState {
+  const value = policyNotes?.trim() ?? "";
+  if (!value) {
+    return { policyNotes: "", riskNotes: "" };
+  }
+
+  const policyAndRiskMatch = value.match(
+    /^Etsy Uyum Kontrolleri:\n([\s\S]*?)(?:\n\nEksik Veri \/ Riskler:\n([\s\S]*))?$/,
+  );
+  if (policyAndRiskMatch) {
+    return {
+      policyNotes: policyAndRiskMatch[1]?.trim() ?? "",
+      riskNotes: policyAndRiskMatch[2]?.trim() ?? "",
+    };
+  }
+
+  const riskOnlyMatch = value.match(/^Eksik Veri \/ Riskler:\n([\s\S]*)$/);
+  if (riskOnlyMatch) {
+    return {
+      policyNotes: "",
+      riskNotes: riskOnlyMatch[1]?.trim() ?? "",
+    };
+  }
+
   return {
-    title: data.draft.englishTitle ?? "",
-    description: data.draft.longDescription ?? "",
-    tags: tagsToText(data.draft.tags),
-    seoNotes: data.draft.seoNotes ?? "",
-    policyNotes: data.draft.policyNotes ?? "",
+    policyNotes: value,
+    riskNotes: "",
   };
 }
 
-function createSnapshotSignature(form: WorkspaceFormState, generatedFields: EtsyPrepField[], editedFields: EtsyPrepField[]) {
+function serializePersistedInsights(policyNotes: string, riskNotes: string) {
+  const normalizedPolicyNotes = policyNotes.trim();
+  const normalizedRiskNotes = riskNotes.trim();
+
+  if (normalizedPolicyNotes && normalizedRiskNotes) {
+    return `Etsy Uyum Kontrolleri:\n${normalizedPolicyNotes}\n\nEksik Veri / Riskler:\n${normalizedRiskNotes}`;
+  }
+
+  if (normalizedPolicyNotes) {
+    return normalizedPolicyNotes;
+  }
+
+  if (normalizedRiskNotes) {
+    return `Eksik Veri / Riskler:\n${normalizedRiskNotes}`;
+  }
+
+  return null;
+}
+
+function mapBootstrapToWorkspaceState(data: EtsyPrepBootstrapResponse): {
+  form: WorkspaceFormState;
+  riskNotes: string;
+} {
+  const persistedInsights = parsePersistedInsights(data.draft.policyNotes);
+  return {
+    form: {
+      title: data.draft.englishTitle ?? "",
+      description: data.draft.longDescription ?? "",
+      tags: tagsToText(data.draft.tags),
+      seoNotes: data.draft.seoNotes ?? "",
+      policyNotes: persistedInsights.policyNotes,
+    },
+    riskNotes: persistedInsights.riskNotes,
+  };
+}
+
+function createSnapshotSignature(
+  form: WorkspaceFormState,
+  riskNotes: string,
+  generatedFields: EtsyPrepField[],
+  editedFields: EtsyPrepField[],
+) {
   return JSON.stringify({
     form,
+    riskNotes,
     generatedFields: [...generatedFields].sort(),
     editedFields: [...editedFields].sort(),
   });
@@ -131,6 +199,12 @@ export function useEtsyPrepWorkspace(productId: string) {
     enabled: Boolean(productId),
     queryFn: () => fetchEtsyPrepWorkspace(productId),
   });
+  const connectorHealthQuery = useQuery({
+    queryKey: ["connector-health"],
+    enabled: Boolean(bootstrapQuery.data?.connectorProfileSnapshot),
+    queryFn: fetchConnectorHealth,
+    retry: false,
+  });
 
   const [form, setForm] = useState<WorkspaceFormState>(emptyFormState);
   const [generatedFields, setGeneratedFields] = useState<EtsyPrepField[]>([]);
@@ -144,13 +218,13 @@ export function useEtsyPrepWorkspace(productId: string) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [savedSnapshot, setSavedSnapshot] = useState(() => createSnapshotSignature(emptyFormState, [], []));
+  const [savedSnapshot, setSavedSnapshot] = useState(() => createSnapshotSignature(emptyFormState, "", [], []));
   const initializedProductRef = useRef<string | null>(null);
   const analysisStartedRef = useRef<string | null>(null);
 
   const currentSnapshot = useMemo(
-    () => createSnapshotSignature(form, generatedFields, editedFields),
-    [editedFields, form, generatedFields],
+    () => createSnapshotSignature(form, riskNotes, generatedFields, editedFields),
+    [editedFields, form, generatedFields, riskNotes],
   );
   const isDirty = currentSnapshot !== savedSnapshot;
 
@@ -203,19 +277,19 @@ export function useEtsyPrepWorkspace(productId: string) {
     initializedProductRef.current = productId;
     analysisStartedRef.current = null;
 
-    const nextForm = mapBootstrapToForm(bootstrapQuery.data);
-    setForm(nextForm);
+    const nextWorkspaceState = mapBootstrapToWorkspaceState(bootstrapQuery.data);
+    setForm(nextWorkspaceState.form);
     setGeneratedFields([]);
     setEditedFields([]);
     setLiveSteps([]);
     setResearchSummary(null);
-    setRiskNotes("");
+    setRiskNotes(nextWorkspaceState.riskNotes);
     setAnalysisStatus("idle");
     setAnalysisError(null);
     resetFieldStates();
     setSaveError(null);
     setSaveMessage(null);
-    setSavedSnapshot(createSnapshotSignature(nextForm, [], []));
+    setSavedSnapshot(createSnapshotSignature(nextWorkspaceState.form, nextWorkspaceState.riskNotes, [], []));
   }, [bootstrapQuery.data, productId]);
 
   useEffect(() => {
@@ -405,21 +479,22 @@ export function useEtsyPrepWorkspace(productId: string) {
         longDescription: toNullableString(form.description),
         tags: parseTagsText(form.tags),
         seoNotes: toNullableString(form.seoNotes),
-        policyNotes: toNullableString(form.policyNotes),
+        policyNotes: serializePersistedInsights(form.policyNotes, riskNotes),
         generatedFields,
         editedFields,
       });
 
-      const normalizedForm: WorkspaceFormState = {
-        title: savedDraft.englishTitle ?? "",
-        description: savedDraft.longDescription ?? "",
-        tags: tagsToText(savedDraft.tags),
-        seoNotes: savedDraft.seoNotes ?? "",
-        policyNotes: savedDraft.policyNotes ?? "",
-      };
+      const nextWorkspaceState = mapBootstrapToWorkspaceState({
+        product: bootstrapQuery.data?.product ?? null,
+        draft: savedDraft,
+        connectorProfileSnapshot: bootstrapQuery.data?.connectorProfileSnapshot ?? null,
+      } as EtsyPrepBootstrapResponse);
 
-      setForm(normalizedForm);
-      setSavedSnapshot(createSnapshotSignature(normalizedForm, generatedFields, editedFields));
+      setForm(nextWorkspaceState.form);
+      setRiskNotes(nextWorkspaceState.riskNotes);
+      setGeneratedFields([]);
+      setEditedFields([]);
+      setSavedSnapshot(createSnapshotSignature(nextWorkspaceState.form, nextWorkspaceState.riskNotes, [], []));
       setSaveMessage("Kaydedildi");
     } catch (error) {
       setSaveError(getErrorMessage(error));
@@ -428,9 +503,23 @@ export function useEtsyPrepWorkspace(productId: string) {
     }
   }
 
+  const connectorProfileSnapshot = bootstrapQuery.data?.connectorProfileSnapshot ?? null;
+  const connectorHealth = connectorHealthQuery.data ?? null;
+  const canGenerate = Boolean(connectorProfileSnapshot) && Boolean(connectorHealth?.activeProfile);
+
+  const generationBlockedReason = !connectorProfileSnapshot
+    ? "Alan üretimi için aktif bir connector profili gerekli."
+    : connectorHealthQuery.isError
+      ? "Local connector ulaşılamıyor. AI Bağlantıları sayfasından bağlantıyı kontrol edin."
+      : connectorHealthQuery.isPending
+        ? "Connector durumu kontrol ediliyor..."
+        : !connectorHealth?.activeProfile
+          ? "Aktif connector profili bulunamadı. AI Bağlantıları sayfasından bir profil seçin."
+          : null;
+
   return {
     product: bootstrapQuery.data?.product ?? null,
-    connectorProfileSnapshot: bootstrapQuery.data?.connectorProfileSnapshot ?? null,
+    connectorProfileSnapshot,
     form,
     liveSteps,
     researchSummary,
@@ -445,12 +534,11 @@ export function useEtsyPrepWorkspace(productId: string) {
     isSaving,
     saveError,
     saveMessage,
-    canGenerate: Boolean(bootstrapQuery.data?.connectorProfileSnapshot),
+    canGenerate,
+    generationBlockedReason,
     updateTitle: (value: string) => handleEditablePrepFieldChange("title", value),
     updateDescription: (value: string) => handleEditablePrepFieldChange("description", value),
     updateTags: (value: string) => handleEditablePrepFieldChange("tags", value),
-    updateSeoNotes: (value: string) => handleTextFieldChange("seoNotes", value),
-    updatePolicyNotes: (value: string) => handleTextFieldChange("policyNotes", value),
     generateTitle: () => generateField("title"),
     generateDescription: () => generateField("description"),
     generateTags: () => generateField("tags"),

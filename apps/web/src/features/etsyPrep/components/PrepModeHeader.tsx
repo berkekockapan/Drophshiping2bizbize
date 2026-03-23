@@ -1,9 +1,13 @@
+import { Link } from "react-router-dom";
+
 interface PrepModeHeaderProps {
   isDirty: boolean;
   isSaving: boolean;
   saveMessage: string | null;
   saveError: string | null;
   connectorLabel: string | null;
+  generationBlockedReason: string | null;
+  onBack: () => void;
   onSave: () => void;
 }
 
@@ -13,6 +17,8 @@ export function PrepModeHeader({
   saveMessage,
   saveError,
   connectorLabel,
+  generationBlockedReason,
+  onBack,
   onSave,
 }: PrepModeHeaderProps) {
   return (
@@ -40,16 +46,33 @@ export function PrepModeHeader({
 
           {saveMessage ? <p className="text-sm font-medium text-emerald-700">{saveMessage}</p> : null}
           {saveError ? <p className="text-sm font-medium text-rose-600">{saveError}</p> : null}
+          {generationBlockedReason ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p>{generationBlockedReason}</p>
+              <Link className="mt-2 inline-flex font-semibold text-[#F1641E] hover:text-[#d95518]" to="/connections">
+                AI Bağlantıları
+              </Link>
+            </div>
+          ) : null}
         </div>
 
-        <button
-          type="button"
-          className="rounded-2xl bg-[#051125] px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSaving || !isDirty}
-          onClick={onSave}
-        >
-          {isSaving ? "Kaydediliyor..." : "Kaydet"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
+            onClick={onBack}
+          >
+            Genel Bakışa Dön
+          </button>
+          <button
+            type="button"
+            className="rounded-2xl bg-[#051125] px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSaving || !isDirty}
+            onClick={onSave}
+          >
+            {isSaving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
       </div>
     </section>
   );

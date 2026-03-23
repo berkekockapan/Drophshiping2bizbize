@@ -3,7 +3,13 @@ import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 import { createRefreshAuditRepo } from "../../db/repositories/refreshAuditRepo";
-import { buildProductChangeTimeline } from "./buildProductChangeTimeline";
+import {
+  buildProductChangeTimeline,
+  type ContentHistoryRow,
+  type PriceHistoryRow,
+  type RefreshAuditRow,
+  type StockHistoryRow,
+} from "./buildProductChangeTimeline";
 
 function safeParseJson(value: string | null) {
   if (!value) {
@@ -65,8 +71,10 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
       rawPayload,
     };
   });
-  const priceHistory = await historyRepo.listPriceHistory(productId);
-  const stockHistory = await historyRepo.listStockHistory(productId);
+  const audits = (await refreshAuditRepo.listRefreshAudits(productId)) as unknown as RefreshAuditRow[];
+  const contentHistory = (await refreshAuditRepo.listContentHistory(productId)) as unknown as ContentHistoryRow[];
+  const priceHistory = (await historyRepo.listPriceHistory(productId)) as unknown as PriceHistoryRow[];
+  const stockHistory = (await historyRepo.listStockHistory(productId)) as unknown as StockHistoryRow[];
 
   return {
     product: {
@@ -79,8 +87,8 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
     priceHistory,
     stockHistory,
     changeTimeline: buildProductChangeTimeline({
-      audits: await refreshAuditRepo.listRefreshAudits(productId),
-      contentHistory: await refreshAuditRepo.listContentHistory(productId),
+      audits,
+      contentHistory,
       priceHistory,
       stockHistory,
       variants: detail.variants,

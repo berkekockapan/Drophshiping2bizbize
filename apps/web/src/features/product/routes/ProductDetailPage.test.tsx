@@ -257,6 +257,19 @@ describe("ProductDetailPage", () => {
         ]);
       }
 
+      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          status: "online",
+          provider: "mock",
+          activeProfile: {
+            id: "profile_1",
+            label: "Mock Connector",
+            emailMasked: null,
+            provider: "mock",
+          },
+        });
+      }
+
       if (url.includes("/products/prod_1")) {
         return jsonResponse(productDetailPayload);
       }
@@ -273,7 +286,77 @@ describe("ProductDetailPage", () => {
     await user.click(screen.getByRole("button", { name: /etsy'e yükle/i }));
 
     expect(await screen.findByRole("heading", { name: /etsy hazırlık çalışma alanı/i })).toBeInTheDocument();
-    expect(screen.queryByText(/varyasyon matrisi/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/varyasyon matrisi/i)).not.toBeVisible();
     expect(screen.getByRole("button", { name: /genel bakışa dön/i })).toBeInTheDocument();
+  });
+
+  it("preserves unsaved prep workspace state when toggling back to genel bakis and returning", async () => {
+    const user = userEvent.setup();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          product: productDetailPayload.product,
+          draft: {
+            id: "draft_1",
+            productId: "prod_1",
+            englishTitle: null,
+            shortDescription: null,
+            longDescription: null,
+            tags: [],
+            materials: [],
+            attributes: [],
+            seoNotes: null,
+            policyNotes: null,
+            generatedVersion: 0,
+            editedVersion: 0,
+            lastGeneratedAt: null,
+            manualEditsPresent: false,
+          },
+          connectorProfileSnapshot: {
+            id: "profile_1",
+            label: "Mock Connector",
+          },
+        });
+      }
+
+      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          status: "online",
+          provider: "mock",
+          activeProfile: {
+            id: "profile_1",
+            label: "Mock Connector",
+            emailMasked: null,
+            provider: "mock",
+          },
+        });
+      }
+
+      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
+      }
+
+      if (url.includes("/products/prod_1")) {
+        return jsonResponse(productDetailPayload);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<ProductDetailPage />, {
+      route: "/products/prod_1",
+      path: "/products/:productId",
+    });
+
+    await user.click(await screen.findByRole("button", { name: /etsy'e yükle/i }));
+    await user.type(await screen.findByLabelText(/title/i), "Unsaved prep title");
+    await user.click(screen.getByRole("button", { name: /genel bakışa dön/i }));
+
+    expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /etsy'e yükle/i }));
+    expect(await screen.findByLabelText(/title/i)).toHaveValue("Unsaved prep title");
   });
 });

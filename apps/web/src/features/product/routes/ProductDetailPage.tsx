@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { fetchProductDetail } from "../../../app/api";
@@ -11,6 +11,7 @@ import { VariantTable } from "../components/VariantTable";
 export function ProductDetailPage() {
   const { productId } = useParams<{ productId: string }>();
   const [mode, setMode] = useState<"overview" | "prep">("overview");
+  const [hasOpenedPrep, setHasOpenedPrep] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: ["product-detail", productId],
@@ -20,6 +21,16 @@ export function ProductDetailPage() {
 
   if (!productId) {
     return <p className="text-sm text-rose-600">Ürün kimliği bulunamadı.</p>;
+  }
+
+  useEffect(() => {
+    setMode("overview");
+    setHasOpenedPrep(false);
+  }, [productId]);
+
+  function openPrepMode() {
+    setHasOpenedPrep(true);
+    setMode("prep");
   }
 
   return (
@@ -32,52 +43,32 @@ export function ProductDetailPage() {
           <ProductSummary
             detail={detailQuery.data}
             action={
+              mode === "overview" ? (
               <button
                 type="button"
-                className={[
-                  "rounded-2xl px-4 py-2 text-sm font-semibold transition",
-                  mode === "prep"
-                    ? "border border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                    : "bg-[#F1641E] text-white hover:bg-[#d95518]",
-                ].join(" ")}
-                onClick={() => setMode((current) => (current === "overview" ? "prep" : "overview"))}
+                className="rounded-2xl bg-[#F1641E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95518]"
+                onClick={openPrepMode}
               >
-                {mode === "overview" ? "Etsy'e Yükle" : "Genel Bakışa Dön"}
+                Etsy'e Yükle
               </button>
+              ) : null
             }
           />
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={[
-                "rounded-2xl px-4 py-2 text-sm font-medium transition",
-                mode === "overview" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300",
-              ].join(" ")}
-              onClick={() => setMode("overview")}
-            >
-              Genel Bakış
-            </button>
-            <button
-              type="button"
-              className={[
-                "rounded-2xl px-4 py-2 text-sm font-medium transition",
-                mode === "prep" ? "bg-amber-500 text-slate-950" : "border border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300",
-              ].join(" ")}
-              onClick={() => setMode("prep")}
-            >
-              Hazırlık
-            </button>
-          </div>
-
-          {mode === "overview" ? (
-            <>
+          <div className="space-y-6" hidden={mode !== "overview"} aria-hidden={mode !== "overview"}>
+            {detailQuery.data ? (
+              <>
               <VariantTable variants={detailQuery.data.variants} />
               <ChangeTimeline items={detailQuery.data.changeTimeline} />
-            </>
-          ) : (
-            <EtsyPrepWorkspace productId={productId} />
-          )}
+              </>
+            ) : null}
+          </div>
+
+          {hasOpenedPrep ? (
+            <div hidden={mode !== "prep"} aria-hidden={mode !== "prep"}>
+              <EtsyPrepWorkspace productId={productId} onBack={() => setMode("overview")} />
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

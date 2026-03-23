@@ -6,9 +6,10 @@ import { useEtsyPrepWorkspace } from "../hooks/useEtsyPrepWorkspace";
 
 interface EtsyPrepWorkspaceProps {
   productId: string;
+  onBack: () => void;
 }
 
-export function EtsyPrepWorkspace({ productId }: EtsyPrepWorkspaceProps) {
+export function EtsyPrepWorkspace({ productId, onBack }: EtsyPrepWorkspaceProps) {
   const workspace = useEtsyPrepWorkspace(productId);
 
   if (workspace.isLoading) {
@@ -27,6 +28,8 @@ export function EtsyPrepWorkspace({ productId }: EtsyPrepWorkspaceProps) {
         saveMessage={workspace.saveMessage}
         saveError={workspace.saveError}
         connectorLabel={workspace.connectorProfileSnapshot?.label ?? null}
+        generationBlockedReason={workspace.generationBlockedReason}
+        onBack={onBack}
         onSave={workspace.saveWorkspace}
       />
 
@@ -44,11 +47,6 @@ export function EtsyPrepWorkspace({ productId }: EtsyPrepWorkspaceProps) {
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Alan Üretimi</p>
               <h3 className="mt-2 text-xl font-semibold text-slate-900">Title, description ve tags</h3>
-              {!workspace.canGenerate ? (
-                <p className="mt-2 text-sm text-amber-700">
-                  Alan üretimi için aktif bir connector profili gerekli.
-                </p>
-              ) : null}
             </div>
 
             <GenerationFieldRow
@@ -98,8 +96,6 @@ export function EtsyPrepWorkspace({ productId }: EtsyPrepWorkspaceProps) {
           seoNotes={workspace.form.seoNotes}
           policyNotes={workspace.form.policyNotes}
           riskNotes={workspace.riskNotes}
-          onSeoNotesChange={workspace.updateSeoNotes}
-          onPolicyNotesChange={workspace.updatePolicyNotes}
         />
       </div>
     </div>

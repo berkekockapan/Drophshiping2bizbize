@@ -5,13 +5,24 @@ function jsonLine(value: unknown) {
   return `${JSON.stringify(value)}\n`;
 }
 
-export function streamEvents(events: Array<Record<string, unknown>>) {
+type StreamEvent = Record<string, unknown>;
+
+export function streamEvents(producer: (emit: (event: StreamEvent) => void) => Promise<void> | void) {
   return new Response(
     new ReadableStream({
-      start(controller) {
-        for (const event of events) {
-          controller.enqueue(new TextEncoder().encode(jsonLine(event)));
+      async start(controller) {
+        const encoder = new TextEncoder();
+        const emit = (event: StreamEvent) => {
+          controller.enqueue(encoder.encode(jsonLine(event)));
+        };
+
+        try {
+          await producer(emit);
+        } catch (error) {
+          controller.error(error);
+          return;
         }
+
         controller.close();
       },
     }),
@@ -24,24 +35,32 @@ export function streamEvents(events: Array<Record<string, unknown>>) {
   );
 }
 
-export async function buildEtsyPrepAnalysis(detail: EtsyPrepView, options: { fetchImpl: typeof fetch }) {
-  const signals = await fetchEtsyListingSignals(options.fetchImpl, "description", detail.product);
-  const title = detail.product.title ?? "Untitled product";
-  const seoNotes = `Lead with keyword focus from ${signals.keywordAngles[0] ?? "core keyword"} and support it with buyer-intent phrasing.`;
-
-  return streamEvents([
-    {
+export async function buildEtsyPrepAnalysis(
+  detail: EtsyPrepView,
+  options: { fetchImpl: typeof fetch; waitFor?: Promise<void> },
+) {
+  return streamEvents(async (emit) => {
+    emit({
       type: "step_started",
       step: "fetch_listing_signals",
       field: "general",
-    },
-    {
+    });
+
+    if (options.waitFor) {
+      await options.waitFor;
+    }
+
+    const signals = await fetchEtsyListingSignals(options.fetchImpl, "description", detail.product);
+    const title = detail.product.title ?? "Untitled product";
+    const seoNotes = `Lead with keyword focus from ${signals.keywordAngles[0] ?? "core keyword"} and support it with buyer-intent phrasing.`;
+
+    emit({
       type: "step_completed",
       step: "fetch_listing_signals",
       field: "general",
       signals,
-    },
-    {
+    });
+    emit({
       type: "research_summary",
       summary: {
         title,
@@ -49,8 +68,8 @@ export async function buildEtsyPrepAnalysis(detail: EtsyPrepView, options: { fet
         audienceThemes: signals.audienceThemes,
         policyNotes: signals.policyNotes,
       },
-    },
-    {
+    });
+    emit({
       type: "result_ready",
       result: {
         productId: detail.product.id,
@@ -60,6 +79,6 @@ export async function buildEtsyPrepAnalysis(detail: EtsyPrepView, options: { fet
           merchandisingNotes: signals.merchandisingNotes.join(" "),
         },
       },
-    },
-  ]);
+    });
+  });
 }

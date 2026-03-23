@@ -16,11 +16,13 @@ function tokenize(value: string | null | undefined) {
     return [];
   }
 
-  return value
-    .toLowerCase()
-    .split(/[^a-z0-9]+/i)
-    .map((part) => part.trim())
-    .filter((part) => part.length >= 4);
+  return (
+    value
+      .toLocaleLowerCase("tr-TR")
+      .match(/[\p{L}\p{N}]+/gu)
+      ?.map((part) => part.trim())
+      .filter((part) => part.length >= 3) ?? []
+  );
 }
 
 function unique(values: string[]) {

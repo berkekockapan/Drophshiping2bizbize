@@ -15,6 +15,7 @@ export interface EtsyPrepFieldPackage {
   context: {
     productId: string;
     signals: EtsyListingSignals;
+    outputSchema: Record<string, unknown>;
     constraints?: Record<string, unknown>;
   };
 }
@@ -31,20 +32,75 @@ function defaultConstraints(field: EtsyPrepField) {
   return { locale: "en" };
 }
 
+function outputSchemaForField(field: EtsyPrepField) {
+  if (field === "title") {
+    return {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "keywords"],
+      properties: {
+        title: { type: "string", minLength: 1, maxLength: 140 },
+        keywords: {
+          type: "array",
+          minItems: 3,
+          maxItems: 8,
+          items: { type: "string", minLength: 1 },
+        },
+        rationale: { type: "string", minLength: 1 },
+      },
+    };
+  }
+
+  if (field === "description") {
+    return {
+      type: "object",
+      additionalProperties: false,
+      required: ["shortDescription", "longDescription"],
+      properties: {
+        shortDescription: { type: "string", minLength: 1, maxLength: 260 },
+        longDescription: { type: "string", minLength: 1 },
+        keyFeatures: {
+          type: "array",
+          minItems: 3,
+          maxItems: 6,
+          items: { type: "string", minLength: 1 },
+        },
+      },
+    };
+  }
+
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["tags"],
+    properties: {
+      tags: {
+        type: "array",
+        minItems: 13,
+        maxItems: 13,
+        items: { type: "string", minLength: 1, maxLength: 20 },
+      },
+    },
+  };
+}
+
 export async function buildEtsyPrepFieldPackage(input: EtsyPrepFieldPackageInput): Promise<EtsyPrepFieldPackage> {
   const signals = await fetchEtsyListingSignals(input.fetchImpl, input.field, input.product);
+  const outputSchema = outputSchemaForField(input.field);
 
   return {
     field: input.field,
     prompt: [
       "Return ONLY valid JSON.",
       `Field: ${input.field}`,
+      `OUTPUT_SCHEMA: ${JSON.stringify(outputSchema)}`,
       `Source title: ${input.product.title ?? ""}`,
       `Signals: ${JSON.stringify(signals.keywordAngles)}`,
     ].join("\n"),
     context: {
       productId: input.product.id,
       signals,
+      outputSchema,
       constraints: input.constraints,
     },
   };
@@ -53,33 +109,39 @@ export async function buildEtsyPrepFieldPackage(input: EtsyPrepFieldPackageInput
 export async function buildEtsyPrepFieldPackageStream(
   field: EtsyPrepField,
   detail: EtsyPrepView,
-  options: { fetchImpl: typeof fetch },
+  options: { fetchImpl: typeof fetch; waitFor?: Promise<void> },
 ) {
-  const constraints = defaultConstraints(field);
-  const fieldPackage = await buildEtsyPrepFieldPackage({
-    field,
-    product: detail.product,
-    fetchImpl: options.fetchImpl,
-    constraints,
-  });
+  return streamEvents(async (emit) => {
+    const constraints = defaultConstraints(field);
 
-  return streamEvents([
-    {
+    emit({
       type: "step_started",
       step: "build_prompt_package",
       field,
-    },
-    {
+    });
+
+    if (options.waitFor) {
+      await options.waitFor;
+    }
+
+    const fieldPackage = await buildEtsyPrepFieldPackage({
+      field,
+      product: detail.product,
+      fetchImpl: options.fetchImpl,
+      constraints,
+    });
+
+    emit({
       type: "step_completed",
       step: "build_prompt_package",
       field,
       constraints,
-    },
-    {
+    });
+    emit({
       type: "prompt_ready",
       field,
       prompt: fieldPackage.prompt,
       context: fieldPackage.context,
-    },
-  ]);
+    });
+  });
 }

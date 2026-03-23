@@ -2,9 +2,13 @@ import { Hono } from "hono";
 
 import type { Env } from "../config/bindings";
 import { ParseError } from "../modules/scraping/parseErrors";
+import { buildActiveManualRefreshRunView, buildManualRefreshRunView } from "../modules/tracking/buildManualRefreshRunView";
 import { buildTrackingListView } from "../modules/tracking/buildTrackingListView";
 import { deleteTrackedProduct } from "../modules/tracking/deleteTrackedProduct";
 import { DuplicateProductError, type CreateTrackedProductOptions, createTrackedProduct } from "../modules/tracking/createTrackedProduct";
+import { processManualRefreshRun } from "../modules/tracking/processManualRefreshRun";
+import { retryFailedManualRefreshRun } from "../modules/tracking/retryFailedManualRefreshRun";
+import { startManualRefreshRun } from "../modules/tracking/startManualRefreshRun";
 import { setTrackedProductFavorite } from "../modules/tracking/setTrackedProductFavorite";
 
 export function createTrackingRouter(options: CreateTrackedProductOptions = {}) {
@@ -22,6 +26,41 @@ export function createTrackingRouter(options: CreateTrackedProductOptions = {}) 
     });
 
     return c.json(view);
+  });
+
+  app.post("/products/refresh-runs", async (c) => {
+    const run = await startManualRefreshRun(c.env);
+    c.executionCtx.waitUntil(processManualRefreshRun(c.env, run.id, options));
+
+    const view = await buildManualRefreshRunView(c.env.DB, run.id);
+    return c.json({ run: view }, 202);
+  });
+
+  app.get("/products/refresh-runs/active", async (c) => {
+    return c.json({ run: await buildActiveManualRefreshRunView(c.env.DB) });
+  });
+
+  app.get("/products/refresh-runs/:runId", async (c) => {
+    const run = await buildManualRefreshRunView(c.env.DB, c.req.param("runId"));
+    if (!run) {
+      return c.json({ error: "Run not found" }, 404);
+    }
+
+    return c.json({ run });
+  });
+
+  app.post("/products/refresh-runs/:runId/retry-failed", async (c) => {
+    const sourceRunId = c.req.param("runId");
+    const sourceRun = await buildManualRefreshRunView(c.env.DB, sourceRunId);
+    if (!sourceRun) {
+      return c.json({ error: "Run not found" }, 404);
+    }
+
+    const run = await retryFailedManualRefreshRun(c.env, sourceRunId);
+    c.executionCtx.waitUntil(processManualRefreshRun(c.env, run.id, options));
+
+    const view = await buildManualRefreshRunView(c.env.DB, run.id);
+    return c.json({ run: view }, 202);
   });
 
   app.post("/products/:productId/favorite", async (c) => {

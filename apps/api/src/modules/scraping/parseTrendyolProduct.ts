@@ -59,6 +59,20 @@ function firstText(...values: unknown[]): string | null {
   return null;
 }
 
+function firstScalarText(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return null;
+}
+
 function parsePriceValue(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.round(value * 100);
@@ -69,6 +83,28 @@ function parsePriceValue(value: unknown) {
   }
 
   return null;
+}
+
+function parseNestedPrice(value: unknown): number | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "number" || typeof value === "string") {
+    return parsePriceValue(value);
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return (
+    parseNestedPrice(value.discountedPrice) ??
+    parseNestedPrice(value.sellingPrice) ??
+    parseNestedPrice(value.originalPrice) ??
+    parseNestedPrice(value.value) ??
+    parseNestedPrice(value.text)
+  );
 }
 
 function readImageUrls(value: unknown): string[] {
@@ -131,6 +167,218 @@ function readBrand(value: unknown): string | null {
   return null;
 }
 
+function buildDisplayTitle(name: string | null, brand: string | null) {
+  if (!name) {
+    return null;
+  }
+
+  if (!brand || name.toLocaleLowerCase("tr-TR").startsWith(brand.toLocaleLowerCase("tr-TR"))) {
+    return name;
+  }
+
+  return `${brand} ${name}`;
+}
+
+function tryNormalizeUrl(value: unknown, baseUrl?: string | null) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  try {
+    return new URL(value.trim(), baseUrl ?? "https://www.trendyol.com").toString();
+  } catch {
+    return null;
+  }
+}
+
+function readUrlCandidate(baseUrl: string | null, ...values: unknown[]): string | null {
+  for (const value of values) {
+    const normalized = tryNormalizeUrl(value, baseUrl);
+    if (normalized) {
+      return normalized;
+    }
+
+    if (!isRecord(value)) {
+      continue;
+    }
+
+    const nested = readUrlCandidate(
+      baseUrl,
+      value.url,
+      value.uri,
+      value.href,
+      value.link,
+      value.path,
+      value.webUrl,
+      value.pdpUrl,
+      value.productUrl,
+    );
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function readVariantUrl(variant: Record<string, unknown>, baseUrl: string | null) {
+  return readUrlCandidate(
+    baseUrl,
+    variant.url,
+    variant.uri,
+    variant.href,
+    variant.link,
+    variant.path,
+    variant.webUrl,
+    variant.pdpUrl,
+    variant.productUrl,
+    variant.merchantListing,
+  );
+}
+
+function parseStockStateFromRecord(value: Record<string, unknown>): "IN_STOCK" | "OUT_OF_STOCK" {
+  if (typeof value.inStock === "boolean") {
+    return value.inStock ? "IN_STOCK" : "OUT_OF_STOCK";
+  }
+
+  if (typeof value.sellable === "boolean") {
+    return value.sellable ? "IN_STOCK" : "OUT_OF_STOCK";
+  }
+
+  if (typeof value.stockStatus === "number") {
+    return value.stockStatus > 0 ? "IN_STOCK" : "OUT_OF_STOCK";
+  }
+
+  return parseStockState(value.availability);
+}
+
+function readEnvoyProps(html: string): Record<string, unknown> | null {
+  const marker = /window\["__envoy__PROPS"\]\s*=/;
+  const match = marker.exec(html);
+  if (!match) {
+    return null;
+  }
+
+  const start = match.index + match[0].length;
+  const end = html.indexOf("</script>", start);
+  if (end === -1) {
+    return null;
+  }
+
+  const payload = html.slice(start, end).trim().replace(/;$/, "");
+  try {
+    const parsed = JSON.parse(payload);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseFromEnvoyProps(html: string): ParsedProduct | null {
+  const envoyProps = readEnvoyProps(html);
+  if (!envoyProps || !isRecord(envoyProps.product)) {
+    return null;
+  }
+
+  let jsonLdFallback: ParsedProduct | null = null;
+  try {
+    jsonLdFallback = parseFromJsonLd(html);
+  } catch {
+    jsonLdFallback = null;
+  }
+
+  const product = envoyProps.product;
+  const merchantListing = isRecord(product.merchantListing) ? product.merchantListing : null;
+  const productVariants = toArray(product.variants).filter((entry): entry is Record<string, unknown> => isRecord(entry));
+  const merchantVariants = toArray(merchantListing?.variants).filter((entry): entry is Record<string, unknown> => isRecord(entry));
+  const winnerVariant = isRecord(merchantListing?.winnerVariant) ? merchantListing.winnerVariant : null;
+  const productUrl = readUrlCandidate(null, product.url, merchantListing?.url);
+
+  const variantRecords =
+    productVariants.length > 0 ? productVariants : merchantVariants.length > 0 ? merchantVariants : winnerVariant ? [winnerVariant] : [];
+
+  const selectedVariant =
+    variantRecords.find((variant) => variant.isSelected === true) ?? winnerVariant ?? variantRecords[0] ?? null;
+  const currentPrice = parseNestedPrice(selectedVariant?.price) ?? parseNestedPrice(winnerVariant?.price) ?? jsonLdFallback?.price ?? null;
+
+  if (currentPrice === null) {
+    return null;
+  }
+
+  const variants = variantRecords.map((variant, index) => {
+    const option = firstText(variant.beautifiedValue, variant.value);
+    const price = parseNestedPrice(variant.price) ?? currentPrice;
+    const url = readVariantUrl(variant, productUrl) ?? productUrl;
+
+    return {
+      variantKey:
+        firstScalarText(variant.itemNumber, variant.barcode, variant.listingId) ?? option ?? `variant-${index + 1}`,
+      option1: option,
+      option2: null,
+      option3: null,
+      stockState: parseStockStateFromRecord(variant),
+      price,
+      rawPayload: {
+        itemNumber: firstScalarText(variant.itemNumber),
+        barcode: firstScalarText(variant.barcode),
+        value: firstText(variant.value),
+        beautifiedValue: firstText(variant.beautifiedValue),
+        stockState: parseStockStateFromRecord(variant),
+        url,
+        price,
+      },
+    } satisfies ParsedVariant;
+  });
+
+  const normalizedVariants =
+    variants.length > 0
+      ? variants
+      : [
+          {
+            variantKey: firstScalarText(winnerVariant?.itemNumber, winnerVariant?.barcode) ?? "default",
+            option1: null,
+            option2: null,
+            option3: null,
+            stockState: winnerVariant ? parseStockStateFromRecord(winnerVariant) : "IN_STOCK",
+            price: currentPrice,
+            rawPayload: {
+              itemNumber: firstScalarText(winnerVariant?.itemNumber),
+              barcode: firstScalarText(winnerVariant?.barcode),
+              stockState: winnerVariant ? parseStockStateFromRecord(winnerVariant) : "IN_STOCK",
+              url: winnerVariant ? readVariantUrl(winnerVariant, productUrl) ?? productUrl : productUrl,
+              price: currentPrice,
+            },
+          } satisfies ParsedVariant,
+        ];
+
+  const attributeEntries = toArray(product.attributes)
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .map((entry) => ({
+      key: firstText(isRecord(entry.key) ? entry.key.name : entry.key) ?? "",
+      value: firstText(isRecord(entry.value) ? entry.value.name : entry.value) ?? "",
+    }))
+    .filter((attribute) => attribute.key && attribute.value);
+
+  const images = [...new Set(readImageUrls(product.images))].filter((image) => !image.toLowerCase().includes("product-placeholder"));
+  const brand = readBrand(product.brand) ?? jsonLdFallback?.brand ?? null;
+  const title = buildDisplayTitle(firstText(product.name) ?? jsonLdFallback?.title ?? null, brand);
+
+  if (!title) {
+    return null;
+  }
+
+  return {
+    title,
+    brand,
+    category: firstText(isRecord(product.category) ? product.category.name : product.category) ?? jsonLdFallback?.category ?? null,
+    descriptionRaw: firstText(product.description) ?? jsonLdFallback?.descriptionRaw ?? null,
+    attributes: attributeEntries.length > 0 ? attributeEntries : jsonLdFallback?.attributes ?? [],
+    images: images.length > 0 ? images : jsonLdFallback?.images ?? [],
+    price: currentPrice,
+    variants: normalizedVariants,
+  };
+}
+
 function parseFromFixtureDom(html: string): ParsedProduct {
   const $ = load(html);
   const root = $('[data-product-page="trendyol"]').first();
@@ -169,6 +417,7 @@ function parseFromFixtureDom(html: string): ParsedProduct {
     const element = $(node);
     const rawPrice = element.attr("data-price");
     const parsedPrice = parsePrice(rawPrice);
+    const url = tryNormalizeUrl(element.attr("data-url"));
 
     return {
       variantKey: element.attr("data-key")?.trim() ?? crypto.randomUUID(),
@@ -180,6 +429,7 @@ function parseFromFixtureDom(html: string): ParsedProduct {
       rawPayload: {
         price: parsedPrice ?? price,
         stockState: element.attr("data-stock-state")?.trim() ?? "IN_STOCK",
+        url,
       },
     } satisfies ParsedVariant;
   });
@@ -198,6 +448,7 @@ function parseFromFixtureDom(html: string): ParsedProduct {
             rawPayload: {
               price,
               stockState: "IN_STOCK",
+              url: null,
             },
           } satisfies ParsedVariant,
         ];
@@ -256,6 +507,7 @@ function parseFromJsonLd(html: string): ParsedProduct | null {
   const variants: ParsedVariant[] = variantNodes.flatMap((variantNode, index) => {
       const variantOffer = readOffer(variantNode.offers);
       const variantPrice = parsePriceValue(variantOffer?.price) ?? groupPrice;
+      const url = readUrlCandidate(null, variantOffer?.url, variantNode.url);
       if (variantPrice === null) {
         return [];
       }
@@ -272,7 +524,7 @@ function parseFromJsonLd(html: string): ParsedProduct | null {
           sku: firstText(variantNode.sku),
           color: firstText(variantNode.color),
           availability: firstText(variantOffer?.availability),
-          url: firstText(variantOffer?.url),
+          url,
           price: variantPrice,
         },
       },
@@ -297,7 +549,7 @@ function parseFromJsonLd(html: string): ParsedProduct | null {
             price: normalizedPrice,
             rawPayload: {
               availability: firstText(groupOffer?.availability),
-              url: firstText(groupOffer?.url),
+              url: readUrlCandidate(null, groupOffer?.url, productNode.url),
               price: normalizedPrice,
             },
           } satisfies ParsedVariant,
@@ -320,6 +572,11 @@ export function parseTrendyolProduct(html: string): ParsedProduct {
 
   if ($('[data-testid="product-unavailable"]').length > 0) {
     throw new ParseError("Product is unavailable", "PRODUCT_UNAVAILABLE");
+  }
+
+  const envoyParsed = parseFromEnvoyProps(html);
+  if (envoyParsed) {
+    return envoyParsed;
   }
 
   try {

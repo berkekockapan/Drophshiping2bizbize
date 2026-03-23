@@ -91,6 +91,50 @@ export function createProductsRepo(db: D1Database) {
         reviewNeededCount: reviewNeeded?.count ?? 0,
       };
     },
+    async listTrackedProductIds() {
+      const result = await db
+        .prepare(
+          `select id
+           from products
+           order by created_at asc`,
+        )
+        .all<{ id: string }>();
+
+      return result.results.map((item) => item.id);
+    },
+    async listFailedRunProductIds(runId: string) {
+      const result = await db
+        .prepare(
+          `select product_id as productId
+           from manual_refresh_run_items
+           where run_id = ? and status = 'FAILED'
+           order by created_at asc`,
+        )
+        .bind(runId)
+        .all<{ productId: string }>();
+
+      return result.results.map((item) => item.productId);
+    },
+    async getProductImageSnapshot(productId: string) {
+      const product = await db
+        .prepare(
+          `select title, images_raw as imagesRaw
+           from products
+           where id = ?
+           limit 1`,
+        )
+        .bind(productId)
+        .first<{
+          title: string | null;
+          imagesRaw: string | null;
+        }>();
+
+      if (!product) {
+        return null;
+      }
+
+      return product;
+    },
     async listTrackingCards(
       filters: { status?: string | null; parseStatus?: string | null; search?: string | null; favorite?: boolean } = {},
     ) {

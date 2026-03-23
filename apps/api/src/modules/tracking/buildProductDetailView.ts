@@ -15,6 +15,33 @@ function safeParseJson(value: string | null) {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function normalizeTrendyolUrl(value: unknown, baseUrl: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  try {
+    return new URL(value.trim(), baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolveVariantTrendyolUrl(rawPayload: unknown, productUrl: string, fallbackUrl: string | null) {
+  if (isRecord(rawPayload)) {
+    const resolved = normalizeTrendyolUrl(rawPayload.url, productUrl);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return fallbackUrl ? normalizeTrendyolUrl(fallbackUrl, productUrl) ?? fallbackUrl : null;
+}
+
 export async function buildProductDetailView(db: D1Database, productId: string) {
   const productsRepo = createProductsRepo(db);
   const historyRepo = createHistoryRepo(db);
@@ -32,10 +59,16 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
       images: safeParseJson(detail.product.imagesRaw),
     },
     currentState: detail.currentState,
-    variants: detail.variants.map((variant) => ({
-      ...variant,
-      rawPayload: safeParseJson(variant.rawPayload),
-    })),
+    variants: detail.variants.map((variant) => {
+      const rawPayload = safeParseJson(variant.rawPayload);
+      const fallbackUrl = detail.variants.length === 1 ? detail.product.trendyolUrl : null;
+
+      return {
+        ...variant,
+        trendyolUrl: resolveVariantTrendyolUrl(rawPayload, detail.product.trendyolUrl, fallbackUrl),
+        rawPayload,
+      };
+    }),
     priceHistory: await historyRepo.listPriceHistory(productId),
     stockHistory: await historyRepo.listStockHistory(productId),
     notifications: await notificationsRepo.listNotifications(productId),

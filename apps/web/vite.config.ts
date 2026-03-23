@@ -9,6 +9,7 @@ export default defineConfig({
     jsx: "automatic",
   },
   server: {
+    host: "127.0.0.1",
     proxy: Object.fromEntries(
       apiProxyRoutes.map((route) => [
         route,

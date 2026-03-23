@@ -1,74 +1,81 @@
 import { readFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "../../src/index";
-import type { D1Database, D1PreparedStatement, Env } from "../../src/config/bindings";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
+import { createTestEnv, InMemoryRefreshQueue } from "../support/sqlite";
 
-const migrationPath = fileURLToPath(new URL("../../drizzle/0000_initial.sql", import.meta.url));
 const productWithVariantsHtml = readFileSync(
   new URL("../fixtures/trendyol/product-with-variants.html", import.meta.url),
   "utf8",
 );
 
-class SQLitePreparedStatement implements D1PreparedStatement {
-  constructor(
-    private readonly database: DatabaseSync,
-    private readonly query: string,
-    private readonly values: unknown[] = [],
-  ) {}
-
-  bind(...values: unknown[]) {
-    return new SQLitePreparedStatement(this.database, this.query, values);
-  }
-
-  async first<T = Record<string, unknown>>() {
-    const statement = this.database.prepare(this.query);
-    return (statement.get(...(this.values as any[])) as T | undefined) ?? null;
-  }
-
-  async all<T = Record<string, unknown>>() {
-    const statement = this.database.prepare(this.query);
-    return { results: statement.all(...(this.values as any[])) as T[] };
-  }
-
-  async run() {
-    const statement = this.database.prepare(this.query);
-    statement.run(...(this.values as any[]));
-    return {};
-  }
-}
-
-class SQLiteD1Database implements D1Database {
-  constructor(private readonly database: DatabaseSync) {}
-
-  prepare(query: string) {
-    return new SQLitePreparedStatement(this.database, query);
-  }
-}
-
-function createEnv() {
-  const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(readFileSync(migrationPath, "utf8"));
-
-  const env: Env = {
-    DB: new SQLiteD1Database(sqlite),
-    REFRESH_QUEUE: {
-      async send() {
-        return;
-      },
+function createExecutionContext(promises: Array<Promise<unknown>>): Parameters<ReturnType<typeof createApp>["fetch"]>[2] {
+  return {
+    waitUntil(promise) {
+      promises.push(promise);
     },
+    passThroughOnException() {
+      return;
+    },
+    props: {},
   };
-
-  return { env, sqlite };
 }
 
 describe("tracking actions", () => {
+  it("starts a manual refresh run instead of queueing jobs", async () => {
+    const queue = new InMemoryRefreshQueue();
+    const { env, sqlite } = createTestEnv({ queue });
+    const fetchImpl = async () => new Response(productWithVariantsHtml, { status: 200 });
+    const app = createApp({ fetchImpl });
+
+    const first = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl,
+        now: new Date("2026-03-20T00:00:00.000Z"),
+      },
+    );
+
+    const second = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-456?merchantId=1" },
+      {
+        fetchImpl,
+        now: new Date("2026-03-20T00:05:00.000Z"),
+      },
+    );
+
+    sqlite.prepare("update products set status = ? where id = ?").run("PAUSED", second.product.id);
+
+    const waitUntilPromises: Array<Promise<unknown>> = [];
+    const response = await app.fetch(
+      new Request("http://localhost/tracking/products/refresh-runs", {
+        method: "POST",
+      }),
+      env,
+      createExecutionContext(waitUntilPromises),
+    );
+
+    expect(response.status).toBe(202);
+    expect((await response.json()) as { run: unknown }).toEqual({
+      run: expect.objectContaining({
+        totalCount: 2,
+        status: "RUNNING",
+      }),
+    });
+
+    await Promise.all(waitUntilPromises);
+
+    const runs = sqlite.prepare("select count(*) as count from manual_refresh_runs").get() as { count: number };
+    expect(runs.count).toBe(1);
+    expect(queue.sent).toEqual([]);
+  });
+
   it("toggles favorite state and filters favorites-only tracking list", async () => {
-    const { env } = createEnv();
+    const { env } = createTestEnv();
     const fetchImpl = async () => new Response(productWithVariantsHtml, { status: 200 });
     const app = createApp({ fetchImpl });
 
@@ -119,7 +126,7 @@ describe("tracking actions", () => {
   });
 
   it("permanently deletes a tracked product and cascades related rows", async () => {
-    const { env, sqlite } = createEnv();
+    const { env, sqlite } = createTestEnv();
     const fetchImpl = async () => new Response(productWithVariantsHtml, { status: 200 });
     const app = createApp({ fetchImpl });
 

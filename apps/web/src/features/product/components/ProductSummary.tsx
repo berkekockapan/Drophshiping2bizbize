@@ -2,29 +2,40 @@ import { formatDateTime, formatPrice, type ProductDetailResponse } from "../../.
 import { ProductImageGallery } from "./ProductImageGallery";
 import { StatCard } from "../../shared/components/StatCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLink";
 
 interface ProductSummaryProps {
   detail: ProductDetailResponse;
 }
 
 export function ProductSummary({ detail }: ProductSummaryProps) {
+  const title = detail.product.title ?? "Başlıksız ürün";
+
   return (
     <section className="space-y-5 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <ProductImageGallery title={detail.product.title} images={detail.product.images ?? []} />
+        <ProductImageGallery
+          productId={detail.product.id}
+          title={detail.product.title}
+          images={detail.product.images ?? []}
+        />
 
         <div className="space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Ürün Özeti</p>
-              <h1 className="text-3xl font-semibold text-slate-900">{detail.product.title ?? "Başlıksız ürün"}</h1>
+              <h1 className="text-3xl font-semibold text-slate-900">{title}</h1>
               <p className="text-sm text-slate-500">
                 {detail.product.brand ?? "Marka yok"}
                 {detail.product.category ? ` • ${detail.product.category}` : ""}
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <TrendyolExternalLink
+                href={detail.product.trendyolUrl}
+                label={`Trendyol ürün sayfasını yeni sekmede aç: ${title}`}
+              />
               <StatusBadge status={detail.product.status} />
               <StatusBadge status={detail.product.parseStatus} />
             </div>

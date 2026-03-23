@@ -2,14 +2,27 @@ import { Link } from "react-router-dom";
 
 import { formatPrice, type TrackingItem } from "../../../app/api";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLink";
 
 interface ProductCardProps {
   item: TrackingItem;
+  onToggleFavorite?: (item: TrackingItem) => void;
+  onDelete?: (item: TrackingItem) => void;
+  favoritePending?: boolean;
+  deletePending?: boolean;
 }
 
-export function ProductCard({ item }: ProductCardProps) {
+export function ProductCard({
+  item,
+  onToggleFavorite,
+  onDelete,
+  favoritePending = false,
+  deletePending = false,
+}: ProductCardProps) {
   const title = item.title ?? "Başlıksız ürün";
   const productHref = `/products/${item.id}`;
+  const favoriteLabel = item.isFavorite ? "Favoriden çıkar" : "Favoriye ekle";
+  const actionsDisabled = favoritePending || deletePending;
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -40,7 +53,31 @@ export function ProductCard({ item }: ProductCardProps) {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {item.trendyolUrl ? (
+            <TrendyolExternalLink
+              href={item.trendyolUrl}
+              label={`Trendyol ürün sayfasını yeni sekmede aç: ${title}`}
+              size="sm"
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onToggleFavorite?.(item)}
+            disabled={actionsDisabled}
+            aria-pressed={item.isFavorite}
+            className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {favoritePending ? "Kaydediliyor..." : favoriteLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete?.(item)}
+            disabled={actionsDisabled}
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deletePending ? "Siliniyor..." : "Sil"}
+          </button>
           <StatusBadge status={item.status} />
           <StatusBadge status={item.parseStatus} />
         </div>

@@ -37,10 +37,11 @@ const productDetailPayload = {
       option1: "L",
       option2: "Siyah",
       option3: null,
+      trendyolUrl: "https://www.trendyol.com/example/l-siyah",
       currentStockState: "IN_STOCK",
       currentPrice: 44990,
       lastSeenAt: Date.parse("2026-03-20T10:00:00.000Z"),
-      rawPayload: { stockState: "IN_STOCK" },
+      rawPayload: { stockState: "IN_STOCK", url: "https://www.trendyol.com/example/l-siyah" },
     },
   ],
   priceHistory: [
@@ -109,10 +110,27 @@ describe("ProductDetailPage", () => {
     expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
     expect(await screen.findByText(/en düşük/i)).toBeInTheDocument();
     expect(await screen.findByText(/fiyat geçmişi/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /trendyol ürün sayfasını yeni sekmede aç: oversize hoodie/i })).toHaveAttribute(
+      "href",
+      "https://www.trendyol.com/example",
+    );
+    expect(await screen.findByRole("link", { name: /trendyol ürün sayfasını yeni sekmede aç: oversize hoodie/i })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
+    expect(await screen.findByRole("link", { name: /trendyol varyasyon sayfasını yeni sekmede aç: l \/ siyah/i })).toHaveAttribute(
+      "href",
+      "https://www.trendyol.com/example/l-siyah",
+    );
+    expect(await screen.findByRole("link", { name: /trendyol varyasyon sayfasını yeni sekmede aç: l \/ siyah/i })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
     expect(await screen.findByRole("img", { name: /oversize hoodie ana görsel/i })).toHaveAttribute(
       "src",
       "https://cdn.example.com/hoodie-1.jpg",
     );
+    expect(await screen.findByRole("button", { name: /jpg indir/i })).toBeInTheDocument();
   });
 
   it("renders unread notifications grouped by severity", async () => {

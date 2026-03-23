@@ -17,6 +17,7 @@ export interface TrackingItem {
   maxPrice: number | null;
   inStockVariantCount: number | null;
   totalVariantCount: number | null;
+  isFavorite: boolean;
   lastCheckedAt?: number | null;
 }
 
@@ -27,6 +28,7 @@ export interface TrackingViewResponse {
     status?: string | null;
     parseStatus?: string | null;
     search?: string | null;
+    favorite?: boolean;
   };
 }
 
@@ -76,6 +78,7 @@ export interface ProductDetailResponse {
     option1: string | null;
     option2: string | null;
     option3: string | null;
+    trendyolUrl: string | null;
     currentStockState: string;
     currentPrice: number | null;
     lastSeenAt: number | null;
@@ -184,6 +187,20 @@ export interface AppSettingsResponse {
   connectorHealthcheckEnabled: boolean;
 }
 
+export interface ManualRefreshRunSummary {
+  id: string;
+  status: "PENDING" | "RUNNING" | "COMPLETED";
+  totalCount: number;
+  pendingCount: number;
+  runningCount: number;
+  successCount: number;
+  failedCount: number;
+  startedAt: number | null;
+  finishedAt: number | null;
+  scope: "ALL" | "FAILED_ONLY";
+  sourceRunId: string | null;
+}
+
 async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 30_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -220,8 +237,14 @@ async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchTrackingView(): Promise<TrackingViewResponse> {
-  const response = await fetchWithTimeout("/tracking/products");
+export async function fetchTrackingView(options: { favoriteOnly?: boolean } = {}): Promise<TrackingViewResponse> {
+  const search = new URLSearchParams();
+  if (options.favoriteOnly) {
+    search.set("favorite", "true");
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithTimeout(`/tracking/products${suffix}`);
   return parseJson<TrackingViewResponse>(response);
 }
 
@@ -240,6 +263,92 @@ export async function createTrackedProduct(trendyolUrl: string): Promise<CreateT
 export async function fetchProductDetail(productId: string): Promise<ProductDetailResponse> {
   const response = await fetchWithTimeout(`/products/${productId}`);
   return parseJson<ProductDetailResponse>(response);
+}
+
+export async function setTrackedProductFavorite(productId: string, isFavorite: boolean) {
+  const response = await fetchWithTimeout(`/tracking/products/${productId}/favorite`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ isFavorite }),
+  });
+
+  return parseJson<{ productId: string; isFavorite: boolean }>(response);
+}
+
+export async function deleteTrackedProduct(productId: string) {
+  const response = await fetchWithTimeout(`/tracking/products/${productId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function startManualRefreshRun() {
+  const response = await fetchWithTimeout("/tracking/products/refresh-runs", {
+    method: "POST",
+  });
+
+  return parseJson<{ run: ManualRefreshRunSummary }>(response);
+}
+
+export async function fetchActiveManualRefreshRun() {
+  const response = await fetchWithTimeout("/tracking/products/refresh-runs/active");
+  return parseJson<{ run: ManualRefreshRunSummary | null }>(response);
+}
+
+export async function fetchManualRefreshRun(runId: string) {
+  const response = await fetchWithTimeout(`/tracking/products/refresh-runs/${runId}`);
+  return parseJson<{ run: ManualRefreshRunSummary }>(response);
+}
+
+export async function retryFailedManualRefreshRun(runId: string) {
+  const response = await fetchWithTimeout(`/tracking/products/refresh-runs/${runId}/retry-failed`, {
+    method: "POST",
+  });
+
+  return parseJson<{ run: ManualRefreshRunSummary }>(response);
+}
+
+function getFilenameFromDisposition(contentDisposition: string | null, fallback: string) {
+  if (!contentDisposition) {
+    return fallback;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const plainMatch = contentDisposition.match(/filename\s*=\s*"([^"]+)"/i) ?? contentDisposition.match(/filename\s*=\s*([^;]+)/i);
+  if (plainMatch?.[1]) {
+    return plainMatch[1].trim();
+  }
+
+  return fallback;
+}
+
+export async function downloadProductImage(productId: string, imageUrl: string) {
+  const search = new URLSearchParams({ url: imageUrl });
+  const response = await fetchWithTimeout(`/products/${productId}/images/download?${search.toString()}`);
+
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    if (contentType.includes("application/json")) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? "Görsel indirilemedi.");
+    }
+
+    throw new Error("Görsel indirilemedi.");
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: getFilenameFromDisposition(response.headers.get("content-disposition"), "urun-gorseli.jpg"),
+  };
 }
 
 export async function fetchNotifications(productId?: string): Promise<{ items: NotificationItem[] }> {

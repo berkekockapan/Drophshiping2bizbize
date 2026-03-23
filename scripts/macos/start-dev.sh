@@ -8,6 +8,8 @@ pids_dir="$runtime_dir/pids"
 logs_dir="$runtime_dir/logs"
 connector_env="$repo_root/apps/connector/.env"
 connector_env_example="$repo_root/apps/connector/.env.example"
+api_dir="$repo_root/apps/api"
+local_migrations_table="d1_local_migrations"
 
 mkdir -p "$pids_dir" "$logs_dir"
 
@@ -46,30 +48,93 @@ ensure_connector_env() {
   log "apps/connector/.env oluşturuldu. Varsayılan provider: mock"
 }
 
-ensure_local_api_db() {
-  log "Yerel API veritabanı kontrol ediliyor..."
+run_local_d1() {
+  (
+    cd "$api_dir" &&
+      pnpm exec wrangler d1 execute trendyol-etsy --local "$@"
+  )
+}
 
+run_local_d1_json() {
+  (
+    cd "$api_dir" &&
+      pnpm exec wrangler d1 execute trendyol-etsy --local --json "$@"
+  )
+}
+
+ensure_local_migration_table() {
+  run_local_d1 --command "CREATE TABLE IF NOT EXISTS $local_migrations_table (name TEXT PRIMARY KEY NOT NULL, applied_at INTEGER NOT NULL);" \
+    >/dev/null || fail "Yerel migration kayıt tablosu oluşturulamadı."
+}
+
+mark_local_migration_applied() {
+  local migration_name="$1"
+
+  run_local_d1 \
+    --command "INSERT OR IGNORE INTO $local_migrations_table (name, applied_at) VALUES ('$migration_name', unixepoch());" \
+    >/dev/null || fail "'$migration_name' migration kaydı yazılamadı."
+}
+
+local_migration_is_applied() {
+  local migration_name="$1"
   local query_output
-  if ! query_output="$(
-    cd "$repo_root/apps/api" &&
-      pnpm exec wrangler d1 execute trendyol-etsy --local --command "SELECT name FROM sqlite_master WHERE type='table' AND name='products';" --json
-  )"; then
-    fail "Yerel D1 veritabanı kontrolü başarısız oldu."
+
+  if ! query_output="$(run_local_d1_json --command "SELECT name FROM $local_migrations_table WHERE name = '$migration_name' LIMIT 1;")"; then
+    fail "'$migration_name' migration durumu okunamadı."
   fi
 
-  if [[ "$query_output" == *'"name": "products"'* ]] || [[ "$query_output" == *'"name":"products"'* ]]; then
-    log "Yerel D1 veritabanı hazır."
+  [[ "$query_output" == *"\"name\": \"$migration_name\""* ]] || [[ "$query_output" == *"\"name\":\"$migration_name\""* ]]
+}
+
+bootstrap_existing_local_migrations() {
+  local products_table_output
+  local favorite_column_output
+
+  if ! products_table_output="$(run_local_d1_json --command "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'products' LIMIT 1;")"; then
+    fail "Yerel D1 products tablosu kontrolü başarısız oldu."
+  fi
+
+  if [[ "$products_table_output" == *'"name": "products"'* ]] || [[ "$products_table_output" == *'"name":"products"'* ]]; then
+    mark_local_migration_applied "0000_initial.sql"
+  fi
+
+  if ! favorite_column_output="$(run_local_d1_json --command "SELECT name FROM pragma_table_info('products') WHERE name = 'is_favorite' LIMIT 1;")"; then
+    fail "Yerel D1 is_favorite kolonu kontrolü başarısız oldu."
+  fi
+
+  if [[ "$favorite_column_output" == *'"name": "is_favorite"'* ]] || [[ "$favorite_column_output" == *'"name":"is_favorite"'* ]]; then
+    mark_local_migration_applied "0001_products_is_favorite.sql"
+  fi
+}
+
+apply_pending_local_migrations() {
+  local migrations=("$api_dir"/drizzle/*.sql)
+  local migration_path
+  local migration_name
+
+  if [[ ! -e "${migrations[0]}" ]]; then
     return
   fi
 
-  log "Şema bulunamadı. İlk kurulum SQL'i uygulanıyor..."
+  for migration_path in "${migrations[@]}"; do
+    migration_name="$(basename "$migration_path")"
 
-  (
-    cd "$repo_root/apps/api" &&
-      pnpm exec wrangler d1 execute trendyol-etsy --local --file ./drizzle/0000_initial.sql
-  ) || fail "İlk D1 şeması uygulanamadı."
+    if local_migration_is_applied "$migration_name"; then
+      continue
+    fi
 
-  log "Yerel D1 veritabanı oluşturuldu."
+    log "Migration uygulanıyor: $migration_name"
+    run_local_d1 --file "./drizzle/$migration_name" >/dev/null || fail "'$migration_name' uygulanamadı."
+    mark_local_migration_applied "$migration_name"
+  done
+}
+
+ensure_local_api_db() {
+  log "Yerel API veritabanı kontrol ediliyor..."
+  ensure_local_migration_table
+  bootstrap_existing_local_migrations
+  apply_pending_local_migrations
+  log "Yerel D1 veritabanı hazır."
 }
 
 build_service_command() {
@@ -89,11 +154,7 @@ on run argv
   set commandText to item 1 of argv
   tell application "Terminal"
     activate
-    if (count of windows) is 0 then
-      do script commandText
-    else
-      do script commandText in front window
-    end if
+    do script commandText
   end tell
 end run
 OSA

@@ -156,6 +156,48 @@ export const appSettings = sqliteTable("app_settings", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
+export const manualRefreshRuns = sqliteTable(
+  "manual_refresh_runs",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").notNull(),
+    sourceRunId: text("source_run_id"),
+    status: text("status").notNull(),
+    totalCount: integer("total_count").notNull().default(0),
+    pendingCount: integer("pending_count").notNull().default(0),
+    runningCount: integer("running_count").notNull().default(0),
+    successCount: integer("success_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }),
+    finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    statusCreatedAtIdx: index("manual_refresh_runs_status_created_at_idx").on(table.status, table.createdAt),
+  }),
+);
+
+export const manualRefreshRunItems = sqliteTable(
+  "manual_refresh_run_items",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id").notNull(),
+    productId: text("product_id").notNull(),
+    status: text("status").notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    errorMessage: text("error_message"),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }),
+    finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    runStatusIdx: index("manual_refresh_run_items_run_status_idx").on(table.runId, table.status),
+    productIdx: index("manual_refresh_run_items_product_id_idx").on(table.productId),
+  }),
+);
+
 export const schema = {
   products,
   productVariants,
@@ -166,6 +208,8 @@ export const schema = {
   etsyDrafts,
   aiProfiles,
   appSettings,
+  manualRefreshRuns,
+  manualRefreshRunItems,
 };
 
 export const schemaTableNames = [
@@ -178,4 +222,6 @@ export const schemaTableNames = [
   "etsy_drafts",
   "ai_profiles",
   "app_settings",
+  "manual_refresh_runs",
+  "manual_refresh_run_items",
 ] as const;

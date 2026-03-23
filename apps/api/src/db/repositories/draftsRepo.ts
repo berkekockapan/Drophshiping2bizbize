@@ -280,7 +280,7 @@ export function createDraftsRepo(db: D1Database) {
           generatedChanged ? existing.generatedVersion + 1 : existing.generatedVersion,
           manualEdited ? existing.editedVersion + 1 : existing.editedVersion,
           generatedChanged ? input.savedAt : existing.lastGeneratedAt,
-          manualEdited ? 1 : 0,
+          manualEdited ? 1 : existing.manualEditsPresent ? 1 : 0,
           productId,
         )
         .run();

@@ -11,31 +11,60 @@ export interface SaveEtsyPrepDraftInput {
   editedFields: Array<"title" | "description" | "tags">;
 }
 
-function ensureStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => String(item)) : [];
+export class InvalidEtsyPrepDraftPayloadError extends Error {
+  constructor() {
+    super("Invalid Etsy prep save payload");
+    this.name = "InvalidEtsyPrepDraftPayloadError";
+  }
 }
 
-function ensurePrepFields(value: unknown): Array<"title" | "description" | "tags"> {
-  if (!Array.isArray(value)) {
-    return [];
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return typeof value === "string" || value === null;
+}
+
+function isPrepField(value: unknown): value is "title" | "description" | "tags" {
+  return value === "title" || value === "description" || value === "tags";
+}
+
+function isPrepFieldArray(value: unknown): value is Array<"title" | "description" | "tags"> {
+  return Array.isArray(value) && value.every(isPrepField);
+}
+
+function isSaveInput(input: unknown): input is SaveEtsyPrepDraftInput {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return false;
   }
 
-  return value.filter((item): item is "title" | "description" | "tags" => item === "title" || item === "description" || item === "tags");
-}
+  const candidate = input as Record<string, unknown>;
+  const allowedKeys = new Set([
+    "englishTitle",
+    "longDescription",
+    "tags",
+    "seoNotes",
+    "policyNotes",
+    "generatedFields",
+    "editedFields",
+  ]);
 
-function parseSaveInput(input: unknown): SaveEtsyPrepDraftInput {
-  const candidate = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  for (const key of Object.keys(candidate)) {
+    if (!allowedKeys.has(key)) {
+      return false;
+    }
+  }
 
-  return {
-    englishTitle: typeof candidate.englishTitle === "string" ? candidate.englishTitle : candidate.englishTitle == null ? null : String(candidate.englishTitle),
-    longDescription:
-      typeof candidate.longDescription === "string" ? candidate.longDescription : candidate.longDescription == null ? null : String(candidate.longDescription),
-    tags: ensureStringArray(candidate.tags),
-    seoNotes: typeof candidate.seoNotes === "string" ? candidate.seoNotes : candidate.seoNotes == null ? null : String(candidate.seoNotes),
-    policyNotes: typeof candidate.policyNotes === "string" ? candidate.policyNotes : candidate.policyNotes == null ? null : String(candidate.policyNotes),
-    generatedFields: ensurePrepFields(candidate.generatedFields),
-    editedFields: ensurePrepFields(candidate.editedFields),
-  };
+  return (
+    isNullableString(candidate.englishTitle) &&
+    isNullableString(candidate.longDescription) &&
+    isStringArray(candidate.tags) &&
+    isNullableString(candidate.seoNotes) &&
+    isNullableString(candidate.policyNotes) &&
+    isPrepFieldArray(candidate.generatedFields) &&
+    isPrepFieldArray(candidate.editedFields)
+  );
 }
 
 async function productExists(db: D1Database, productId: string) {
@@ -53,11 +82,11 @@ export async function saveEtsyPrepDraft(
     return null;
   }
 
-  const draftsRepo = createDraftsRepo(db);
-  const parsed = parseSaveInput(input);
+  if (!isSaveInput(input)) {
+    throw new InvalidEtsyPrepDraftPayloadError();
+  }
 
-  return draftsRepo.savePrepDraft(productId, {
-    ...parsed,
-    savedAt,
-  });
+  const draftsRepo = createDraftsRepo(db);
+
+  return draftsRepo.savePrepDraft(productId, { ...input, savedAt });
 }

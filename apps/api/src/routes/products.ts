@@ -2,7 +2,10 @@ import { Hono } from "hono";
 
 import type { Env } from "../config/bindings";
 import { buildEtsyPrepView } from "../modules/etsyPrep/buildEtsyPrepView";
-import { saveEtsyPrepDraft } from "../modules/etsyPrep/saveEtsyPrepDraft";
+import {
+  InvalidEtsyPrepDraftPayloadError,
+  saveEtsyPrepDraft,
+} from "../modules/etsyPrep/saveEtsyPrepDraft";
 import { downloadProductImageAsJpg } from "../modules/tracking/downloadProductImageAsJpg";
 import { buildProductDetailView } from "../modules/tracking/buildProductDetailView";
 
@@ -24,12 +27,21 @@ export function createProductsRouter() {
       return c.json({ error: "Invalid JSON payload" }, 400);
     }
 
-    const saved = await saveEtsyPrepDraft(c.env.DB, c.req.param("productId"), body, Date.now());
-    if (!saved) {
-      return c.json({ error: "Product not found" }, 404);
-    }
+    try {
+      const saved = await saveEtsyPrepDraft(c.env.DB, c.req.param("productId"), body, Date.now());
 
-    return c.json(saved);
+      if (!saved) {
+        return c.json({ error: "Product not found" }, 404);
+      }
+
+      return c.json(saved);
+    } catch (error) {
+      if (error instanceof InvalidEtsyPrepDraftPayloadError) {
+        return c.json({ error: "Invalid JSON payload" }, 400);
+      }
+
+      throw error;
+    }
   });
 
   app.get("/:productId/images/download", async (c) => {

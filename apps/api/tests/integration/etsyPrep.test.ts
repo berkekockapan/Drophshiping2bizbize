@@ -59,4 +59,77 @@ describe("etsy prep", () => {
     expect(savedJson.tags).toEqual(["oversize hoodie", "streetwear gift"]);
     expect(savedJson.manualEditsPresent).toBe(true);
   });
+
+  it("returns 400 for invalid prep save payloads", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+
+    const response = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(["not", "a", "valid", "payload"]),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("preserves existing manual edit state when prep save has generated fields only", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+
+    const manualEdit = await app.request(
+      `http://localhost/drafts/${seeded.product.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ englishTitle: "Manually edited title" }),
+      },
+      env,
+    );
+    expect(manualEdit.status).toBe(200);
+
+    const save = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          englishTitle: "Generated Etsy Title",
+          longDescription: "Generated Etsy description",
+          tags: ["hoodie"],
+          seoNotes: "SEO notes",
+          policyNotes: "Policy notes",
+          generatedFields: ["title", "description", "tags"],
+          editedFields: [],
+        }),
+      },
+      env,
+    );
+
+    expect(save.status).toBe(200);
+    const savedJson = await save.json();
+    expect(savedJson.manualEditsPresent).toBe(true);
+  });
 });

@@ -67,6 +67,7 @@ export const priceHistory = sqliteTable(
     newPrice: integer("new_price"),
     changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
     changeReason: text("change_reason"),
+    refreshAuditId: text("refresh_audit_id"),
   },
   (table) => ({
     productIdx: index("price_history_product_id_idx").on(table.productId),
@@ -83,10 +84,47 @@ export const stockHistory = sqliteTable(
     previousStockState: text("previous_stock_state"),
     newStockState: text("new_stock_state").notNull(),
     changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
+    refreshAuditId: text("refresh_audit_id"),
   },
   (table) => ({
     productIdx: index("stock_history_product_id_idx").on(table.productId),
     variantIdx: index("stock_history_variant_id_idx").on(table.variantId),
+  }),
+);
+
+export const productRefreshAudits = sqliteTable(
+  "product_refresh_audits",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id").notNull(),
+    source: text("source").notNull(),
+    manualRefreshRunId: text("manual_refresh_run_id"),
+    status: text("status").notNull(),
+    changeCount: integer("change_count").notNull().default(0),
+    changedFieldsJson: text("changed_fields_json"),
+    errorMessage: text("error_message"),
+    checkedAt: integer("checked_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    productCheckedAtIdx: index("product_refresh_audits_product_checked_at_idx").on(table.productId, table.checkedAt),
+  }),
+);
+
+export const productContentHistory = sqliteTable(
+  "product_content_history",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id").notNull(),
+    refreshAuditId: text("refresh_audit_id").notNull(),
+    fieldKey: text("field_key").notNull(),
+    previousValueRaw: text("previous_value_raw"),
+    newValueRaw: text("new_value_raw"),
+    changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    productChangedAtIdx: index("product_content_history_product_changed_at_idx").on(table.productId, table.changedAt),
   }),
 );
 
@@ -204,6 +242,8 @@ export const schema = {
   productCurrentState,
   priceHistory,
   stockHistory,
+  productRefreshAudits,
+  productContentHistory,
   notifications,
   etsyDrafts,
   aiProfiles,
@@ -218,6 +258,8 @@ export const schemaTableNames = [
   "product_current_state",
   "price_history",
   "stock_history",
+  "product_refresh_audits",
+  "product_content_history",
   "notifications",
   "etsy_drafts",
   "ai_profiles",

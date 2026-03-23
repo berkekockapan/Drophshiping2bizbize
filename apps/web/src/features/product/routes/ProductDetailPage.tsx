@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
 import { fetchProductDetail } from "../../../app/api";
-import { HistoryTimeline } from "../components/HistoryTimeline";
+import { ChangeTimeline } from "../components/ChangeTimeline";
 import { ProductSummary } from "../components/ProductSummary";
 import { VariantTable } from "../components/VariantTable";
 
@@ -28,20 +28,7 @@ export function ProductDetailPage() {
         <>
           <ProductSummary detail={detailQuery.data} />
           <VariantTable variants={detailQuery.data.variants} />
-          <div className="grid gap-6 xl:grid-cols-2">
-            <HistoryTimeline
-              title="Fiyat geçmişi"
-              emptyText="Henüz fiyat değişimi kaydı yok."
-              items={detailQuery.data.priceHistory}
-              kind="price"
-            />
-            <HistoryTimeline
-              title="Stok geçmişi"
-              emptyText="Henüz stok değişimi kaydı yok."
-              items={detailQuery.data.stockHistory}
-              kind="stock"
-            />
-          </div>
+          <ChangeTimeline items={detailQuery.data.changeTimeline} />
         </>
       ) : null}
     </div>

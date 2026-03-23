@@ -53,6 +53,7 @@ const productDetailPayload = {
       newPrice: 44990,
       changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
       changeReason: "PRODUCT_PRICE_CHANGED",
+      refreshAuditId: "audit_1",
     },
   ],
   stockHistory: [
@@ -63,6 +64,42 @@ const productDetailPayload = {
       previousStockState: "OUT_OF_STOCK",
       newStockState: "IN_STOCK",
       changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
+      refreshAuditId: "audit_1",
+    },
+  ],
+  changeTimeline: [
+    {
+      id: "audit_2",
+      type: "REFRESH_NO_CHANGE",
+      changedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+      summary: "Yenileme yapildi, degisiklik bulunamadi",
+      details: null,
+      before: null,
+      after: null,
+      variantKey: null,
+      refreshSource: "MANUAL",
+    },
+    {
+      id: "price_1",
+      type: "PRODUCT_PRICE_CHANGED",
+      changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
+      summary: "Urun fiyati degisti",
+      details: null,
+      before: "429.90 TL",
+      after: "449.90 TL",
+      variantKey: null,
+      refreshSource: "MANUAL",
+    },
+    {
+      id: "stock_1",
+      type: "VARIANT_STOCK_CHANGED",
+      changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
+      summary: "L / Siyah varyanti yeniden stokta",
+      details: null,
+      before: "Stokta degil",
+      after: "Stokta",
+      variantKey: "L / Siyah",
+      refreshSource: "MANUAL",
     },
   ],
   notifications: [],
@@ -88,7 +125,7 @@ describe("ProductDetailPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows variant rows and price history on the product detail screen", async () => {
+  it("shows variant rows and the unified change timeline on the product detail screen", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
@@ -109,7 +146,10 @@ describe("ProductDetailPage", () => {
 
     expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
     expect(await screen.findByText(/en düşük/i)).toBeInTheDocument();
-    expect(await screen.findByText(/fiyat geçmişi/i)).toBeInTheDocument();
+    expect(await screen.findByText(/degisiklik gecmisi/i)).toBeInTheDocument();
+    expect(screen.queryByText(/fiyat geçmişi/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/stok geçmişi/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/yenileme yapildi, degisiklik bulunamadi/i)).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /trendyol ürün sayfasını yeni sekmede aç: oversize hoodie/i })).toHaveAttribute(
       "href",
       "https://www.trendyol.com/example",

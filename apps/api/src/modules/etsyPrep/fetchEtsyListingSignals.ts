@@ -18,7 +18,7 @@ function tokenize(value: string | null | undefined) {
 
   return (
     value
-      .toLocaleLowerCase("tr-TR")
+      .toLowerCase()
       .match(/[\p{L}\p{N}]+/gu)
       ?.map((part) => part.trim())
       .filter((part) => part.length >= 3) ?? []

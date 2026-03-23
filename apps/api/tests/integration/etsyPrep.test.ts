@@ -355,6 +355,58 @@ describe("etsy prep", () => {
     );
   });
 
+  it("keeps mixed-locale uppercase keywords intact in title packages", async () => {
+    const mixedLocaleProductHtml = `
+      <html>
+        <body>
+          <div data-product-page="trendyol">
+            <h1 data-testid="product-title">IKEA Örgü Organizer</h1>
+            <span data-testid="product-brand">Nordic Home</span>
+            <span data-testid="product-category">Ev Düzeni</span>
+            <div data-testid="product-description">IKEA uyumlu örgü organizer sepet.</div>
+            <ul data-testid="product-attributes">
+              <li data-key="Materyal">Pamuk</li>
+            </ul>
+            <div data-testid="product-images">
+              <img src="https://cdn.example.com/ikea-organizer-1.jpg" />
+            </div>
+            <div data-testid="product-price" data-price="499.90">499.90</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/nordic-home/ikea-orgu-organizer-p-321?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(mixedLocaleProductHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+    const response = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/generate-title`,
+      { method: "POST" },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const lines = (await response.text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const finalEvent = lines.at(-1);
+
+    expect(finalEvent).toEqual(expect.objectContaining({ type: "prompt_ready", field: "title" }));
+    expect(finalEvent.context.signals.keywordAngles).toEqual(expect.arrayContaining([expect.stringContaining("ikea")]));
+    expect(finalEvent.context.signals.keywordAngles).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("ıkea")]),
+    );
+  });
+
   it("streams a description prompt package with a field-specific schema", async () => {
     const { env } = createTestEnv();
     const seeded = await createTrackedProduct(

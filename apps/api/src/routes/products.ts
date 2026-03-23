@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 
 import type { Env } from "../config/bindings";
+import { buildEtsyPrepAnalysis } from "../modules/etsyPrep/buildEtsyPrepAnalysis";
+import { buildEtsyPrepFieldPackageStream } from "../modules/etsyPrep/buildEtsyPrepFieldPackage";
 import { buildEtsyPrepView } from "../modules/etsyPrep/buildEtsyPrepView";
 import {
   InvalidEtsyPrepDraftPayloadError,
@@ -11,6 +13,15 @@ import { buildProductDetailView } from "../modules/tracking/buildProductDetailVi
 
 export function createProductsRouter() {
   const app = new Hono<{ Bindings: Env }>();
+
+  async function loadEtsyPrepDetail(productId: string, env: Env) {
+    const detail = await buildEtsyPrepView(env.DB, productId);
+    if (!detail) {
+      return null;
+    }
+
+    return detail;
+  }
 
   app.get("/:productId/etsy-prep", async (c) => {
     const view = await buildEtsyPrepView(c.env.DB, c.req.param("productId"));
@@ -42,6 +53,42 @@ export function createProductsRouter() {
 
       throw error;
     }
+  });
+
+  app.post("/:productId/etsy-prep/analyze", async (c) => {
+    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    if (!detail) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return buildEtsyPrepAnalysis(detail, { fetchImpl: fetch });
+  });
+
+  app.post("/:productId/etsy-prep/generate-title", async (c) => {
+    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    if (!detail) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return buildEtsyPrepFieldPackageStream("title", detail, { fetchImpl: fetch });
+  });
+
+  app.post("/:productId/etsy-prep/generate-description", async (c) => {
+    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    if (!detail) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return buildEtsyPrepFieldPackageStream("description", detail, { fetchImpl: fetch });
+  });
+
+  app.post("/:productId/etsy-prep/generate-tags", async (c) => {
+    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    if (!detail) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return buildEtsyPrepFieldPackageStream("tags", detail, { fetchImpl: fetch });
   });
 
   app.get("/:productId/images/download", async (c) => {

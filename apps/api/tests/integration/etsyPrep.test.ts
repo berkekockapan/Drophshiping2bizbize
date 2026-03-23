@@ -132,4 +132,83 @@ describe("etsy prep", () => {
     const savedJson = await save.json();
     expect(savedJson.manualEditsPresent).toBe(true);
   });
+
+  it("streams Etsy prep analysis steps as ndjson", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+
+    const response = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/analyze`,
+      { method: "POST" },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/x-ndjson");
+
+    const lines = (await response.text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(lines.map((line) => line.type)).toEqual([
+      "step_started",
+      "step_completed",
+      "research_summary",
+      "result_ready",
+    ]);
+    expect(lines.at(-1)?.result.insights.seoNotes).toContain("keyword");
+  });
+
+  it("streams a title prompt package instead of trying to call the local connector from the API", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input) => {
+      throw new Error(`Unexpected fetch call during Etsy prep packaging: ${String(input)}`);
+    };
+
+    try {
+      const response = await app.request(
+        `http://localhost/products/${seeded.product.id}/etsy-prep/generate-title`,
+        { method: "POST" },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("application/x-ndjson");
+
+      const lines = (await response.text())
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(lines.at(-1)).toEqual(
+        expect.objectContaining({
+          type: "prompt_ready",
+          field: "title",
+          prompt: expect.stringContaining("Return ONLY valid JSON"),
+        }),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

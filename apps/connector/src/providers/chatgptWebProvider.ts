@@ -1,6 +1,14 @@
 import { BrowserSession } from "../browser/browserSession";
+import { runFieldPrompt } from "../browser/runFieldPrompt";
 import { runPrompt } from "../browser/runPrompt";
-import type { AIProvider, GenerateRequest, GenerateResponse, UpsertProfileInput } from "./base";
+import type {
+  AIProvider,
+  GenerateFieldRequest,
+  GenerateFieldResponse,
+  GenerateRequest,
+  GenerateResponse,
+  UpsertProfileInput,
+} from "./base";
 import type { ConnectorProfile, ProfileStore } from "../store/profileStore";
 
 export class ChatGptWebProvider implements AIProvider {
@@ -33,13 +41,22 @@ export class ChatGptWebProvider implements AIProvider {
     return profile;
   }
 
-  async generate(request: GenerateRequest): Promise<GenerateResponse> {
+  private async ensureActiveProfile() {
     const activeProfile = await this.store.getActiveProfile();
     if (!activeProfile) {
       throw new Error("No active ChatGPT profile. Add and activate a profile first.");
     }
+  }
 
+  async generate(request: GenerateRequest): Promise<GenerateResponse> {
+    await this.ensureActiveProfile();
     const page = await this.browserSession.ensurePage();
     return runPrompt(page, request);
+  }
+
+  async generateField(request: GenerateFieldRequest): Promise<GenerateFieldResponse> {
+    await this.ensureActiveProfile();
+    const page = await this.browserSession.ensurePage();
+    return runFieldPrompt(page, request);
   }
 }

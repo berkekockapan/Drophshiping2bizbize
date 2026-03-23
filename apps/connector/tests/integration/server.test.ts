@@ -111,5 +111,20 @@ describe("connector server", () => {
         provider: "mock",
       }),
     );
+
+    const invalidField = await context.server.inject({
+      method: "POST",
+      url: "/generate-field",
+      payload: {
+        field: "price",
+        prompt: "Return ONLY valid JSON with a price field value.",
+        context: { productId: "prod_1" },
+      },
+    });
+
+    expect(invalidField.statusCode).toBe(400);
+    expect(invalidField.json()).toEqual({
+      error: "field must be one of: title, description, tags",
+    });
   });
 });

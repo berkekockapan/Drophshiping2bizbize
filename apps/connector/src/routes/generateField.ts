@@ -1,11 +1,17 @@
 import type { FastifyInstance } from "fastify";
 
-import type { AIProvider, GenerateFieldRequest } from "../providers/base";
+import { generateFieldNames, type AIProvider, type GenerateFieldName } from "../providers/base";
+
+const VALID_GENERATE_FIELDS = new Set<string>(generateFieldNames);
+
+function isGenerateFieldName(value: string): value is GenerateFieldName {
+  return VALID_GENERATE_FIELDS.has(value);
+}
 
 export function registerGenerateFieldRoute(server: FastifyInstance, deps: { provider: AIProvider }) {
   server.post<{
     Body: {
-      field?: GenerateFieldRequest["field"];
+      field?: string;
       prompt?: string;
       context?: Record<string, unknown>;
     };
@@ -15,8 +21,8 @@ export function registerGenerateFieldRoute(server: FastifyInstance, deps: { prov
       return reply.code(400).send({ error: "field and prompt are required" });
     }
 
-    if (typeof deps.provider.generateField !== "function") {
-      return reply.code(501).send({ error: "field generation is not supported by the active provider" });
+    if (!isGenerateFieldName(body.field)) {
+      return reply.code(400).send({ error: "field must be one of: title, description, tags" });
     }
 
     return deps.provider.generateField({

@@ -40,8 +40,19 @@ describe("list and detail views", () => {
       env,
       { productId: seeded.product.id },
       {
+        source: "MANUAL",
         fetchImpl: async () => new Response(changedHtml, { status: 200 }),
         now: new Date("2026-03-20T06:00:00.000Z"),
+      },
+    );
+
+    await processRefreshJob(
+      env,
+      { productId: seeded.product.id },
+      {
+        source: "MANUAL",
+        fetchImpl: async () => new Response(changedHtml, { status: 200 }),
+        now: new Date("2026-03-20T07:00:00.000Z"),
       },
     );
 
@@ -78,6 +89,25 @@ describe("list and detail views", () => {
     expect(detailJson.priceHistory).toHaveLength(1);
     expect(detailJson.stockHistory).toHaveLength(1);
     expect(detailJson.currentState.currentPrice).toBe(44990);
+    expect(detailJson.changeTimeline).toHaveLength(3);
+    expect(detailJson.changeTimeline[0]).toEqual(
+      expect.objectContaining({
+        type: "REFRESH_NO_CHANGE",
+        summary: "Yenileme yapildi, degisiklik bulunamadi",
+      }),
+    );
+    expect(detailJson.changeTimeline).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "PRODUCT_PRICE_CHANGED",
+          summary: expect.stringContaining("Urun fiyati degisti"),
+        }),
+        expect.objectContaining({
+          type: "VARIANT_STOCK_CHANGED",
+          summary: expect.stringContaining("stok"),
+        }),
+      ]),
+    );
 
     expect(notificationsJson.items).toEqual(
       expect.arrayContaining([

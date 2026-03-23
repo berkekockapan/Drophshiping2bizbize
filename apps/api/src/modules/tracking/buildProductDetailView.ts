@@ -2,6 +2,8 @@ import type { D1Database } from "../../config/bindings";
 import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
+import { createRefreshAuditRepo } from "../../db/repositories/refreshAuditRepo";
+import { buildProductChangeTimeline } from "./buildProductChangeTimeline";
 
 function safeParseJson(value: string | null) {
   if (!value) {
@@ -46,11 +48,25 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
   const productsRepo = createProductsRepo(db);
   const historyRepo = createHistoryRepo(db);
   const notificationsRepo = createNotificationsRepo(db);
+  const refreshAuditRepo = createRefreshAuditRepo(db);
   const detail = await productsRepo.getProductDetail(productId);
 
   if (!detail) {
     return null;
   }
+
+  const variants = detail.variants.map((variant) => {
+    const rawPayload = safeParseJson(variant.rawPayload);
+    const fallbackUrl = detail.variants.length === 1 ? detail.product.trendyolUrl : null;
+
+    return {
+      ...variant,
+      trendyolUrl: resolveVariantTrendyolUrl(rawPayload, detail.product.trendyolUrl, fallbackUrl),
+      rawPayload,
+    };
+  });
+  const priceHistory = await historyRepo.listPriceHistory(productId);
+  const stockHistory = await historyRepo.listStockHistory(productId);
 
   return {
     product: {
@@ -59,18 +75,16 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
       images: safeParseJson(detail.product.imagesRaw),
     },
     currentState: detail.currentState,
-    variants: detail.variants.map((variant) => {
-      const rawPayload = safeParseJson(variant.rawPayload);
-      const fallbackUrl = detail.variants.length === 1 ? detail.product.trendyolUrl : null;
-
-      return {
-        ...variant,
-        trendyolUrl: resolveVariantTrendyolUrl(rawPayload, detail.product.trendyolUrl, fallbackUrl),
-        rawPayload,
-      };
+    variants,
+    priceHistory,
+    stockHistory,
+    changeTimeline: buildProductChangeTimeline({
+      audits: await refreshAuditRepo.listRefreshAudits(productId),
+      contentHistory: await refreshAuditRepo.listContentHistory(productId),
+      priceHistory,
+      stockHistory,
+      variants: detail.variants,
     }),
-    priceHistory: await historyRepo.listPriceHistory(productId),
-    stockHistory: await historyRepo.listStockHistory(productId),
     notifications: await notificationsRepo.listNotifications(productId),
   };
 }

@@ -65,5 +65,34 @@ export function createRefreshAuditRepo(db: D1Database) {
           .run();
       }
     },
+    async listRefreshAudits(productId: string) {
+      return (
+        await db
+          .prepare(
+            `select id, product_id as productId, source, manual_refresh_run_id as manualRefreshRunId,
+                    status, change_count as changeCount, changed_fields_json as changedFieldsJson,
+                    error_message as errorMessage, checked_at as checkedAt
+             from product_refresh_audits
+             where product_id = ?
+             order by checked_at desc`,
+          )
+          .bind(productId)
+          .all()
+      ).results;
+    },
+    async listContentHistory(productId: string) {
+      return (
+        await db
+          .prepare(
+            `select id, product_id as productId, refresh_audit_id as refreshAuditId, field_key as fieldKey,
+                    previous_value_raw as previousValueRaw, new_value_raw as newValueRaw, changed_at as changedAt
+             from product_content_history
+             where product_id = ?
+             order by changed_at desc`,
+          )
+          .bind(productId)
+          .all()
+      ).results;
+    },
   };
 }

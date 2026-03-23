@@ -48,6 +48,26 @@ export interface NotificationItem {
   createdAt: number;
 }
 
+export interface ProductChangeTimelineItem {
+  id: string;
+  type:
+    | "REFRESH_NO_CHANGE"
+    | "REFRESH_ERROR"
+    | "TITLE_CHANGED"
+    | "DESCRIPTION_CHANGED"
+    | "IMAGES_CHANGED"
+    | "PRODUCT_PRICE_CHANGED"
+    | "VARIANT_PRICE_CHANGED"
+    | "VARIANT_STOCK_CHANGED";
+  changedAt: number;
+  summary: string;
+  details: string | null;
+  before: string | null;
+  after: string | null;
+  variantKey: string | null;
+  refreshSource: "MANUAL" | "SCHEDULED" | null;
+}
+
 export interface ProductDetailResponse {
   product: {
     id: string;
@@ -89,9 +109,10 @@ export interface ProductDetailResponse {
     productId: string;
     variantId: string | null;
     previousPrice: number | null;
-    newPrice: number;
+    newPrice: number | null;
     changedAt: number;
     changeReason: string | null;
+    refreshAuditId: string | null;
   }>;
   stockHistory: Array<{
     id: string;
@@ -100,7 +121,9 @@ export interface ProductDetailResponse {
     previousStockState: string | null;
     newStockState: string;
     changedAt: number;
+    refreshAuditId: string | null;
   }>;
+  changeTimeline: ProductChangeTimelineItem[];
   notifications: NotificationItem[];
 }
 

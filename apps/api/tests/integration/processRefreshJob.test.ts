@@ -140,6 +140,9 @@ const envoyWinnerPriceHtml = `
     <body></body>
   </html>
 `;
+const envoyWinnerPriceRaisedHtml = envoyWinnerPriceHtml
+  .replaceAll('"value": 49.9', '"value": 59.9')
+  .replaceAll('"text": "49,90 TL"', '"text": "59,90 TL"');
 
 describe("processRefreshJob", () => {
   it("writes a NO_CHANGE audit without content rows when tracked fields stay the same", async () => {
@@ -336,5 +339,52 @@ describe("processRefreshJob", () => {
     expect(response.product.currentPrice).toBe(4990);
     expect(currentState).toEqual({ currentPrice: 4990 });
     expect(variant).toEqual({ currentPrice: 4990 });
+  });
+
+  it("writes variant price history rows with refresh audit links when a variant price changes", async () => {
+    const { env, sqlite } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/erkugo/bogumlu-kahve-bardagi-borosilikat-sunum-bardagi-isi-dayanikli-bardak-350-ml-bubblecup-p-859521469" },
+      {
+        fetchImpl: async () => new Response(envoyWinnerPriceHtml, { status: 200 }),
+        now: new Date("2026-03-20T00:00:00.000Z"),
+      },
+    );
+
+    await processRefreshJob(
+      env,
+      { productId: seeded.product.id },
+      {
+        source: "MANUAL",
+        fetchImpl: async () => new Response(envoyWinnerPriceRaisedHtml, { status: 200 }),
+        now: new Date("2026-03-20T01:00:00.000Z"),
+      },
+    );
+
+    const rows = sqlite
+      .prepare(
+        `select variant_id as variantId, previous_price as previousPrice, new_price as newPrice, refresh_audit_id as refreshAuditId
+         from price_history
+         where product_id = ?
+         order by changed_at desc`,
+      )
+      .all(seeded.product.id) as Array<{
+      variantId: string | null;
+      previousPrice: number | null;
+      newPrice: number | null;
+      refreshAuditId: string | null;
+    }>;
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          variantId: expect.any(String),
+          previousPrice: 4990,
+          newPrice: 5990,
+          refreshAuditId: expect.any(String),
+        }),
+      ]),
+    );
   });
 });

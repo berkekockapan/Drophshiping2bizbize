@@ -123,13 +123,28 @@ describe("diffProductState", () => {
       },
     );
 
-    expect(result.priceHistory).toEqual([
-      expect.objectContaining({
-        previousPrice: 42990,
-        newPrice: 39990,
-        changeReason: "PRODUCT_PRICE_CHANGED",
-      }),
-    ]);
+    expect(result.priceHistory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          variantId: null,
+          previousPrice: 42990,
+          newPrice: 39990,
+          changeReason: "PRODUCT_PRICE_CHANGED",
+        }),
+        expect.objectContaining({
+          variantId: "variant_1",
+          previousPrice: 42990,
+          newPrice: 39990,
+          changeReason: "VARIANT_PRICE_CHANGED",
+        }),
+        expect.objectContaining({
+          variantId: "variant_2",
+          previousPrice: 42990,
+          newPrice: 39990,
+          changeReason: "VARIANT_PRICE_CHANGED",
+        }),
+      ]),
+    );
     expect(result.stockHistory).toEqual([
       expect.objectContaining({
         variantId: "variant_2",
@@ -143,7 +158,7 @@ describe("diffProductState", () => {
         expect.objectContaining({ type: "OUT_OF_STOCK" }),
       ]),
     );
-    expect(result.changedFields).toEqual(expect.arrayContaining(["PRODUCT_PRICE", "VARIANT_STOCK"]));
+    expect(result.changedFields).toEqual(expect.arrayContaining(["PRODUCT_PRICE", "VARIANT_PRICE", "VARIANT_STOCK"]));
     expect(result.currentState.minPrice).toBe(34900);
     expect(result.currentState.maxPrice).toBe(42900);
     expect(result.currentState.lastChangeAt).toBe(1_710_000_900_000);

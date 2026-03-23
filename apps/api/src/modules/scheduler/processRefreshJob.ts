@@ -4,7 +4,9 @@ import { processRefreshJob as applyRefreshJob } from "../sync/applyProductRefres
 export async function processRefreshQueueBatch(batch: MessageBatch<RefreshJob>, env: Pick<Env, "DB">) {
   for (const message of batch.messages) {
     try {
-      await applyRefreshJob(env, message.body);
+      await applyRefreshJob(env, message.body, {
+        source: "SCHEDULED",
+      });
       message.ack();
     } catch (error) {
       message.retry();

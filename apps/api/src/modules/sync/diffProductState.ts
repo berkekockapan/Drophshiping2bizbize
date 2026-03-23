@@ -43,10 +43,11 @@ export interface ContentHistoryChange {
 }
 
 export interface PriceHistoryChange {
+  variantId: string | null;
   previousPrice: number | null;
-  newPrice: number;
+  newPrice: number | null;
   changedAt: number;
-  changeReason: "PRODUCT_PRICE_CHANGED";
+  changeReason: "PRODUCT_PRICE_CHANGED" | "VARIANT_PRICE_CHANGED";
 }
 
 export interface StockHistoryChange {
@@ -157,6 +158,7 @@ export function diffProductState(previous: PreviousProductSnapshot, incoming: In
 
   if (previous.currentState.currentPrice !== incoming.price) {
     priceHistory.push({
+      variantId: null,
       previousPrice: previous.currentState.currentPrice,
       newPrice: incoming.price,
       changedAt: incoming.checkedAt,
@@ -173,6 +175,17 @@ export function diffProductState(previous: PreviousProductSnapshot, incoming: In
     const previousVariant = previousVariants.get(variant.variantKey);
     if (!previousVariant) {
       continue;
+    }
+
+    if (previousVariant.currentPrice !== variant.price) {
+      priceHistory.push({
+        variantId: previousVariant.id,
+        previousPrice: previousVariant.currentPrice,
+        newPrice: variant.price,
+        changedAt: incoming.checkedAt,
+        changeReason: "VARIANT_PRICE_CHANGED",
+      });
+      changedFields.add("VARIANT_PRICE");
     }
 
     if (previousVariant.currentStockState !== variant.stockState) {

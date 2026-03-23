@@ -24,7 +24,7 @@ function createExecutionContext(promises: Array<Promise<unknown>>): Parameters<R
 
 describe("manual refresh runs", () => {
   it("starts a run, exposes active progress, completes with partial failure, and retries failed items only", async () => {
-    const { env } = createTestEnv();
+    const { env, sqlite } = createTestEnv();
     let failSecondProduct = true;
     const fetchImpl = async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -37,7 +37,7 @@ describe("manual refresh runs", () => {
     };
     const app = createApp({ fetchImpl });
 
-    await createTrackedProduct(
+    const firstProduct = await createTrackedProduct(
       env,
       { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
       {
@@ -77,6 +77,22 @@ describe("manual refresh runs", () => {
     });
 
     await Promise.all(waitUntilPromises);
+
+    const audits = sqlite
+      .prepare(
+        `select source, manual_refresh_run_id as manualRefreshRunId
+         from product_refresh_audits
+         where product_id = ?
+         order by created_at desc`,
+      )
+      .all(firstProduct.product.id) as Array<{ source: string; manualRefreshRunId: string | null }>;
+
+    expect(audits[0]).toEqual(
+      expect.objectContaining({
+        source: "MANUAL",
+        manualRefreshRunId: started.run.id,
+      }),
+    );
 
     const completedResponse = await app.request(
       `http://localhost/tracking/products/refresh-runs/${started.run.id}`,

@@ -34,7 +34,11 @@ export async function processManualRefreshRun(
       await runsRepo.markItemRunning(activeRun.id, item.productId, new Date());
 
       try {
-        const result = await processRefreshJob(env, { productId: item.productId }, options);
+        const result = await processRefreshJob(env, { productId: item.productId }, {
+          ...options,
+          source: "MANUAL",
+          manualRefreshRunId: activeRun.id,
+        });
 
         if (result.product.parseStatus !== "OK") {
           await runsRepo.markItemFailed(activeRun.id, item.productId, getFailureMessage(result), new Date());

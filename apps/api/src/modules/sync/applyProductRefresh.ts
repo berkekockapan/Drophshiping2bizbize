@@ -63,8 +63,8 @@ export async function processRefreshJob(
       checkedAt: now.getTime(),
     });
     await refreshAuditRepo.insertContentHistory(product.id, audit.id, diff.contentHistory);
-    await historyRepo.insertPriceHistory(product.id, diff.priceHistory);
-    await historyRepo.insertStockHistory(product.id, diff.stockHistory);
+    await historyRepo.insertPriceHistory(product.id, audit.id, diff.priceHistory);
+    await historyRepo.insertStockHistory(product.id, audit.id, diff.stockHistory);
     await notificationsRepo.insertNotifications(product.id, diff.notifications, now);
 
     return {

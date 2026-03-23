@@ -247,5 +247,50 @@ export function createDraftsRepo(db: D1Database) {
 
       return updated;
     },
+    async savePrepDraft(
+      productId: string,
+      input: {
+        englishTitle: string | null;
+        longDescription: string | null;
+        tags: string[];
+        seoNotes: string | null;
+        policyNotes: string | null;
+        generatedFields: Array<"title" | "description" | "tags">;
+        editedFields: Array<"title" | "description" | "tags">;
+        savedAt: number;
+      },
+    ) {
+      const existing = await ensureForProduct(productId);
+      const generatedChanged = input.generatedFields.length > 0;
+      const manualEdited = input.editedFields.length > 0;
+
+      await db
+        .prepare(
+          `update etsy_drafts
+           set english_title = ?, long_description = ?, tags_json = ?, seo_notes = ?, policy_notes = ?,
+               generated_version = ?, edited_version = ?, last_generated_at = ?, manual_edits_present = ?
+           where product_id = ?`,
+        )
+        .bind(
+          input.englishTitle,
+          input.longDescription,
+          JSON.stringify(input.tags),
+          input.seoNotes,
+          input.policyNotes,
+          generatedChanged ? existing.generatedVersion + 1 : existing.generatedVersion,
+          manualEdited ? existing.editedVersion + 1 : existing.editedVersion,
+          generatedChanged ? input.savedAt : existing.lastGeneratedAt,
+          manualEdited ? 1 : 0,
+          productId,
+        )
+        .run();
+
+      const updated = await getByProductId(productId);
+      if (!updated) {
+        throw new Error("Unable to save prep draft");
+      }
+
+      return updated;
+    },
   };
 }

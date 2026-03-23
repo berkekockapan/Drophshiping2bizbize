@@ -105,6 +105,79 @@ describe("draft flows", () => {
     expect(overwriteJson.englishTitle).toBe("Generated title");
   });
 
+  it("persists Etsy prep saves without carrying generated metadata across later manual-only saves", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-20T00:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+
+    const bootstrap = await app.request(`http://localhost/products/${seeded.product.id}/etsy-prep`, undefined, env);
+    expect(bootstrap.status).toBe(200);
+    const bootstrapJson = await bootstrap.json();
+    expect(bootstrapJson).toEqual(
+      expect.objectContaining({
+        product: expect.objectContaining({ id: seeded.product.id }),
+        draft: expect.objectContaining({ productId: seeded.product.id }),
+      }),
+    );
+
+    const firstSave = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          englishTitle: "Handmade Oversize Hoodie",
+          longDescription: "Detailed Etsy description",
+          tags: ["oversize hoodie", "streetwear"],
+          seoNotes: "SEO notes",
+          policyNotes: "Etsy Uyum Kontrolleri:\nPolicy notes\n\nEksik Veri / Riskler:\nMissing lifestyle context",
+          generatedFields: ["title", "description", "tags"],
+          editedFields: [],
+        }),
+      },
+      env,
+    );
+
+    expect(firstSave.status).toBe(200);
+    const firstSaveJson = await firstSave.json();
+    expect(firstSaveJson.generatedVersion).toBe(1);
+    expect(firstSaveJson.editedVersion).toBe(0);
+    expect(firstSaveJson.manualEditsPresent).toBe(false);
+
+    const secondSave = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          englishTitle: "Handmade Oversize Hoodie Updated",
+          longDescription: "Detailed Etsy description",
+          tags: ["oversize hoodie", "streetwear"],
+          seoNotes: "SEO notes",
+          policyNotes: "Etsy Uyum Kontrolleri:\nPolicy notes\n\nEksik Veri / Riskler:\nMissing lifestyle context",
+          generatedFields: [],
+          editedFields: ["title"],
+        }),
+      },
+      env,
+    );
+
+    expect(secondSave.status).toBe(200);
+    const secondSaveJson = await secondSave.json();
+    expect(secondSaveJson.generatedVersion).toBe(1);
+    expect(secondSaveJson.editedVersion).toBe(1);
+    expect(secondSaveJson.manualEditsPresent).toBe(true);
+    expect(secondSaveJson.englishTitle).toBe("Handmade Oversize Hoodie Updated");
+  });
+
   it("syncs connector profile metadata into API storage", async () => {
     const { env } = createTestEnv();
     const app = createApp();

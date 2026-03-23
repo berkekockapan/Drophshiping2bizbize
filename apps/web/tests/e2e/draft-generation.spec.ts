@@ -2,6 +2,7 @@
 
 test("user generates and manually edits an Etsy draft title", async ({ page }) => {
   let currentTitle = "";
+  let generateFieldCalls = 0;
 
   await page.route("**/products/prod_1", async (route) => {
     await route.fulfill({
@@ -35,6 +36,22 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
         priceHistory: [],
         stockHistory: [],
         notifications: [],
+      }),
+    });
+  });
+
+  await page.route("**/tracking/products*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        summary: {
+          trackedCount: 0,
+          activeCount: 0,
+          reviewNeededCount: 0,
+        },
+        items: [],
+        filters: {},
       }),
     });
   });
@@ -104,6 +121,19 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
     });
   });
 
+  await page.route("http://127.0.0.1:4317/generate-field", async (route) => {
+    generateFieldCalls += 1;
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        field: "title",
+        value: "Should not be used",
+        provider: "mock",
+      }),
+    });
+  });
+
   await page.route("**/drafts/prod_1/generate", async (route) => {
     const requestBody = route.request().postDataJSON() as {
       generated: {
@@ -142,11 +172,16 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
     });
   });
 
-  await page.goto("/products/prod_1/seo");
+  await page.goto("/");
+  await page.evaluate((path) => {
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, "/products/prod_1/seo");
   await page.getByRole("button", { name: "Başlık Üret" }).click();
 
   await expect(page.getByLabel("English Title")).toHaveValue(/Handmade Hoodie/i);
 
   await page.getByLabel("English Title").fill("Custom edited title");
   await expect(page.getByText(/Manuel düzenleme var/i)).toBeVisible();
+  expect(generateFieldCalls).toBe(0);
 });

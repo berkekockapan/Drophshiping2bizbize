@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { formatDateTime, formatPrice, type ProductDetailResponse } from "../../../app/api";
 import { ProductImageGallery } from "./ProductImageGallery";
 import { StatCard } from "../../shared/components/StatCard";
@@ -6,9 +8,10 @@ import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLi
 
 interface ProductSummaryProps {
   detail: ProductDetailResponse;
+  action?: ReactNode;
 }
 
-export function ProductSummary({ detail }: ProductSummaryProps) {
+export function ProductSummary({ detail, action }: ProductSummaryProps) {
   const title = detail.product.title ?? "Başlıksız ürün";
 
   return (
@@ -31,7 +34,8 @@ export function ProductSummary({ detail }: ProductSummaryProps) {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {action}
               <TrendyolExternalLink
                 href={detail.product.trendyolUrl}
                 label={`Trendyol ürün sayfasını yeni sekmede aç: ${title}`}

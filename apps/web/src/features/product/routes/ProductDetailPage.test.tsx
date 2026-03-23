@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -120,6 +121,20 @@ const notificationsPayload = {
   ],
 };
 
+function jsonResponse(payload: unknown) {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function ndjsonResponse(events: unknown[]) {
+  return new Response(`${events.map((event) => JSON.stringify(event)).join("\n")}\n`, {
+    status: 200,
+    headers: { "Content-Type": "application/x-ndjson" },
+  });
+}
+
 describe("ProductDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -191,5 +206,74 @@ describe("ProductDetailPage", () => {
 
     expect(await screen.findByText(/parse hatası/i)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /uyarılar/i })).toBeInTheDocument();
+  });
+
+  it("switches from genel bakis to hazirlik mode inside the same product page", async () => {
+    const user = userEvent.setup();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          product: productDetailPayload.product,
+          draft: {
+            id: "draft_1",
+            productId: "prod_1",
+            englishTitle: null,
+            shortDescription: null,
+            longDescription: null,
+            tags: [],
+            materials: [],
+            attributes: [],
+            seoNotes: null,
+            policyNotes: null,
+            generatedVersion: 0,
+            editedVersion: 0,
+            lastGeneratedAt: null,
+            manualEditsPresent: false,
+          },
+          connectorProfileSnapshot: {
+            id: "profile_1",
+            label: "Mock Connector",
+          },
+        });
+      }
+
+      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([
+          { type: "step_started", step: "fetch_listing_signals", field: "general" },
+          {
+            type: "result_ready",
+            result: {
+              productId: "prod_1",
+              insights: {
+                seoNotes: "Lead with hoodie keyword.",
+                policyNotes: "Care instructions should be explicit.",
+                merchandisingNotes: "Missing lifestyle context.",
+              },
+            },
+          },
+        ]);
+      }
+
+      if (url.includes("/products/prod_1")) {
+        return jsonResponse(productDetailPayload);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<ProductDetailPage />, {
+      route: "/products/prod_1",
+      path: "/products/:productId",
+    });
+
+    expect(await screen.findByRole("button", { name: /etsy'e yükle/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /etsy'e yükle/i }));
+
+    expect(await screen.findByRole("heading", { name: /etsy hazırlık çalışma alanı/i })).toBeInTheDocument();
+    expect(screen.queryByText(/varyasyon matrisi/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /genel bakışa dön/i })).toBeInTheDocument();
   });
 });

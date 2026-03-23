@@ -159,6 +159,88 @@ export interface EtsyDraft {
   manualEditsPresent: boolean;
 }
 
+export type EtsyPrepField = "title" | "description" | "tags";
+
+export interface EtsyPrepConnectorProfileSnapshot {
+  id: string;
+  label: string;
+}
+
+export interface EtsyPrepBootstrapResponse {
+  product: ProductDetailResponse["product"];
+  draft: EtsyDraft;
+  connectorProfileSnapshot: EtsyPrepConnectorProfileSnapshot | null;
+}
+
+export interface EtsyPrepAnalysisInsights {
+  seoNotes?: string | null;
+  policyNotes?: string | null;
+  riskNotes?: string | null;
+  merchandisingNotes?: string | null;
+}
+
+export interface EtsyPrepStepStartedEvent {
+  type: "step_started";
+  step: string;
+  field: "general" | EtsyPrepField;
+}
+
+export interface EtsyPrepStepCompletedEvent {
+  type: "step_completed";
+  step: string;
+  field: "general" | EtsyPrepField;
+  signals?: Record<string, unknown>;
+  constraints?: Record<string, unknown>;
+}
+
+export interface EtsyPrepResearchSummaryEvent {
+  type: "research_summary";
+  summary: {
+    title?: string;
+    keywordAngles?: string[];
+    audienceThemes?: string[];
+    policyNotes?: string[];
+  };
+}
+
+export interface EtsyPrepResultReadyEvent {
+  type: "result_ready";
+  result: {
+    productId: string;
+    insights: EtsyPrepAnalysisInsights;
+  };
+}
+
+export interface EtsyPrepPromptReadyEvent {
+  type: "prompt_ready";
+  field: EtsyPrepField;
+  prompt: string;
+  context: Record<string, unknown>;
+}
+
+export type EtsyPrepStreamEvent =
+  | EtsyPrepStepStartedEvent
+  | EtsyPrepStepCompletedEvent
+  | EtsyPrepResearchSummaryEvent
+  | EtsyPrepResultReadyEvent
+  | EtsyPrepPromptReadyEvent;
+
+export interface SaveEtsyPrepWorkspacePayload {
+  englishTitle: string | null;
+  longDescription: string | null;
+  tags: string[];
+  seoNotes: string | null;
+  policyNotes: string | null;
+  generatedFields: EtsyPrepField[];
+  editedFields: EtsyPrepField[];
+}
+
+export interface ConnectorGenerateFieldPayload {
+  field: EtsyPrepField;
+  prompt: string;
+  context?: Record<string, unknown>;
+}
+
 export interface DraftPromptResponse {
   instructions: string;
   source: {
@@ -258,6 +340,15 @@ async function parseJson<T>(response: Response): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+async function assertOkResponse(response: Response): Promise<Response> {
+  if (response.ok) {
+    return response;
+  }
+
+  await parseJson<{ error: string }>(response);
+  throw new Error(`Request failed (${response.status})`);
 }
 
 export async function fetchTrackingView(options: { favoriteOnly?: boolean } = {}): Promise<TrackingViewResponse> {
@@ -385,6 +476,40 @@ export async function fetchDraft(productId: string): Promise<{ draft: EtsyDraft;
   return parseJson<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }>(response);
 }
 
+export async function fetchEtsyPrepWorkspace(productId: string): Promise<EtsyPrepBootstrapResponse> {
+  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep`);
+  return parseJson<EtsyPrepBootstrapResponse>(response);
+}
+
+export async function streamEtsyPrepAnalysis(productId: string) {
+  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep/analyze`, {
+    method: "POST",
+  });
+
+  return assertOkResponse(response);
+}
+
+export async function streamEtsyPrepFieldPackage(productId: string, field: EtsyPrepField) {
+  const path = field === "title" ? "generate-title" : field === "description" ? "generate-description" : "generate-tags";
+  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep/${path}`, {
+    method: "POST",
+  });
+
+  return assertOkResponse(response);
+}
+
+export async function saveEtsyPrepWorkspace(productId: string, payload: SaveEtsyPrepWorkspacePayload) {
+  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep/save`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<EtsyDraft>(response);
+}
+
 export async function patchDraft(
   productId: string,
   payload: Partial<
@@ -468,6 +593,22 @@ export async function connectorGenerate(payload: {
     seoNotes: string;
     policyNotes: string;
     model: string;
+  }>(response);
+}
+
+export async function connectorGenerateField(payload: ConnectorGenerateFieldPayload) {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/generate-field`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{
+    field: EtsyPrepField;
+    value: string;
+    provider: string;
   }>(response);
 }
 

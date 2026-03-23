@@ -225,6 +225,19 @@ export function createManualRefreshRunsRepo(db: D1Database) {
 
       return mapRun(row);
     },
+    async listStaleRunIds(updatedBefore: number) {
+      const rows = await db
+        .prepare(
+          `select id
+           from manual_refresh_runs
+           where status != 'COMPLETED' and updated_at < ?
+           order by created_at asc`,
+        )
+        .bind(updatedBefore)
+        .all<{ id: string }>();
+
+      return rows.results.map((row) => row.id);
+    },
     async listRunItems(runId: string) {
       const rows = await db
         .prepare(
@@ -353,6 +366,68 @@ export function createManualRefreshRunsRepo(db: D1Database) {
            where id = ?`,
         )
         .bind(timestamp, timestamp, runId)
+        .run();
+    },
+    async completeRunAsInterrupted(runId: string, errorMessage: string, now: Date) {
+      const timestamp = now.getTime();
+
+      await db
+        .prepare(
+          `update manual_refresh_run_items
+           set status = 'FAILED',
+               error_message = case
+                 when error_message is null or error_message = '' then ?
+                 else error_message
+               end,
+               finished_at = coalesce(finished_at, ?),
+               updated_at = ?
+           where run_id = ? and status in ('PENDING', 'RUNNING')`,
+        )
+        .bind(errorMessage, timestamp, timestamp, runId)
+        .run();
+
+      const counts = await db
+        .prepare(
+          `select count(*) as totalCount,
+                  sum(case when status = 'PENDING' then 1 else 0 end) as pendingCount,
+                  sum(case when status = 'RUNNING' then 1 else 0 end) as runningCount,
+                  sum(case when status = 'SUCCESS' then 1 else 0 end) as successCount,
+                  sum(case when status = 'FAILED' then 1 else 0 end) as failedCount
+           from manual_refresh_run_items
+           where run_id = ?`,
+        )
+        .bind(runId)
+        .first<{
+          totalCount: number;
+          pendingCount: number | null;
+          runningCount: number | null;
+          successCount: number | null;
+          failedCount: number | null;
+        }>();
+
+      await db
+        .prepare(
+          `update manual_refresh_runs
+           set status = 'COMPLETED',
+               total_count = ?,
+               pending_count = ?,
+               running_count = ?,
+               success_count = ?,
+               failed_count = ?,
+               finished_at = ?,
+               updated_at = ?
+           where id = ?`,
+        )
+        .bind(
+          counts?.totalCount ?? 0,
+          counts?.pendingCount ?? 0,
+          counts?.runningCount ?? 0,
+          counts?.successCount ?? 0,
+          counts?.failedCount ?? 0,
+          timestamp,
+          timestamp,
+          runId,
+        )
         .run();
     },
   };

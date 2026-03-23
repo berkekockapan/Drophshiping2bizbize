@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   fetchActiveManualRefreshRun,
@@ -29,6 +29,8 @@ export function BulkRefreshControl() {
   const queryClient = useQueryClient();
   const [runId, setRunId] = useState<string | null>(null);
   const [resultPopup, setResultPopup] = useState<ManualRefreshRunSummary | null>(null);
+  const [isSyncingFreshData, setIsSyncingFreshData] = useState(false);
+  const finalizingRunIdRef = useRef<string | null>(null);
   const activeRunQuery = useQuery({
     queryKey: ["tracking-refresh-run", "active"],
     queryFn: fetchActiveManualRefreshRun,
@@ -78,19 +80,40 @@ export function BulkRefreshControl() {
   const run = runId ? (runStatusQuery.data?.run ?? null) : null;
 
   useEffect(() => {
-    if (!runId || !run || run.status !== "COMPLETED") {
+    if (!runId || !run || run.status !== "COMPLETED" || finalizingRunIdRef.current === runId) {
       return;
     }
 
-    void queryClient.invalidateQueries({ queryKey: ["tracking-products"] });
-    void queryClient.invalidateQueries({ queryKey: ["product-detail"] });
-    queryClient.setQueryData(["tracking-refresh-run", "active"], { run: null });
-    setResultPopup(run);
-    setRunId(null);
+    finalizingRunIdRef.current = runId;
+    setIsSyncingFreshData(true);
+
+    async function syncFreshData() {
+      await Promise.allSettled([
+        queryClient.invalidateQueries({
+          queryKey: ["tracking-products"],
+          refetchType: "active",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["product-detail"],
+          refetchType: "active",
+        }),
+      ]);
+      queryClient.setQueryData(["tracking-refresh-run", "active"], { run: null });
+      setResultPopup(run);
+      setRunId(null);
+      finalizingRunIdRef.current = null;
+      setIsSyncingFreshData(false);
+    }
+
+    void syncFreshData();
   }, [queryClient, run, runId]);
 
   const completedCount = run ? getCompletedCount(run) : 0;
   const percent = run && run.totalCount > 0 ? Math.round((completedCount / run.totalCount) * 100) : 0;
+  const progressMessage =
+    run?.status === "COMPLETED" || isSyncingFreshData
+      ? "Güncel veriler ekrana alınıyor..."
+      : "Ürün verileri yenileniyor...";
   const errorMessage = startMutation.error instanceof Error
     ? startMutation.error.message
     : retryMutation.error instanceof Error
@@ -113,7 +136,7 @@ export function BulkRefreshControl() {
           </div>
           <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
             <div>
-              <p className="font-medium text-slate-900">Ürün verileri yenileniyor...</p>
+              <p className="font-medium text-slate-900">{progressMessage}</p>
               <p className="text-xs text-slate-500">%{percent} tamamlandı</p>
             </div>
             <p className="font-semibold text-sky-700">

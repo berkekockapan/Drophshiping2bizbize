@@ -196,6 +196,161 @@ describe("parseTrendyolProduct", () => {
     ]);
   });
 
+  it("falls back to envoy root product price when variant price is absent", () => {
+    const parsed = parseTrendyolProduct(`
+      <!doctype html>
+      <html>
+        <head>
+          <script>
+            window["__envoy__PROPS"] = {
+              "product": {
+                "name": "Stone Mug",
+                "brand": { "name": "Brand B" },
+                "category": { "name": "Mug" },
+                "price": {
+                  "currency": "TRY",
+                  "discountedPrice": {
+                    "value": 129.99,
+                    "text": "129,99 TL"
+                  },
+                  "sellingPrice": {
+                    "value": 129.99,
+                    "text": "129,99 TL"
+                  }
+                },
+                "variants": [
+                  {
+                    "itemNumber": 554433221,
+                    "attributeBeautifiedValue": "Bej",
+                    "url": "/brand-b/stone-mug-bej-p-777",
+                    "inStock": true,
+                    "isSelected": true
+                  }
+                ]
+              }
+            };
+          </script>
+          <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@type": "ProductGroup",
+              "name": "Brand B Stone Mug",
+              "offers": {
+                "@type": "Offer",
+                "availability": "https://schema.org/InStock",
+                "price": 34.99,
+                "priceCurrency": "TRY"
+              }
+            }
+          </script>
+        </head>
+        <body></body>
+      </html>
+    `);
+
+    expect(parsed.title).toBe("Brand B Stone Mug");
+    expect(parsed.price).toBe(12999);
+    expect(parsed.variants).toEqual([
+      expect.objectContaining({
+        variantKey: "554433221",
+        option1: "Bej",
+        price: 12999,
+        rawPayload: expect.objectContaining({
+          url: "https://www.trendyol.com/brand-b/stone-mug-bej-p-777",
+        }),
+      }),
+    ]);
+  });
+
+  it("prefers merchant winner selling price over mismatched product variant price", () => {
+    const parsed = parseTrendyolProduct(`
+      <!doctype html>
+      <html>
+        <head>
+          <script>
+            window["__envoy__PROPS"] = {
+              "product": {
+                "name": "Boğumlu Kahve Bardağı, Borosilikat Sunum Bardağı, Isı Dayanıklı Bardak (350 ML) Bubblecup",
+                "brand": { "name": "ERKUGO" },
+                "category": { "name": "Bardak" },
+                "images": [
+                  "https://cdn.dsmcdn.com/ty1827/prod/QC_ENRICHMENT/20260219/13/c4141ef6-e97e-3c27-a6b1-36ef19abc2d5/1_org_zoom.jpg",
+                  "https://cdn.dsmcdn.com/web/production/product-placeholder-v2.jpeg"
+                ],
+                "merchantListing": {
+                  "promotions": [
+                    {
+                      "name": "Ev Ürünlerinde %5 İndirim",
+                      "promotionDiscountType": "DiscountOnBasket",
+                      "isApplied": true
+                    }
+                  ],
+                  "winnerVariant": {
+                    "itemNumber": 1163720857,
+                    "listingId": "9ad1cca345ca741498097c8c78d66d7f",
+                    "barcode": "EKG-Bubblecup",
+                    "price": {
+                      "currency": "TRY",
+                      "discountedPrice": { "value": 47.4, "text": "47,40 TL" },
+                      "sellingPrice": { "value": 49.9, "text": "49,90 TL" },
+                      "originalPrice": { "value": 49.9, "text": "49,90 TL" },
+                      "couponApplicablePrice": { "value": 47.4, "text": "47,40 TL" }
+                    },
+                    "inStock": true
+                  },
+                  "variants": [
+                    {
+                      "itemNumber": 1163720857,
+                      "listingId": "9ad1cca345ca741498097c8c78d66d7f",
+                      "barcode": "EKG-Bubblecup",
+                      "isSelected": true,
+                      "inStock": true
+                    }
+                  ]
+                },
+                "variants": [
+                  {
+                    "itemNumber": 1163720857,
+                    "barcode": "EKG-Bubblecup",
+                    "isSelected": true,
+                    "inStock": true,
+                    "price": {
+                      "value": 123.4,
+                      "text": "123,40 TL"
+                    }
+                  }
+                ]
+              }
+            };
+          </script>
+          <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@type": "ProductGroup",
+              "name": "ERKUGO Bubblecup",
+              "offers": {
+                "@type": "Offer",
+                "availability": "https://schema.org/InStock",
+                "price": 34.99,
+                "priceCurrency": "TRY"
+              }
+            }
+          </script>
+        </head>
+        <body></body>
+      </html>
+    `);
+
+    expect(parsed.title).toBe("ERKUGO Boğumlu Kahve Bardağı, Borosilikat Sunum Bardağı, Isı Dayanıklı Bardak (350 ML) Bubblecup");
+    expect(parsed.price).toBe(4990);
+    expect(parsed.variants).toEqual([
+      expect.objectContaining({
+        variantKey: "1163720857",
+        price: 4990,
+      }),
+    ]);
+  });
+
   it("throws a typed parse error for unavailable products", () => {
     expect(() => parseTrendyolProduct(readFixture("product-unavailable.html"))).toThrowError(ParseError);
   });

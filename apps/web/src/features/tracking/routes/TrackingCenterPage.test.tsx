@@ -166,4 +166,120 @@ describe("TrackingCenterPage", () => {
     expect(await screen.findByText(/favorite hoodie/i)).toBeInTheDocument();
     expect(screen.queryByText(/oversize hoodie/i)).not.toBeInTheDocument();
   });
+
+  it("keeps the refresh progress visible until refreshed product data is fetched back into the page", async () => {
+    const user = userEvent.setup();
+    const refreshedPayload = {
+      ...trackingPayload,
+      items: [
+        {
+          ...trackingPayload.items[0],
+          title: "Oversize Hoodie Refresh",
+          thumbnailImage: "https://cdn.example.com/hoodie-refresh.jpg",
+          currentPrice: 51990,
+          minPrice: 34990,
+          maxPrice: 51990,
+        },
+        trackingPayload.items[1],
+      ],
+    };
+    const runningRun = {
+      id: "run_1",
+      status: "RUNNING",
+      totalCount: 2,
+      pendingCount: 1,
+      runningCount: 1,
+      successCount: 0,
+      failedCount: 0,
+      startedAt: 1760000000000,
+      finishedAt: null,
+      scope: "ALL",
+      sourceRunId: null,
+    };
+    const completedRun = {
+      ...runningRun,
+      status: "COMPLETED",
+      pendingCount: 0,
+      runningCount: 0,
+      successCount: 2,
+      failedCount: 0,
+      finishedAt: 1760000015000,
+    };
+
+    let trackingRequestCount = 0;
+    let resolveRefreshedTracking: ((response: Response) => void) | undefined;
+    const refreshedTrackingPromise = new Promise<Response>((resolve) => {
+      resolveRefreshedTracking = resolve;
+    });
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.includes("/tracking/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/tracking/products/refresh-runs") && method === "POST" && !url.includes("retry-failed")) {
+        return new Response(JSON.stringify({ run: runningRun }), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/tracking/products/refresh-runs/run_1") && method === "GET") {
+        return new Response(JSON.stringify({ run: completedRun }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/tracking/products") && method === "GET") {
+        trackingRequestCount += 1;
+
+        if (trackingRequestCount === 1) {
+          return new Response(JSON.stringify(trackingPayload), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        return refreshedTrackingPromise;
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderWithProviders(<TrackingCenterPage />);
+
+    expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /tüm ürünleri yenile/i }));
+
+    expect(await screen.findByText(/ürün verileri yenileniyor|güncel veriler ekrana alınıyor/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/tracking/products/refresh-runs/run_1"), expect.anything()),
+    );
+
+    expect(screen.getByText(/güncel veriler ekrana alınıyor/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /tüm ürünleri yenile/i })).not.toBeInTheDocument();
+
+    if (resolveRefreshedTracking) {
+      resolveRefreshedTracking(
+        new Response(JSON.stringify(refreshedPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    }
+
+    expect(await screen.findByText(/oversize hoodie refresh/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /tüm ürünleri yenile/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/güncel veriler ekrana alınıyor/i)).not.toBeInTheDocument();
+  });
 });

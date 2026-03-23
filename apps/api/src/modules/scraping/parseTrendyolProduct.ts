@@ -99,9 +99,12 @@ function parseNestedPrice(value: unknown): number | null {
   }
 
   return (
-    parseNestedPrice(value.discountedPrice) ??
     parseNestedPrice(value.sellingPrice) ??
+    parseNestedPrice(value.discountedPrice) ??
     parseNestedPrice(value.originalPrice) ??
+    parseNestedPrice(value.couponApplicablePrice) ??
+    parseNestedPrice(value.discountedPriceAfterNoLimitPromotions) ??
+    parseNestedPrice(value.tyPlusCouponApplicablePrice) ??
     parseNestedPrice(value.value) ??
     parseNestedPrice(value.text)
   );
@@ -236,6 +239,21 @@ function readVariantUrl(variant: Record<string, unknown>, baseUrl: string | null
   );
 }
 
+function getVariantIdentityCandidates(variant: Record<string, unknown>): string[] {
+  return [variant.itemNumber, variant.barcode, variant.listingId]
+    .map((value) => firstScalarText(value))
+    .filter((value): value is string => Boolean(value));
+}
+
+function variantsMatch(left: Record<string, unknown> | null, right: Record<string, unknown> | null) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const rightIds = new Set(getVariantIdentityCandidates(right));
+  return getVariantIdentityCandidates(left).some((value) => rightIds.has(value));
+}
+
 function parseStockStateFromRecord(value: Record<string, unknown>): "IN_STOCK" | "OUT_OF_STOCK" {
   if (typeof value.inStock === "boolean") {
     return value.inStock ? "IN_STOCK" : "OUT_OF_STOCK";
@@ -299,15 +317,29 @@ function parseFromEnvoyProps(html: string): ParsedProduct | null {
 
   const selectedVariant =
     variantRecords.find((variant) => variant.isSelected === true) ?? winnerVariant ?? variantRecords[0] ?? null;
-  const currentPrice = parseNestedPrice(selectedVariant?.price) ?? parseNestedPrice(winnerVariant?.price) ?? jsonLdFallback?.price ?? null;
+  const currentPrice =
+    parseNestedPrice(winnerVariant?.price) ??
+    parseNestedPrice(product.price) ??
+    parseNestedPrice(merchantListing?.price) ??
+    parseNestedPrice(selectedVariant?.price) ??
+    jsonLdFallback?.price ??
+    null;
 
   if (currentPrice === null) {
     return null;
   }
 
   const variants = variantRecords.map((variant, index) => {
-    const option = firstText(variant.beautifiedValue, variant.value);
-    const price = parseNestedPrice(variant.price) ?? currentPrice;
+    const option = firstText(variant.beautifiedValue, variant.attributeBeautifiedValue, variant.value, variant.attributeValue);
+    const matchingMerchantVariant = merchantVariants.find((merchantVariant) => variantsMatch(merchantVariant, variant)) ?? null;
+    const preferredWinnerPrice = variantsMatch(variant, winnerVariant) ? parseNestedPrice(winnerVariant?.price) : null;
+    const price =
+      parseNestedPrice(matchingMerchantVariant?.price) ??
+      preferredWinnerPrice ??
+      parseNestedPrice(variant.price) ??
+      parseNestedPrice(product.price) ??
+      parseNestedPrice(merchantListing?.price) ??
+      currentPrice;
     const url = readVariantUrl(variant, productUrl) ?? productUrl;
 
     return {

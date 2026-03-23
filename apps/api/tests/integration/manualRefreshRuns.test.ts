@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "../../src/index";
+import { createManualRefreshRunsRepo } from "../../src/db/repositories/manualRefreshRunsRepo";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
 import { createTestEnv } from "../support/sqlite";
 
@@ -126,6 +127,74 @@ describe("manual refresh runs", () => {
         scope: "FAILED_ONLY",
         sourceRunId: started.run.id,
       }),
+    });
+  });
+
+  it("reconciles stale running runs before returning active or detail views", async () => {
+    const { env, sqlite } = createTestEnv();
+    const fetchImpl = async () => new Response(basicProductHtml, { status: 200 });
+    const app = createApp({ fetchImpl });
+    const runsRepo = createManualRefreshRunsRepo(env.DB);
+    const staleNow = new Date("2020-01-01T00:00:00.000Z");
+
+    const first = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl,
+        now: staleNow,
+      },
+    );
+    const second = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/favorite-hoodie-p-456?merchantId=1" },
+      {
+        fetchImpl,
+        now: staleNow,
+      },
+    );
+
+    const staleRun = await runsRepo.createRun(
+      {
+        productIds: [first.product.id, second.product.id],
+        scope: "ALL",
+        sourceRunId: null,
+      },
+      staleNow,
+    );
+
+    await runsRepo.markItemRunning(staleRun.id, first.product.id, staleNow);
+    await runsRepo.markItemSucceeded(staleRun.id, first.product.id, staleNow);
+    await runsRepo.markItemRunning(staleRun.id, second.product.id, staleNow);
+
+    const activeResponse = await app.request("http://localhost/tracking/products/refresh-runs/active", undefined, env);
+    expect(activeResponse.status).toBe(200);
+    expect(await activeResponse.json()).toEqual({ run: null });
+
+    const detailResponse = await app.request(
+      `http://localhost/tracking/products/refresh-runs/${staleRun.id}`,
+      undefined,
+      env,
+    );
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toEqual({
+      run: expect.objectContaining({
+        id: staleRun.id,
+        status: "COMPLETED",
+        pendingCount: 0,
+        runningCount: 0,
+        successCount: 1,
+        failedCount: 1,
+      }),
+    });
+
+    expect(
+      sqlite
+        .prepare("select status, error_message as errorMessage from manual_refresh_run_items where run_id = ? and product_id = ?")
+        .get(staleRun.id, second.product.id),
+    ).toEqual({
+      status: "FAILED",
+      errorMessage: "Toplu yenileme islemi tamamlanmadan durdu",
     });
   });
 });

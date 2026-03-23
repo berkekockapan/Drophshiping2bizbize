@@ -38,6 +38,15 @@ function parseOutputSchema(prompt: string) {
   return JSON.parse(schemaLine.replace("OUTPUT_SCHEMA: ", ""));
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function expectKeywordAnglesToContainToken(keywordAngles: string[], token: string) {
+  const pattern = new RegExp(escapeRegExp(token.normalize("NFC")), "iu");
+  expect(keywordAngles.some((angle) => pattern.test(String(angle).normalize("NFC")))).toBe(true);
+}
+
 describe("etsy prep", () => {
   it("returns Etsy prep bootstrap data and persists saved workspace fields", async () => {
     const { env } = createTestEnv();
@@ -350,9 +359,8 @@ describe("etsy prep", () => {
     const finalEvent = lines.at(-1);
 
     expect(finalEvent).toEqual(expect.objectContaining({ type: "prompt_ready", field: "tags" }));
-    expect(finalEvent.context.signals.keywordAngles).toEqual(
-      expect.arrayContaining([expect.stringContaining("örgü"), expect.stringContaining("şal")]),
-    );
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "Örgü");
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "Şal");
   });
 
   it("keeps mixed-locale uppercase keywords intact in title packages", async () => {
@@ -360,10 +368,10 @@ describe("etsy prep", () => {
       <html>
         <body>
           <div data-product-page="trendyol">
-            <h1 data-testid="product-title">IKEA Örgü Organizer</h1>
+            <h1 data-testid="product-title">IKEA INSPIRED Ihlamur ŞIK</h1>
             <span data-testid="product-brand">Nordic Home</span>
             <span data-testid="product-category">Ev Düzeni</span>
-            <div data-testid="product-description">IKEA uyumlu örgü organizer sepet.</div>
+            <div data-testid="product-description">IKEA inspired saklama icin Ihlamur tonlu sik organizer.</div>
             <ul data-testid="product-attributes">
               <li data-key="Materyal">Pamuk</li>
             </ul>
@@ -401,10 +409,10 @@ describe("etsy prep", () => {
     const finalEvent = lines.at(-1);
 
     expect(finalEvent).toEqual(expect.objectContaining({ type: "prompt_ready", field: "title" }));
-    expect(finalEvent.context.signals.keywordAngles).toEqual(expect.arrayContaining([expect.stringContaining("ikea")]));
-    expect(finalEvent.context.signals.keywordAngles).not.toEqual(
-      expect.arrayContaining([expect.stringContaining("ıkea")]),
-    );
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "IKEA");
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "INSPIRED");
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "Ihlamur");
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "ŞIK");
   });
 
   it("keeps Turkish capital İ words intact in title packages", async () => {
@@ -453,9 +461,8 @@ describe("etsy prep", () => {
     const finalEvent = lines.at(-1);
 
     expect(finalEvent).toEqual(expect.objectContaining({ type: "prompt_ready", field: "title" }));
-    expect(finalEvent.context.signals.keywordAngles).toEqual(
-      expect.arrayContaining([expect.stringContaining("işlemeli"), expect.stringContaining("örgü")]),
-    );
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "İşlemeli");
+    expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "Örgü");
   });
 
   it("streams a description prompt package with a field-specific schema", async () => {

@@ -12,7 +12,7 @@ export interface EtsyListingSignals {
 type EtsyPrepProduct = EtsyPrepView["product"];
 
 function normalizeToken(value: string) {
-  return value.normalize("NFC").toLowerCase().normalize("NFD").replace(/\u0307/g, "").normalize("NFC");
+  return value.normalize("NFC");
 }
 
 function tokenize(value: string | null | undefined) {

@@ -11,6 +11,10 @@ export interface EtsyListingSignals {
 
 type EtsyPrepProduct = EtsyPrepView["product"];
 
+function normalizeToken(value: string) {
+  return value.normalize("NFC").toLowerCase().normalize("NFD").replace(/\u0307/g, "").normalize("NFC");
+}
+
 function tokenize(value: string | null | undefined) {
   if (!value) {
     return [];
@@ -18,9 +22,8 @@ function tokenize(value: string | null | undefined) {
 
   return (
     value
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu)
-      ?.map((part) => part.trim())
+      .match(/[\p{L}\p{N}\p{M}]+/gu)
+      ?.map((part) => normalizeToken(part.trim()))
       .filter((part) => part.length >= 3) ?? []
   );
 }

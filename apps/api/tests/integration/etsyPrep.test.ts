@@ -407,6 +407,57 @@ describe("etsy prep", () => {
     );
   });
 
+  it("keeps Turkish capital İ words intact in title packages", async () => {
+    const turkishCapitalIHtml = `
+      <html>
+        <body>
+          <div data-product-page="trendyol">
+            <h1 data-testid="product-title">İşlemeli Örgü Şal</h1>
+            <span data-testid="product-brand">Anadolu Tasarım</span>
+            <span data-testid="product-category">Kadın Aksesuar</span>
+            <div data-testid="product-description">El yapımı işlemeli örgü şal.</div>
+            <ul data-testid="product-attributes">
+              <li data-key="Materyal">Pamuk</li>
+            </ul>
+            <div data-testid="product-images">
+              <img src="https://cdn.example.com/islemeli-sal-1.jpg" />
+            </div>
+            <div data-testid="product-price" data-price="549.90">549.90</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/anadolu-tasarim/islemeli-orgu-sal-p-654?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(turkishCapitalIHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+    const response = await app.request(
+      `http://localhost/products/${seeded.product.id}/etsy-prep/generate-title`,
+      { method: "POST" },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const lines = (await response.text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const finalEvent = lines.at(-1);
+
+    expect(finalEvent).toEqual(expect.objectContaining({ type: "prompt_ready", field: "title" }));
+    expect(finalEvent.context.signals.keywordAngles).toEqual(
+      expect.arrayContaining([expect.stringContaining("işlemeli"), expect.stringContaining("örgü")]),
+    );
+  });
+
   it("streams a description prompt package with a field-specific schema", async () => {
     const { env } = createTestEnv();
     const seeded = await createTrackedProduct(

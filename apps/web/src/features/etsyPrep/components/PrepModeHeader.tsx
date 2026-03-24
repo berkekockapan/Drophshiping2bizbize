@@ -40,7 +40,7 @@ export function PrepModeHeader({
               {isDirty ? "Kaydedilmemiş değişiklik var" : "Tüm değişiklikler kaydedildi"}
             </span>
             <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-              {connectorLabel ? `Connector: ${connectorLabel}` : "Connector profili seçili değil"}
+              {connectorLabel ? `Aktif Bağlantı: ${connectorLabel}` : "Connector profili seçili değil"}
             </span>
           </div>
 
@@ -50,7 +50,7 @@ export function PrepModeHeader({
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <p>{generationBlockedReason}</p>
               <Link className="mt-2 inline-flex font-semibold text-[#F1641E] hover:text-[#d95518]" to="/connections">
-                AI Bağlantıları
+                AI Bağlantıları sayfasını aç
               </Link>
             </div>
           ) : null}

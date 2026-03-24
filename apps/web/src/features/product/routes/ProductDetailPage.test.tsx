@@ -236,6 +236,8 @@ describe("ProductDetailPage", () => {
           connectorProfileSnapshot: {
             id: "profile_1",
             label: "Mock Connector",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
           },
         });
       }
@@ -266,7 +268,11 @@ describe("ProductDetailPage", () => {
             label: "Mock Connector",
             emailMasked: null,
             provider: "mock",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
+            lastError: null,
           },
+          connectionAttempt: null,
         });
       }
 
@@ -318,6 +324,8 @@ describe("ProductDetailPage", () => {
           connectorProfileSnapshot: {
             id: "profile_1",
             label: "Mock Connector",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
           },
         });
       }
@@ -331,7 +339,11 @@ describe("ProductDetailPage", () => {
             label: "Mock Connector",
             emailMasked: null,
             provider: "mock",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
+            lastError: null,
           },
+          connectionAttempt: null,
         });
       }
 

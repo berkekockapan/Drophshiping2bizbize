@@ -75,6 +75,8 @@ describe("EtsyPrepWorkspace", () => {
           connectorProfileSnapshot: {
             id: "profile_1",
             label: "Mock Connector",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
           },
         });
       }
@@ -88,7 +90,11 @@ describe("EtsyPrepWorkspace", () => {
             label: "Mock Connector",
             emailMasked: null,
             provider: "mock",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
+            lastError: null,
           },
+          connectionAttempt: null,
         });
       }
 
@@ -188,60 +194,7 @@ describe("EtsyPrepWorkspace", () => {
     expect(savePayloads[1]?.generatedFields).toEqual([]);
   });
 
-  it("disables field generation and shows the AI Baglantilari cta when no connector profile is active", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-
-      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          product: {
-            id: "prod_1",
-            trendyolUrl: "https://www.trendyol.com/example",
-            sourceProductId: "123",
-            title: "Oversize Hoodie",
-            brand: "North Apparel",
-            category: "Sweatshirt",
-            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
-            attributes: [{ key: "Renk", value: "Siyah" }],
-            images: ["https://cdn.example.com/hoodie-1.jpg"],
-            status: "ACTIVE",
-            parseStatus: "OK",
-            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
-          },
-          draft: {
-            id: "draft_1",
-            productId: "prod_1",
-            englishTitle: null,
-            shortDescription: null,
-            longDescription: null,
-            tags: [],
-            materials: [],
-            attributes: [],
-            seoNotes: null,
-            policyNotes: null,
-            generatedVersion: 0,
-            editedVersion: 0,
-            lastGeneratedAt: null,
-            manualEditsPresent: false,
-          },
-          connectorProfileSnapshot: null,
-        });
-      }
-
-      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
-        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
-      }
-
-      throw new Error(`Unhandled request: ${url}`);
-    });
-
-    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
-
-    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
-  });
-
-  it("shows the AI Baglantilari cta when connector health cannot be reached", async () => {
+  it("blocks generation and shows reconnect guidance when the active profile needs reauth", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
@@ -280,12 +233,27 @@ describe("EtsyPrepWorkspace", () => {
           connectorProfileSnapshot: {
             id: "profile_1",
             label: "Mock Connector",
+            status: "needs_reauth",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
           },
         });
       }
 
       if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
-        throw new Error("Connector offline");
+        return jsonResponse({
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: {
+            id: "profile_1",
+            label: "Mock Connector",
+            emailMasked: "wo***@company.com",
+            provider: "chatgpt-web",
+            status: "needs_reauth",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
+            lastError: "Session expired",
+          },
+          connectionAttempt: null,
+        });
       }
 
       if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
@@ -298,7 +266,91 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect(screen.getByText(/local connector ulaşılamıyor/i)).toBeInTheDocument();
+    expect(await screen.findByText("Aktif hesap yeniden bağlanmalı.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
+  });
+
+  it("blocks generation while a login flow is still in progress", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          product: {
+            id: "prod_1",
+            trendyolUrl: "https://www.trendyol.com/example",
+            sourceProductId: "123",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+            attributes: [{ key: "Renk", value: "Siyah" }],
+            images: ["https://cdn.example.com/hoodie-1.jpg"],
+            status: "ACTIVE",
+            parseStatus: "OK",
+            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+          },
+          draft: {
+            id: "draft_1",
+            productId: "prod_1",
+            englishTitle: null,
+            shortDescription: null,
+            longDescription: null,
+            tags: [],
+            materials: [],
+            attributes: [],
+            seoNotes: null,
+            policyNotes: null,
+            generatedVersion: 0,
+            editedVersion: 0,
+            lastGeneratedAt: null,
+            manualEditsPresent: false,
+          },
+          connectorProfileSnapshot: {
+            id: "profile_1",
+            label: "Mock Connector",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
+          },
+        });
+      }
+
+      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: {
+            id: "profile_1",
+            label: "Mock Connector",
+            emailMasked: "wo***@company.com",
+            provider: "chatgpt-web",
+            status: "connected",
+            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
+            lastError: null,
+          },
+          connectionAttempt: {
+            id: "attempt_1",
+            provider: "openai",
+            status: "waiting_for_login",
+            profileId: "profile_1",
+            error: null,
+            createdAt: Date.parse("2026-03-24T09:00:00.000Z"),
+            updatedAt: Date.parse("2026-03-24T09:00:01.000Z"),
+          },
+        });
+      }
+
+      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+
+    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
+    expect(screen.getByText(/giriş tamamlanana kadar bekleniyor/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
   });
 });

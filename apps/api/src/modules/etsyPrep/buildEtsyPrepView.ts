@@ -6,6 +6,8 @@ import { buildProductDetailView } from "../tracking/buildProductDetailView";
 export interface EtsyPrepConnectorProfileSnapshot {
   id: string;
   label: string;
+  status: string;
+  lastValidatedAt: number | null;
 }
 
 export interface EtsyPrepView {
@@ -31,6 +33,8 @@ export async function buildEtsyPrepView(db: D1Database, productId: string): Prom
       ? {
           id: activeProfile.id,
           label: activeProfile.label,
+          status: activeProfile.status,
+          lastValidatedAt: activeProfile.lastValidatedAt,
         }
       : null,
   };

@@ -13,21 +13,41 @@ export function ConnectorStatusCard({
   activatingProfileId,
   onActivate,
 }: ConnectorStatusCardProps) {
+  const provider = health?.provider ?? health?.activeProfile?.provider ?? "chatgpt-web";
+  const isMock = provider === "mock";
+
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Local Connector</p>
       <h1 className="mt-3 text-2xl font-semibold text-slate-900">AI Bağlantıları</h1>
 
+      {isMock ? (
+        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">Test modu aktif.</p>
+          <p className="mt-2">
+            Bu connector gerçek ChatGPT hesabı yerine local mock provider kullanıyor. Gerçek bağlantı için{" "}
+            <code className="rounded bg-amber-100 px-1 py-0.5 text-[12px]">CONNECTOR_PROVIDER=chatgpt-web</code>{" "}
+            ayarlayıp connector&apos;ı yeniden başlatın.
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-5 rounded-2xl bg-slate-50 p-4">
         <p className="text-sm text-slate-600">Durum: {health?.status ?? "offline"}</p>
+        <p className="mt-1 text-sm text-slate-600">Provider: {provider}</p>
         <p className="mt-1 text-sm font-semibold text-slate-900">
-          {health?.activeProfile ? `${health.activeProfile.label} bağlı` : "Aktif profil yok"}
+          {health?.activeProfile
+            ? isMock
+              ? `${health.activeProfile.label} test profili aktif`
+              : `${health.activeProfile.label} bağlı`
+            : "Aktif profil yok"}
         </p>
       </div>
 
       <div className="mt-5 space-y-3">
         {profiles.map((profile) => {
           const isActive = health?.activeProfile?.id === profile.id;
+          const isMockProfile = profile.provider === "mock";
 
           return (
             <article key={profile.id} className="rounded-2xl border border-slate-200 p-4">
@@ -35,11 +55,22 @@ export function ConnectorStatusCard({
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{profile.label}</p>
                   <p className="text-xs text-slate-500">{profile.emailMasked ?? "-"}</p>
+                  {isMockProfile ? (
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                      Test Profili
+                    </p>
+                  ) : null}
                 </div>
 
                 {isActive ? (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Bağlı
+                  <span
+                    className={
+                      isMockProfile
+                        ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800"
+                        : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
+                    }
+                  >
+                    {isMockProfile ? "Test Modu" : "Bağlı"}
                   </span>
                 ) : (
                   <button

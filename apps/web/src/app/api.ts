@@ -168,7 +168,7 @@ export interface ConnectorProfile {
 
 export interface ConnectorHealthResponse {
   status: string;
-  provider?: string;
+  provider: string;
   activeProfile: ConnectorProfile | null;
 }
 

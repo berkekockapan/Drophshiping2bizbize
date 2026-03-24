@@ -16,6 +16,9 @@ describe("profileStore", () => {
       label: "Primary",
       emailMasked: "wo***@company.com",
       provider: "chatgpt-web",
+      status: "needs_reauth",
+      lastValidatedAt: 1711274400000,
+      lastError: "Session expired",
       sessionSecret: "super-secret",
     });
 
@@ -26,11 +29,21 @@ describe("profileStore", () => {
         id: "primary",
         emailMasked: "wo***@company.com",
         provider: "chatgpt-web",
+        status: "needs_reauth",
+        lastValidatedAt: 1711274400000,
+        lastError: "Session expired",
       }),
     );
 
     expect((listed[0] as unknown as { sessionSecret?: string }).sessionSecret).toBeUndefined();
     expect(await store.getProfileSecret("primary")).toBe("super-secret");
+    expect(await store.getActiveProfile()).toEqual(
+      expect.objectContaining({
+        id: "primary",
+        status: "needs_reauth",
+        lastError: "Session expired",
+      }),
+    );
 
     const stateRaw = await readFile(join(dir, "profiles.json"), "utf8");
     expect(stateRaw).not.toContain("super-secret");

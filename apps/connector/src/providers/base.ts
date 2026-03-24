@@ -55,6 +55,25 @@ export interface ConnectorHealth {
   connectionAttempt: ConnectionAttempt | null;
 }
 
+export type ConnectorErrorCode =
+  | "NO_ACTIVE_PROFILE"
+  | "PROFILE_NEEDS_REAUTH"
+  | "LOGIN_IN_PROGRESS"
+  | "CONNECTOR_OFFLINE"
+  | "GENERATION_FAILED"
+  | "PROVIDER_UI_CHANGED";
+
+export class ConnectorProviderError extends Error {
+  constructor(
+    public readonly code: ConnectorErrorCode,
+    message: string,
+    public readonly statusCode = 409,
+  ) {
+    super(message);
+    this.name = "ConnectorProviderError";
+  }
+}
+
 export interface AIProvider {
   readonly id: string;
   listProfiles(): Promise<ConnectorProfile[]>;
@@ -62,6 +81,7 @@ export interface AIProvider {
   getHealth(): Promise<ConnectorHealth>;
   startConnection(provider: "openai"): Promise<ConnectionAttempt>;
   getConnectionAttempt(attemptId: string): Promise<ConnectionAttempt | null>;
+  cancelConnectionAttempt(attemptId: string): Promise<ConnectionAttempt | null>;
   reconnectProfile(profileId: string): Promise<ConnectionAttempt>;
   deleteProfile(profileId: string): Promise<void>;
   activateProfile(profileId: string): Promise<ConnectorProfile>;

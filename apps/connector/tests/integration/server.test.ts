@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { MockProvider } from "../../src/providers/mockProvider";
 import { createConnectorServer, type ConnectorServerContext } from "../../src/server";
+import type { AIProvider, GenerateFieldRequest, GenerateRequest } from "../../src/providers/base";
 import { createProfileStore } from "../../src/store/profileStore";
 
 let context: ConnectorServerContext | null = null;
@@ -126,5 +127,125 @@ describe("connector server", () => {
     expect(invalidField.json()).toEqual({
       error: "field must be one of: title, description, tags",
     });
+  });
+
+  it("exposes connection start, poll, reconnect, delete, and richer health routes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "connector-server-"));
+    const store = createProfileStore(dir);
+    const activeProfile = await store.saveProfile({
+      id: "profile_main",
+      label: "Primary",
+      emailMasked: "wo***@company.com",
+      provider: "chatgpt-web",
+      status: "connected",
+      lastValidatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
+      lastError: null,
+    });
+
+    const attempt = {
+      id: "attempt_main",
+      provider: "openai" as const,
+      status: "waiting_for_login" as const,
+      profileId: activeProfile.id,
+      error: null,
+      createdAt: Date.parse("2026-03-24T10:00:00.000Z"),
+      updatedAt: Date.parse("2026-03-24T10:00:01.000Z"),
+    };
+    const deletedIds: string[] = [];
+
+    const provider: AIProvider = {
+      id: "chatgpt-web",
+      listProfiles: async () => [activeProfile],
+      getActiveProfile: async () => activeProfile,
+      getHealth: async () => ({
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile,
+        connectionAttempt: attempt,
+      }),
+      startConnection: async () => attempt,
+      getConnectionAttempt: async () => attempt,
+      reconnectProfile: async () => attempt,
+      deleteProfile: async (profileId) => {
+        deletedIds.push(profileId);
+      },
+      cancelConnectionAttempt: async () => ({
+        ...attempt,
+        status: "cancelled",
+      }),
+      activateProfile: async () => activeProfile,
+      upsertProfile: async () => activeProfile,
+      generate: async (request: GenerateRequest) => ({
+        englishTitle: request.sourceTitle,
+        shortDescription: request.sourceTitle,
+        longDescription: request.sourceTitle,
+        tags: [],
+        materials: [],
+        attributes: [],
+        seoNotes: "",
+        policyNotes: "",
+        model: "stub",
+      }),
+      generateField: async (request: GenerateFieldRequest) => ({
+        field: request.field,
+        value: "stub value",
+        provider: "chatgpt-web",
+      }),
+    };
+
+    context = createConnectorServer({
+      store,
+      provider,
+      config: {
+        host: "127.0.0.1",
+        port: 4317,
+        provider: "chatgpt-web",
+        stateDir: dir,
+      },
+    });
+
+    const start = await context.server.inject({
+      method: "POST",
+      url: "/connections/openai/start",
+    });
+    expect(start.statusCode).toBe(202);
+    expect(start.json().attempt).toEqual(
+      expect.objectContaining({
+        status: "waiting_for_login",
+      }),
+    );
+
+    const poll = await context.server.inject({
+      method: "GET",
+      url: `/connections/openai/attempts/${attempt.id}`,
+    });
+    expect(poll.statusCode).toBe(200);
+    expect(poll.json().attempt).toEqual(expect.objectContaining({ id: attempt.id }));
+
+    const health = await context.server.inject({ method: "GET", url: "/health" });
+    expect(health.statusCode).toBe(200);
+    expect(health.json()).toEqual(
+      expect.objectContaining({
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: expect.objectContaining({
+          status: "connected",
+        }),
+      }),
+    );
+
+    const reconnect = await context.server.inject({
+      method: "POST",
+      url: "/profiles/profile_main/reconnect",
+    });
+    expect(reconnect.statusCode).toBe(202);
+    expect(reconnect.json().attempt).toEqual(expect.objectContaining({ id: attempt.id }));
+
+    const deleteResponse = await context.server.inject({
+      method: "DELETE",
+      url: "/profiles/profile_main",
+    });
+    expect(deleteResponse.statusCode).toBe(204);
+    expect(deletedIds).toEqual(["profile_main"]);
   });
 });

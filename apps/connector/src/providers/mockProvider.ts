@@ -131,6 +131,24 @@ export class MockProvider implements AIProvider {
     return this.connectionAttempts.get(attemptId) ?? null;
   }
 
+  async cancelConnectionAttempt(attemptId: string) {
+    const existing = this.connectionAttempts.get(attemptId);
+    if (!existing) {
+      return null;
+    }
+
+    if (existing.status === "completed") {
+      return existing;
+    }
+
+    const cancelled: ConnectionAttempt = {
+      ...existing,
+      status: "cancelled",
+      updatedAt: Date.now(),
+    };
+    return this.rememberAttempt(cancelled);
+  }
+
   async reconnectProfile(profileId: string) {
     await this.ensureDefaultProfile();
     const now = Date.now();

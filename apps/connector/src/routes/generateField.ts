@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import { generateFieldNames, type AIProvider, type GenerateFieldName } from "../providers/base";
+import { ConnectorProviderError, generateFieldNames, type AIProvider, type GenerateFieldName } from "../providers/base";
 
 const VALID_GENERATE_FIELDS = new Set<string>(generateFieldNames);
 
@@ -25,10 +25,23 @@ export function registerGenerateFieldRoute(server: FastifyInstance, deps: { prov
       return reply.code(400).send({ error: "field must be one of: title, description, tags" });
     }
 
-    return deps.provider.generateField({
-      field: body.field,
-      prompt: body.prompt,
-      context: body.context ?? {},
-    });
+    try {
+      return await deps.provider.generateField({
+        field: body.field,
+        prompt: body.prompt,
+        context: body.context ?? {},
+      });
+    } catch (error) {
+      if (error instanceof ConnectorProviderError) {
+        return reply.code(error.statusCode).send({
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        });
+      }
+
+      throw error;
+    }
   });
 }

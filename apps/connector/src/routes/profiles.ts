@@ -59,4 +59,24 @@ export function registerProfilesRoutes(server: FastifyInstance, deps: { provider
       return reply.code(404).send({ error: message });
     }
   });
+
+  server.post<{ Params: { id: string } }>("/profiles/:id/reconnect", async (request, reply) => {
+    try {
+      const attempt = await deps.provider.reconnectProfile(request.params.id);
+      return reply.code(202).send({ attempt });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Profile reconnect failed";
+      return reply.code(404).send({ error: message });
+    }
+  });
+
+  server.delete<{ Params: { id: string } }>("/profiles/:id", async (request, reply) => {
+    try {
+      await deps.provider.deleteProfile(request.params.id);
+      return reply.code(204).send();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Profile delete failed";
+      return reply.code(404).send({ error: message });
+    }
+  });
 }

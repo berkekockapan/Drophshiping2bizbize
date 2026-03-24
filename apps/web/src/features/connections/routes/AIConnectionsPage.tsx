@@ -23,16 +23,27 @@ export function AIConnectionsPage() {
     queryFn: fetchConnectorProfiles,
   });
 
-  const syncPayload = useMemo(() => {
-    if (!healthQuery.data || !profilesQuery.data) {
+  const normalizedHealth = useMemo(() => {
+    if (!healthQuery.data) {
       return null;
     }
 
-    const activeProfileId = healthQuery.data.activeProfile?.id ?? null;
+    return {
+      ...healthQuery.data,
+      provider: healthQuery.data.provider ?? healthQuery.data.activeProfile?.provider ?? "chatgpt-web",
+    };
+  }, [healthQuery.data]);
+
+  const syncPayload = useMemo(() => {
+    if (!normalizedHealth || !profilesQuery.data) {
+      return null;
+    }
+
+    const activeProfileId = normalizedHealth.activeProfile?.id ?? null;
     return {
       connectorStatus: {
-        status: healthQuery.data.status,
-        provider: healthQuery.data.provider ?? healthQuery.data.activeProfile?.provider ?? "mock",
+        status: normalizedHealth.status,
+        provider: normalizedHealth.provider,
       },
       profiles: profilesQuery.data.items.map((profile) => ({
         id: profile.id,
@@ -42,7 +53,7 @@ export function AIConnectionsPage() {
         isActive: profile.id === activeProfileId,
       })),
     };
-  }, [healthQuery.data, profilesQuery.data]);
+  }, [normalizedHealth, profilesQuery.data]);
 
   useEffect(() => {
     if (!syncPayload) {
@@ -76,7 +87,7 @@ export function AIConnectionsPage() {
 
       {!isLoading && !isError ? (
         <ConnectorStatusCard
-          health={healthQuery.data ?? null}
+          health={normalizedHealth}
           profiles={profilesQuery.data?.items ?? []}
           activatingProfileId={activatingProfileId}
           onActivate={(profileId) => activateMutation.mutate(profileId)}

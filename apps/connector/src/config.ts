@@ -74,7 +74,11 @@ export function loadDotEnvFile(
 }
 
 function toProviderId(value: string | undefined): ProviderId {
-  return value === "chatgpt-web" ? "chatgpt-web" : "mock";
+  if (value === "mock") {
+    return "mock";
+  }
+
+  return "chatgpt-web";
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConnectorConfig {

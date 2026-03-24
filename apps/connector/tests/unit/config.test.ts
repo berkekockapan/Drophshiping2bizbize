@@ -38,5 +38,16 @@ describe("config", () => {
     expect(config.port).toBe(5321);
     expect(config.provider).toBe("chatgpt-web");
   });
-});
 
+  it("defaults to chatgpt-web when CONNECTOR_PROVIDER is omitted", () => {
+    const config = loadConfig({} as NodeJS.ProcessEnv);
+
+    expect(config.provider).toBe("chatgpt-web");
+  });
+
+  it("keeps mock provider available when explicitly configured", () => {
+    const config = loadConfig({ CONNECTOR_PROVIDER: "mock" } as NodeJS.ProcessEnv);
+
+    expect(config.provider).toBe("mock");
+  });
+});

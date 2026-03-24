@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import type { AIProvider, GenerateRequest } from "../providers/base";
+import { ConnectorProviderError, type AIProvider, type GenerateRequest } from "../providers/base";
 
 export function registerGenerateRoute(server: FastifyInstance, deps: { provider: AIProvider }) {
   server.post<{ Body: Partial<GenerateRequest> }>("/generate", async (request, reply) => {
@@ -9,14 +9,27 @@ export function registerGenerateRoute(server: FastifyInstance, deps: { provider:
       return reply.code(400).send({ error: "productId and sourceTitle are required" });
     }
 
-    const generated = await deps.provider.generate({
-      productId: body.productId,
-      sourceTitle: body.sourceTitle,
-      language: body.language ?? "en",
-      sourceDescription: body.sourceDescription ?? null,
-      sourceAttributes: body.sourceAttributes ?? [],
-    });
+    try {
+      const generated = await deps.provider.generate({
+        productId: body.productId,
+        sourceTitle: body.sourceTitle,
+        language: body.language ?? "en",
+        sourceDescription: body.sourceDescription ?? null,
+        sourceAttributes: body.sourceAttributes ?? [],
+      });
 
-    return generated;
+      return generated;
+    } catch (error) {
+      if (error instanceof ConnectorProviderError) {
+        return reply.code(error.statusCode).send({
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        });
+      }
+
+      throw error;
+    }
   });
 }

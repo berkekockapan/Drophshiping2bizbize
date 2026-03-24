@@ -164,6 +164,8 @@ export type EtsyPrepField = "title" | "description" | "tags";
 export interface EtsyPrepConnectorProfileSnapshot {
   id: string;
   label: string;
+  status: string;
+  lastValidatedAt: number | null;
 }
 
 export interface EtsyPrepBootstrapResponse {
@@ -271,18 +273,48 @@ export interface ConnectorProfile {
   label: string;
   emailMasked: string | null;
   provider: string;
+  status: "connected" | "needs_reauth" | "disconnected" | "error";
+  lastValidatedAt: number | null;
+  lastError: string | null;
   isActive?: boolean;
+}
+
+export interface ConnectionAttemptResponse {
+  id: string;
+  provider: "openai";
+  status:
+    | "pending_browser_launch"
+    | "waiting_for_login"
+    | "verifying_session"
+    | "completed"
+    | "failed"
+    | "cancelled";
+  profileId: string | null;
+  error: string | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface ConnectorHealthResponse {
   status: string;
   provider: string;
   activeProfile: ConnectorProfile | null;
+  connectionAttempt: ConnectionAttemptResponse | null;
 }
 
 export interface ConnectorProfilesResponse {
   items: ConnectorProfile[];
   activeProfile: ConnectorProfile | null;
+}
+
+export class ConnectorRequestError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ConnectorRequestError";
+  }
 }
 
 export interface AppSettingsResponse {
@@ -342,12 +374,54 @@ async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function parseConnectorJson<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    if (contentType.includes("application/json")) {
+      const body = (await response.json().catch(() => null)) as
+        | {
+            error?:
+              | string
+              | {
+                  code?: string;
+                  message?: string;
+                };
+          }
+        | null;
+
+      if (body?.error && typeof body.error === "object") {
+        throw new ConnectorRequestError(
+          body.error.code ?? "CONNECTOR_REQUEST_FAILED",
+          body.error.message ?? `Request failed (${response.status})`,
+        );
+      }
+
+      throw new Error(typeof body?.error === "string" ? body.error : `Request failed (${response.status})`);
+    }
+
+    const fallbackText = await response.text().catch(() => "");
+    const message = fallbackText.trim().slice(0, 180);
+    throw new Error(message || `Request failed (${response.status})`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
 async function assertOkResponse(response: Response): Promise<Response> {
   if (response.ok) {
     return response;
   }
 
   await parseJson<{ error: string }>(response);
+  throw new Error(`Request failed (${response.status})`);
+}
+
+async function assertConnectorOkResponse(response: Response): Promise<Response> {
+  if (response.ok) {
+    return response;
+  }
+
+  await parseConnectorJson<{ ok: true }>(response);
   throw new Error(`Request failed (${response.status})`);
 }
 
@@ -552,12 +626,12 @@ const connectorBaseUrl = "http://127.0.0.1:4317";
 
 export async function fetchConnectorHealth() {
   const response = await fetchWithTimeout(`${connectorBaseUrl}/health`);
-  return parseJson<ConnectorHealthResponse>(response);
+  return parseConnectorJson<ConnectorHealthResponse>(response);
 }
 
 export async function fetchConnectorProfiles() {
   const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles`);
-  return parseJson<ConnectorProfilesResponse>(response);
+  return parseConnectorJson<ConnectorProfilesResponse>(response);
 }
 
 export async function activateConnectorProfile(profileId: string) {
@@ -565,7 +639,36 @@ export async function activateConnectorProfile(profileId: string) {
     method: "POST",
   });
 
-  return parseJson<{ ok: true; activeProfile: ConnectorProfile }>(response);
+  return parseConnectorJson<{ ok: true; activeProfile: ConnectorProfile }>(response);
+}
+
+export async function startOpenAiConnection() {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/connections/openai/start`, {
+    method: "POST",
+  });
+
+  return parseConnectorJson<{ attempt: ConnectionAttemptResponse }>(response);
+}
+
+export async function fetchConnectionAttempt(attemptId: string) {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/connections/openai/attempts/${encodeURIComponent(attemptId)}`);
+  return parseConnectorJson<{ attempt: ConnectionAttemptResponse }>(response);
+}
+
+export async function reconnectConnectorProfile(profileId: string) {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}/reconnect`, {
+    method: "POST",
+  });
+
+  return parseConnectorJson<{ attempt: ConnectionAttemptResponse }>(response);
+}
+
+export async function deleteConnectorProfile(profileId: string) {
+  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}`, {
+    method: "DELETE",
+  });
+
+  await assertConnectorOkResponse(response);
 }
 
 export async function connectorGenerate(payload: {
@@ -583,7 +686,7 @@ export async function connectorGenerate(payload: {
     body: JSON.stringify(payload),
   });
 
-  return parseJson<{
+  return parseConnectorJson<{
     englishTitle: string;
     shortDescription: string;
     longDescription: string;
@@ -605,7 +708,7 @@ export async function connectorGenerateField(payload: ConnectorGenerateFieldPayl
     body: JSON.stringify(payload),
   });
 
-  return parseJson<{
+  return parseConnectorJson<{
     field: EtsyPrepField;
     value: string;
     provider: string;
@@ -614,7 +717,16 @@ export async function connectorGenerateField(payload: ConnectorGenerateFieldPayl
 
 export async function syncAiProfiles(payload: {
   connectorStatus: { status: string; provider: string };
-  profiles: Array<{ id: string; label: string; emailMasked: string | null; provider: string; isActive: boolean }>;
+  profiles: Array<{
+    id: string;
+    label: string;
+    emailMasked: string | null;
+    provider: string;
+    isActive: boolean;
+    status: ConnectorProfile["status"];
+    lastValidatedAt: number | null;
+    lastError: string | null;
+  }>;
 }) {
   const response = await fetchWithTimeout("/ai-profiles/sync", {
     method: "POST",
@@ -625,14 +737,28 @@ export async function syncAiProfiles(payload: {
   });
 
   return parseJson<{
-    items: Array<ConnectorProfile & { isActive: boolean; connectorStatusSnapshot: string | null; lastSeenAt: number | null }>;
+    items: Array<
+      ConnectorProfile & {
+        isActive: boolean;
+        connectorStatusSnapshot: string | null;
+        lastSeenAt: number | null;
+        updatedAt: number;
+      }
+    >;
   }>(response);
 }
 
 export async function fetchAiProfiles() {
   const response = await fetchWithTimeout("/ai-profiles");
   return parseJson<{
-    items: Array<ConnectorProfile & { isActive: boolean; connectorStatusSnapshot: string | null; lastSeenAt: number | null }>;
+    items: Array<
+      ConnectorProfile & {
+        isActive: boolean;
+        connectorStatusSnapshot: string | null;
+        lastSeenAt: number | null;
+        updatedAt: number;
+      }
+    >;
   }>(response);
 }
 

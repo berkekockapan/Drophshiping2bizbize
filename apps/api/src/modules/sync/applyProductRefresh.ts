@@ -16,6 +16,13 @@ export interface ProcessRefreshJobOptions {
   manualRefreshRunId?: string;
 }
 
+export class RefreshProductNotFoundError extends Error {
+  constructor(public readonly productId: string) {
+    super(`Product ${productId} not found`);
+    this.name = "RefreshProductNotFoundError";
+  }
+}
+
 export async function processRefreshJob(
   env: Pick<Env, "DB">,
   job: RefreshJob,
@@ -29,7 +36,7 @@ export async function processRefreshJob(
   const product = await productsRepo.getRefreshSnapshot(job.productId);
 
   if (!product) {
-    throw new Error(`Product ${job.productId} not found`);
+    throw new RefreshProductNotFoundError(job.productId);
   }
 
   try {
@@ -49,6 +56,11 @@ export async function processRefreshJob(
       },
       toIncomingSnapshot(product.id, parsed, now.getTime()),
     );
+    const stillTracked = await productsRepo.getTrackedProduct(product.id);
+
+    if (!stillTracked) {
+      throw new RefreshProductNotFoundError(product.id);
+    }
 
     await productsRepo.updateProductSnapshot(product.id, parsed, diff.currentState, now);
     await productsRepo.upsertVariants(product.id, parsed.variants, now);

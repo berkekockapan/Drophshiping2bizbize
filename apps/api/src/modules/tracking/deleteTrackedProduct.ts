@@ -19,11 +19,19 @@ export async function deleteTrackedProduct(db: D1Database, productId: string) {
     return false;
   }
 
-  for (const [table, column] of deleteStatements) {
-    await db.prepare(`delete from ${table} where ${column} = ?`).bind(productId).run();
+  const statements = [
+    ...deleteStatements.map(([table, column]) => db.prepare(`delete from ${table} where ${column} = ?`).bind(productId)),
+    db.prepare("delete from products where id = ?").bind(productId),
+  ];
+
+  if (db.batch) {
+    await db.batch(statements);
+    return true;
   }
 
-  await db.prepare("delete from products where id = ?").bind(productId).run();
+  for (const statement of statements) {
+    await statement.run();
+  }
 
   return true;
 }

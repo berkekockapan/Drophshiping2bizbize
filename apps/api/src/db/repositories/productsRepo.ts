@@ -10,6 +10,17 @@ export function createProductsRepo(db: D1Database) {
       productVariants,
       productCurrentState,
     },
+    async getTrackedProduct(productId: string) {
+      return db
+        .prepare(
+          `select id
+           from products
+           where id = ?
+           limit 1`,
+        )
+        .bind(productId)
+        .first<{ id: string }>();
+    },
     async getRefreshSnapshot(productId: string) {
       const product = await db
         .prepare(
@@ -387,7 +398,9 @@ export function createProductsRepo(db: D1Database) {
             .prepare(
               `insert into product_variants (
                 id, product_id, variant_key, option_1, option_2, option_3, current_stock_state, current_price, last_seen_at, raw_payload
-              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              )
+              select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              where exists (select 1 from products where id = ?)`,
             )
             .bind(
               crypto.randomUUID(),
@@ -400,6 +413,7 @@ export function createProductsRepo(db: D1Database) {
               variant.price,
               now.getTime(),
               JSON.stringify(variant.rawPayload),
+              productId,
             )
             .run();
         }

@@ -106,8 +106,18 @@ describe("tracking actions", () => {
       },
       env,
     );
+    const invalidPayloadResponse = await app.request(
+      `http://localhost/tracking/products/${favoriteProduct.product.id}/favorite`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ isFavorite: "yes" }),
+      },
+      env,
+    );
 
     expect(favoriteResponse.status).toBe(200);
+    expect(invalidPayloadResponse.status).toBe(400);
     expect(await favoriteResponse.json()).toEqual({
       productId: favoriteProduct.product.id,
       isFavorite: true,
@@ -167,6 +177,14 @@ describe("tracking actions", () => {
       )
       .run("stock_1", seeded.product.id, variant.id, "OUT_OF_STOCK", "IN_STOCK", Date.now());
 
+    const beforeDelete = {
+      variants: sqlite.prepare("select count(*) as count from product_variants where product_id = ?").get(seeded.product.id),
+      currentState: sqlite.prepare("select count(*) as count from product_current_state where product_id = ?").get(seeded.product.id),
+      priceHistory: sqlite.prepare("select count(*) as count from price_history where product_id = ?").get(seeded.product.id),
+      stockHistory: sqlite.prepare("select count(*) as count from stock_history where product_id = ?").get(seeded.product.id),
+      notifications: sqlite.prepare("select count(*) as count from notifications where product_id = ?").get(seeded.product.id),
+    };
+
     const deleteResponse = await app.request(
       `http://localhost/tracking/products/${seeded.product.id}`,
       { method: "DELETE" },
@@ -174,6 +192,13 @@ describe("tracking actions", () => {
     );
 
     expect(deleteResponse.status).toBe(204);
+    expect(beforeDelete).toEqual({
+      variants: { count: 3 },
+      currentState: { count: 1 },
+      priceHistory: { count: 1 },
+      stockHistory: { count: 1 },
+      notifications: { count: 1 },
+    });
     expect(sqlite.prepare("select count(*) as count from products").get()).toEqual({ count: 0 });
     expect(sqlite.prepare("select count(*) as count from product_variants").get()).toEqual({ count: 0 });
     expect(sqlite.prepare("select count(*) as count from product_current_state").get()).toEqual({ count: 0 });

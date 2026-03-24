@@ -546,17 +546,17 @@ export function useEtsyPrepWorkspace(productId: string) {
   const canGenerate = Boolean(connectorProfileSnapshot) && activeProfileStatus === "connected" && !loginInProgress;
 
   const generationBlockedReason = !connectorProfileSnapshot
-    ? "Alan üretimi için aktif bir connector profili gerekli."
+    ? "Alan üretimi için aktif bir OpenAI profili gerekli."
     : connectorHealthQuery.isError
-      ? "Local connector ulaşılamıyor. AI Bağlantıları sayfasından bağlantıyı kontrol edin."
+      ? "AI bağlantı servisine ulaşılamıyor. AI Bağlantıları sayfasından bağlantıyı kontrol edin."
       : connectorHealthQuery.isPending
-        ? "Connector durumu kontrol ediliyor..."
+        ? "Bağlantı durumu kontrol ediliyor..."
         : loginInProgress
           ? "Giriş tamamlanana kadar bekleniyor."
           : activeProfileStatus === "needs_reauth"
             ? "Aktif hesap yeniden bağlanmalı."
             : !connectorHealth?.activeProfile
-              ? "Aktif connector profili bulunamadı. AI Bağlantıları sayfasından bir profil seçin."
+              ? "Aktif OpenAI profili bulunamadı. AI Bağlantıları sayfasından bir profil seçin."
               : activeProfileStatus !== "connected"
                 ? "Aktif hesap üretim için hazır değil."
                 : null;

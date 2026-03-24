@@ -64,8 +64,7 @@ export function ConnectorStatusCard({
   onReconnect,
   onDelete,
 }: ConnectorStatusCardProps) {
-  const provider = health?.provider ?? health?.activeProfile?.provider ?? "chatgpt-web";
-  const isMock = provider === "mock";
+  const provider = health?.provider ?? health?.activeProfile?.provider ?? "openai-oauth";
   const activeProfileId = health?.activeProfile?.id ?? null;
   const attemptMessage = getAttemptMessage(attempt);
 
@@ -73,14 +72,12 @@ export function ConnectorStatusCard({
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Local Connector</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Cloudflare API</p>
           <h1 className="mt-3 text-2xl font-semibold text-slate-900">AI Bağlantıları</h1>
           <p className="mt-2 text-sm text-slate-600">
-            {isMock
-              ? "Local mock provider aktif. Hesap listesi test amaçlı profilleri gösterir."
-              : health?.activeProfile
+            {health?.activeProfile
               ? `${health.activeProfile.label} aktif hesap olarak hazır.`
-              : "Henüz bağlı bir ChatGPT hesabı yok."}
+              : "Henüz bağlı bir OpenAI hesabı yok."}
           </p>
         </div>
 
@@ -94,25 +91,12 @@ export function ConnectorStatusCard({
         </button>
       </div>
 
-      {isMock ? (
-        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">Test modu aktif.</p>
-          <p className="mt-2">
-            Bu connector gerçek ChatGPT hesabı yerine local mock provider kullanıyor. Gerçek bağlantı için{" "}
-            <code className="rounded bg-amber-100 px-1 py-0.5 text-[12px]">CONNECTOR_PROVIDER=chatgpt-web</code>{" "}
-            ayarlayıp connector&apos;ı yeniden başlatın.
-          </p>
-        </div>
-      ) : null}
-
       <div className="mt-5 rounded-2xl bg-slate-50 p-4">
         <p className="text-sm text-slate-600">Durum: {health?.status ?? "offline"}</p>
         <p className="mt-1 text-sm text-slate-600">Provider: {provider}</p>
         <p className="mt-1 text-sm font-semibold text-slate-900">
           {health?.activeProfile
-            ? isMock
-              ? `${health.activeProfile.label} test profili aktif`
-              : `${health.activeProfile.label} bağlı`
+            ? `${health.activeProfile.label} bağlı`
             : "Aktif profil yok"}
         </p>
       </div>
@@ -132,7 +116,6 @@ export function ConnectorStatusCard({
       <div className="mt-5 space-y-3">
         {profiles.map((profile) => {
           const isActive = activeProfileId === profile.id;
-          const isMockProfile = profile.provider === "mock";
 
           return (
             <article key={profile.id} className="rounded-2xl border border-slate-200 p-4">
@@ -144,11 +127,6 @@ export function ConnectorStatusCard({
                     Son doğrulama: {formatDateTime(profile.lastValidatedAt)}
                   </p>
                   {profile.lastError ? <p className="mt-2 text-xs text-rose-600">{profile.lastError}</p> : null}
-                  {isMockProfile ? (
-                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
-                      Test Profili
-                    </p>
-                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -157,13 +135,9 @@ export function ConnectorStatusCard({
                   </span>
                   {isActive ? (
                     <span
-                      className={
-                        isMockProfile
-                          ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800"
-                          : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
-                      }
+                      className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
                     >
-                      {isMockProfile ? "Aktif Test Profili" : "Aktif Hesap"}
+                      Aktif Hesap
                     </span>
                   ) : (
                     <button

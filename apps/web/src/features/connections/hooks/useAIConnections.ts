@@ -9,7 +9,6 @@ import {
   fetchConnectorProfiles,
   reconnectConnectorProfile,
   startOpenAiConnection,
-  syncAiProfiles,
 } from "../../../app/api";
 
 const FINAL_ATTEMPT_STATUSES = new Set(["completed", "failed", "cancelled"]);
@@ -78,42 +77,12 @@ export function useAIConnections() {
     return healthQuery.data?.connectionAttempt ?? null;
   }, [attemptQuery.data?.attempt, healthQuery.data?.connectionAttempt]);
 
-  const syncPayload = useMemo(() => {
-    if (!healthQuery.data || !profilesQuery.data) {
-      return null;
-    }
-
-    const activeProfileId = healthQuery.data.activeProfile?.id ?? profilesQuery.data.activeProfile?.id ?? null;
-
-    return {
-      connectorStatus: {
-        status: healthQuery.data.status,
-        provider: healthQuery.data.provider ?? healthQuery.data.activeProfile?.provider ?? "chatgpt-web",
-      },
-      profiles: profilesQuery.data.items.map((profile) => ({
-        id: profile.id,
-        label: profile.label,
-        emailMasked: profile.emailMasked,
-        provider: profile.provider,
-        isActive: profile.id === activeProfileId,
-        status: profile.status,
-        lastValidatedAt: profile.lastValidatedAt,
-        lastError: profile.lastError,
-      })),
-    };
-  }, [healthQuery.data, profilesQuery.data]);
-
-  useEffect(() => {
-    if (!syncPayload) {
-      return;
-    }
-
-    void syncAiProfiles(syncPayload).catch(() => undefined);
-  }, [syncPayload]);
-
   const startMutation = useMutation({
     mutationFn: startOpenAiConnection,
-    onSuccess: async ({ attempt }) => {
+    onSuccess: async ({ attempt, authorizationUrl }) => {
+      if (authorizationUrl) {
+        window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+      }
       setActiveAttemptId(attempt.id);
       await queryClient.invalidateQueries({ queryKey: ["connector-health"] });
     },

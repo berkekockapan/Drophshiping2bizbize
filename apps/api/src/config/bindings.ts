@@ -37,4 +37,14 @@ export interface RefreshJob {
 export interface Env {
   DB: D1Database;
   REFRESH_QUEUE: Queue<RefreshJob>;
+  OPENAI_OAUTH_CLIENT_ID?: string;
+  OPENAI_OAUTH_CLIENT_SECRET?: string;
+  OPENAI_OAUTH_REDIRECT_URI?: string;
+  OPENAI_OAUTH_ORIGINATOR?: string;
+  OPENAI_OAUTH_ENCRYPTION_KEY?: string;
+  OPENAI_OAUTH_AUTHORIZE_URL?: string;
+  OPENAI_OAUTH_TOKEN_URL?: string;
+  OPENAI_API_BASE_URL?: string;
+  OPENAI_DEFAULT_MODEL?: string;
+  OPENAI_ORGANIZATION?: string;
 }

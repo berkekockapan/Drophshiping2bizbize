@@ -235,7 +235,7 @@ describe("ProductDetailPage", () => {
           },
           connectorProfileSnapshot: {
             id: "profile_1",
-            label: "Mock Connector",
+            label: "OpenAI Workspace",
             status: "connected",
             lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
           },
@@ -259,15 +259,15 @@ describe("ProductDetailPage", () => {
         ]);
       }
 
-      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
           status: "online",
-          provider: "mock",
+          provider: "openai-oauth",
           activeProfile: {
             id: "profile_1",
-            label: "Mock Connector",
+            label: "OpenAI Workspace",
             emailMasked: null,
-            provider: "mock",
+            provider: "openai-oauth",
             status: "connected",
             lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
             lastError: null,
@@ -323,22 +323,22 @@ describe("ProductDetailPage", () => {
           },
           connectorProfileSnapshot: {
             id: "profile_1",
-            label: "Mock Connector",
+            label: "OpenAI Workspace",
             status: "connected",
             lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
           },
         });
       }
 
-      if (url.includes("127.0.0.1:4317/health") && (!init?.method || init.method === "GET")) {
+      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
           status: "online",
-          provider: "mock",
+          provider: "openai-oauth",
           activeProfile: {
             id: "profile_1",
-            label: "Mock Connector",
+            label: "OpenAI Workspace",
             emailMasked: null,
-            provider: "mock",
+            provider: "openai-oauth",
             status: "connected",
             lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
             lastError: null,

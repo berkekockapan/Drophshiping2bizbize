@@ -8,12 +8,12 @@ import { renderWithProviders } from "../../../test/test-utils";
 
 describe("AIConnectionsPage", () => {
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it("starts a connection, polls it to completion, and renders provider visibility with account actions", async () => {
+  it("starts OAuth connection, polls completion, and supports account actions", async () => {
     const user = userEvent.setup();
+    const windowOpenSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
     let activeProfile: {
       id: string;
@@ -23,6 +23,7 @@ describe("AIConnectionsPage", () => {
       status: "connected" | "needs_reauth" | "disconnected" | "error";
       lastValidatedAt: number | null;
       lastError: string | null;
+      isActive?: boolean;
     } | null = null;
 
     let connectionAttempt: {
@@ -49,6 +50,7 @@ describe("AIConnectionsPage", () => {
       status: "connected" | "needs_reauth" | "disconnected" | "error";
       lastValidatedAt: number | null;
       lastError: string | null;
+      isActive?: boolean;
     }> = [];
 
     let attemptPollCount = 0;
@@ -56,11 +58,11 @@ describe("AIConnectionsPage", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url.includes("127.0.0.1:4317/health")) {
+      if (url.endsWith("/ai-profiles/health")) {
         return new Response(
           JSON.stringify({
             status: "online",
-            provider: "chatgpt-web",
+            provider: "openai-oauth",
             activeProfile,
             connectionAttempt,
           }),
@@ -68,7 +70,7 @@ describe("AIConnectionsPage", () => {
         );
       }
 
-      if (url.includes("127.0.0.1:4317/profiles") && (!init?.method || init?.method === "GET")) {
+      if (url.endsWith("/ai-profiles") && (!init?.method || init?.method === "GET")) {
         return new Response(
           JSON.stringify({
             items: profiles,
@@ -78,7 +80,7 @@ describe("AIConnectionsPage", () => {
         );
       }
 
-      if (url.includes("127.0.0.1:4317/connections/openai/start") && init?.method === "POST") {
+      if (url.endsWith("/ai-profiles/openai/start") && init?.method === "POST") {
         connectionAttempt = {
           id: "attempt_1",
           provider: "openai",
@@ -89,14 +91,17 @@ describe("AIConnectionsPage", () => {
           updatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
         };
 
-        return new Response(JSON.stringify({ attempt: connectionAttempt }), {
-          status: 202,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            attempt: connectionAttempt,
+            authorizationUrl: "https://auth.openai.com/oauth/authorize?client_id=test",
+          }),
+          { status: 202, headers: { "Content-Type": "application/json" } },
+        );
       }
 
       if (
-        url.includes("127.0.0.1:4317/connections/openai/attempts/attempt_1") &&
+        url.includes("/ai-profiles/openai/attempts/attempt_1") &&
         (!init?.method || init?.method === "GET")
       ) {
         attemptPollCount += 1;
@@ -104,12 +109,13 @@ describe("AIConnectionsPage", () => {
         if (attemptPollCount >= 2) {
           activeProfile = {
             id: "profile_primary",
-            label: "ChatGPT Workspace",
+            label: "OpenAI Workspace",
             emailMasked: "wo***@company.com",
-            provider: "chatgpt-web",
+            provider: "openai-oauth",
             status: "connected",
             lastValidatedAt: Date.parse("2026-03-24T10:00:05.000Z"),
             lastError: null,
+            isActive: true,
           };
           profiles = [
             activeProfile,
@@ -117,10 +123,11 @@ describe("AIConnectionsPage", () => {
               id: "profile_backup",
               label: "Backup Workspace",
               emailMasked: "ba***@company.com",
-              provider: "chatgpt-web",
+              provider: "openai-oauth",
               status: "connected",
               lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
               lastError: null,
+              isActive: false,
             },
           ];
           connectionAttempt = {
@@ -136,8 +143,12 @@ describe("AIConnectionsPage", () => {
         });
       }
 
-      if (url.includes("/profiles/profile_backup/activate") && init?.method === "POST") {
+      if (url.endsWith("/ai-profiles/profile_backup/activate") && init?.method === "POST") {
         activeProfile = profiles.find((profile) => profile.id === "profile_backup") ?? null;
+        profiles = profiles.map((profile) => ({
+          ...profile,
+          isActive: profile.id === "profile_backup",
+        }));
         return new Response(
           JSON.stringify({
             ok: true,
@@ -147,7 +158,7 @@ describe("AIConnectionsPage", () => {
         );
       }
 
-      if (url.includes("/profiles/profile_primary/reconnect") && init?.method === "POST") {
+      if (url.endsWith("/ai-profiles/profile_primary/reconnect") && init?.method === "POST") {
         return new Response(
           JSON.stringify({
             attempt: {
@@ -159,22 +170,16 @@ describe("AIConnectionsPage", () => {
               createdAt: Date.parse("2026-03-24T10:00:06.000Z"),
               updatedAt: Date.parse("2026-03-24T10:00:06.000Z"),
             },
+            authorizationUrl: "https://auth.openai.com/oauth/authorize?client_id=test",
           }),
           { status: 202, headers: { "Content-Type": "application/json" } },
         );
       }
 
-      if (url.includes("/profiles/profile_primary") && init?.method === "DELETE") {
+      if (url.endsWith("/ai-profiles/profile_primary") && init?.method === "DELETE") {
         profiles = profiles.filter((profile) => profile.id !== "profile_primary");
         activeProfile = profiles[0] ?? null;
         return new Response(null, { status: 204 });
-      }
-
-      if (url.endsWith("/ai-profiles/sync") && init?.method === "POST") {
-        return new Response(JSON.stringify({ items: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       }
 
       throw new Error(`Unhandled request: ${url}`);
@@ -182,13 +187,17 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText(/provider: chatgpt-web/i)).toBeInTheDocument();
-    expect(screen.queryByText(/test modu aktif/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/provider: openai-oauth/i)).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: /openai ile bağlan/i }));
 
+    expect(windowOpenSpy).toHaveBeenCalledWith(
+      "https://auth.openai.com/oauth/authorize?client_id=test",
+      "_blank",
+      "noopener,noreferrer",
+    );
     expect(await screen.findByText(/tarayıcıda giriş bekleniyor/i)).toBeInTheDocument();
-    expect(await screen.findByText(/chatgpt workspace bağlı/i, {}, { timeout: 2_500 })).toBeInTheDocument();
+    expect(await screen.findByText(/openai workspace bağlı/i, {}, { timeout: 2_500 })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /yeniden bağlan/i }, { timeout: 2_500 })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /bağlantıyı kaldır/i }, { timeout: 2_500 })).toBeInTheDocument();
 
@@ -203,63 +212,30 @@ describe("AIConnectionsPage", () => {
     expect(within(backupCard!).getByText(/aktif hesap/i)).toBeInTheDocument();
   });
 
-  it("shows a mock warning and test profile language when connector runs in mock mode", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+  it("shows empty state when no profile is connected yet", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
-      if (url.includes("127.0.0.1:4317/health")) {
+      if (url.endsWith("/ai-profiles/health")) {
         return new Response(
           JSON.stringify({
             status: "online",
-            provider: "mock",
-            activeProfile: {
-              id: "mock-default",
-              label: "Mock Workspace",
-              emailMasked: "mo***@local.dev",
-              provider: "mock",
-              status: "connected",
-              lastValidatedAt: Date.parse("2026-03-24T11:00:00.000Z"),
-              lastError: null,
-            },
+            provider: "openai-oauth",
+            activeProfile: null,
             connectionAttempt: null,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
-      if (url.includes("127.0.0.1:4317/profiles") && (!init?.method || init?.method === "GET")) {
+      if (url.endsWith("/ai-profiles")) {
         return new Response(
           JSON.stringify({
-            items: [
-              {
-                id: "mock-default",
-                label: "Mock Workspace",
-                emailMasked: "mo***@local.dev",
-                provider: "mock",
-                status: "connected",
-                lastValidatedAt: Date.parse("2026-03-24T11:00:00.000Z"),
-                lastError: null,
-              },
-            ],
-            activeProfile: {
-              id: "mock-default",
-              label: "Mock Workspace",
-              emailMasked: "mo***@local.dev",
-              provider: "mock",
-              status: "connected",
-              lastValidatedAt: Date.parse("2026-03-24T11:00:00.000Z"),
-              lastError: null,
-            },
+            items: [],
+            activeProfile: null,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
-      }
-
-      if (url.endsWith("/ai-profiles/sync") && init?.method === "POST") {
-        return new Response(JSON.stringify({ items: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       }
 
       throw new Error(`Unhandled request: ${url}`);
@@ -267,10 +243,7 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText(/provider: mock/i)).toBeInTheDocument();
-    expect(await screen.findByText(/test modu aktif/i)).toBeInTheDocument();
-    expect(await screen.findByText(/CONNECTOR_PROVIDER=chatgpt-web/i)).toBeInTheDocument();
-    expect(await screen.findByText(/mock workspace test profili aktif/i)).toBeInTheDocument();
-    expect((await screen.findAllByText(/test profili/i)).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/henüz bağlı bir openai hesabı yok/i)).toBeInTheDocument();
+    expect(await screen.findByText(/henüz bağlı hesap yok/i)).toBeInTheDocument();
   });
 });

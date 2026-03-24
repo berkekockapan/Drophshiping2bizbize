@@ -189,6 +189,57 @@ export const aiProfiles = sqliteTable(
   }),
 );
 
+export const aiOpenAiCredentials = sqliteTable("ai_openai_credentials", {
+  profileId: text("profile_id").primaryKey(),
+  accessTokenEncrypted: text("access_token_encrypted").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted"),
+  idTokenEncrypted: text("id_token_encrypted"),
+  apiKeyEncrypted: text("api_key_encrypted"),
+  tokenType: text("token_type"),
+  scope: text("scope"),
+  accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const aiOpenAiConnectionAttempts = sqliteTable(
+  "ai_openai_connection_attempts",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull().default("openai"),
+    profileId: text("profile_id"),
+    status: text("status").notNull(),
+    error: text("error"),
+    oauthState: text("oauth_state"),
+    codeVerifier: text("code_verifier"),
+    nonce: text("nonce"),
+    redirectUri: text("redirect_uri").notNull(),
+    authorizationUrl: text("authorization_url"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    oauthStateUnique: uniqueIndex("ai_openai_connection_attempts_oauth_state_unique").on(table.oauthState),
+  }),
+);
+
+export const aiOpenAiWorkspaces = sqliteTable(
+  "ai_openai_workspaces",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id").notNull(),
+    externalId: text("external_id").notNull(),
+    displayName: text("display_name").notNull(),
+    isSelected: integer("is_selected", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    profileExternalUnique: uniqueIndex("ai_openai_workspaces_profile_external_unique").on(table.profileId, table.externalId),
+    profileSelectedIdx: index("ai_openai_workspaces_profile_selected_idx").on(table.profileId, table.isSelected),
+  }),
+);
+
 export const appSettings = sqliteTable("app_settings", {
   id: text("id").primaryKey(),
   refreshIntervalHours: integer("refresh_interval_hours").notNull().default(5),
@@ -251,6 +302,9 @@ export const schema = {
   notifications,
   etsyDrafts,
   aiProfiles,
+  aiOpenAiCredentials,
+  aiOpenAiConnectionAttempts,
+  aiOpenAiWorkspaces,
   appSettings,
   manualRefreshRuns,
   manualRefreshRunItems,
@@ -267,6 +321,9 @@ export const schemaTableNames = [
   "notifications",
   "etsy_drafts",
   "ai_profiles",
+  "ai_openai_credentials",
+  "ai_openai_connection_attempts",
+  "ai_openai_workspaces",
   "app_settings",
   "manual_refresh_runs",
   "manual_refresh_run_items",

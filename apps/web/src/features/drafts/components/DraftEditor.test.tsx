@@ -20,7 +20,7 @@ describe("DraftEditor", () => {
     expect(screen.getByText(/manuel düzenleme var/i)).toBeInTheDocument();
   });
 
-  it("runs draft generation through the connector and saves the result via the API", async () => {
+  it("runs draft generation through the cloud AI endpoint and saves the result via the API", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
@@ -96,7 +96,7 @@ describe("DraftEditor", () => {
         );
       }
 
-      if (url.includes("127.0.0.1:4317/generate")) {
+      if (url.includes("/ai-profiles/generate") && init?.method === "POST") {
         return new Response(
           JSON.stringify({
             englishTitle: "Handmade Hoodie for Etsy",

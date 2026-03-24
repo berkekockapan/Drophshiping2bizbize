@@ -6,7 +6,7 @@ export function AIConnectionsPage() {
 
   return (
     <div className="space-y-6">
-      {connections.isLoading ? <p className="text-sm text-slate-500">Connector durumu yükleniyor...</p> : null}
+      {connections.isLoading ? <p className="text-sm text-slate-500">Bağlantı durumu yükleniyor...</p> : null}
       {connections.isError ? <p className="text-sm text-rose-600">{connections.errorMessage}</p> : null}
 
       {!connections.isLoading ? (

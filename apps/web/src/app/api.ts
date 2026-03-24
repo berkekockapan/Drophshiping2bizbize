@@ -362,8 +362,21 @@ async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     if (contentType.includes("application/json")) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      throw new Error(body?.error ?? `Request failed (${response.status})`);
+      const body = (await response.json().catch(() => null)) as
+        | {
+            error?:
+              | string
+              | {
+                  code?: string;
+                  message?: string;
+                };
+          }
+        | null;
+      if (body?.error && typeof body.error === "object") {
+        throw new Error(body.error.message ?? `Request failed (${response.status})`);
+      }
+
+      throw new Error(typeof body?.error === "string" ? body.error : `Request failed (${response.status})`);
     }
 
     const fallbackText = await response.text().catch(() => "");
@@ -622,41 +635,39 @@ export async function saveGeneratedDraft(
   return parseJson<EtsyDraft>(response);
 }
 
-const connectorBaseUrl = "http://127.0.0.1:4317";
-
 export async function fetchConnectorHealth() {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/health`);
-  return parseConnectorJson<ConnectorHealthResponse>(response);
+  const response = await fetchWithTimeout("/ai-profiles/health");
+  return parseJson<ConnectorHealthResponse>(response);
 }
 
 export async function fetchConnectorProfiles() {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles`);
-  return parseConnectorJson<ConnectorProfilesResponse>(response);
+  const response = await fetchWithTimeout("/ai-profiles");
+  return parseJson<ConnectorProfilesResponse>(response);
 }
 
 export async function activateConnectorProfile(profileId: string) {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}/activate`, {
+  const response = await fetchWithTimeout(`/ai-profiles/${encodeURIComponent(profileId)}/activate`, {
     method: "POST",
   });
 
-  return parseConnectorJson<{ ok: true; activeProfile: ConnectorProfile }>(response);
+  return parseJson<{ ok: true; activeProfile: ConnectorProfile }>(response);
 }
 
 export async function startOpenAiConnection() {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/connections/openai/start`, {
+  const response = await fetchWithTimeout("/ai-profiles/openai/start", {
     method: "POST",
   });
 
-  return parseConnectorJson<{ attempt: ConnectionAttemptResponse }>(response);
+  return parseConnectorJson<{ attempt: ConnectionAttemptResponse; authorizationUrl: string }>(response);
 }
 
 export async function fetchConnectionAttempt(attemptId: string) {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/connections/openai/attempts/${encodeURIComponent(attemptId)}`);
-  return parseConnectorJson<{ attempt: ConnectionAttemptResponse }>(response);
+  const response = await fetchWithTimeout(`/ai-profiles/openai/attempts/${encodeURIComponent(attemptId)}`);
+  return parseJson<{ attempt: ConnectionAttemptResponse }>(response);
 }
 
 export async function reconnectConnectorProfile(profileId: string) {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}/reconnect`, {
+  const response = await fetchWithTimeout(`/ai-profiles/${encodeURIComponent(profileId)}/reconnect`, {
     method: "POST",
   });
 
@@ -664,11 +675,13 @@ export async function reconnectConnectorProfile(profileId: string) {
 }
 
 export async function deleteConnectorProfile(profileId: string) {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/profiles/${encodeURIComponent(profileId)}`, {
+  const response = await fetchWithTimeout(`/ai-profiles/${encodeURIComponent(profileId)}`, {
     method: "DELETE",
   });
 
-  await assertConnectorOkResponse(response);
+  if (response.status !== 204) {
+    await assertOkResponse(response);
+  }
 }
 
 export async function connectorGenerate(payload: {
@@ -678,7 +691,7 @@ export async function connectorGenerate(payload: {
   sourceDescription?: string | null;
   sourceAttributes?: Array<{ key: string; value: string }>;
 }) {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/generate`, {
+  const response = await fetchWithTimeout("/ai-profiles/generate", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -700,7 +713,7 @@ export async function connectorGenerate(payload: {
 }
 
 export async function connectorGenerateField(payload: ConnectorGenerateFieldPayload) {
-  const response = await fetchWithTimeout(`${connectorBaseUrl}/generate-field`, {
+  const response = await fetchWithTimeout("/ai-profiles/generate-field", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

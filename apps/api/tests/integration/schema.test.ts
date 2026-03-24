@@ -18,6 +18,7 @@ describe("schema integration", () => {
       .all() as Array<{ name: string; dflt_value: string | null }>;
     const priceColumns = database.prepare("pragma table_info(price_history)").all() as Array<{ name: string }>;
     const stockColumns = database.prepare("pragma table_info(stock_history)").all() as Array<{ name: string }>;
+    const aiProfileColumns = database.prepare("pragma table_info(ai_profiles)").all() as Array<{ name: string }>;
 
     expect(tables.map((table) => table.name)).toEqual(expect.arrayContaining([...schemaTableNames]));
     expect(tables).toEqual(
@@ -35,5 +36,13 @@ describe("schema integration", () => {
     );
     expect(priceColumns).toEqual(expect.arrayContaining([expect.objectContaining({ name: "refresh_audit_id" })]));
     expect(stockColumns).toEqual(expect.arrayContaining([expect.objectContaining({ name: "refresh_audit_id" })]));
+    expect(aiProfileColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "status" }),
+        expect.objectContaining({ name: "last_validated_at" }),
+        expect.objectContaining({ name: "last_error" }),
+        expect.objectContaining({ name: "updated_at" }),
+      ]),
+    );
   });
 });

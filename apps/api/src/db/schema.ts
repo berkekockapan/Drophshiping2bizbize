@@ -177,8 +177,12 @@ export const aiProfiles = sqliteTable(
     emailMasked: text("email_masked"),
     provider: text("provider").notNull(),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
+    status: text("status").notNull().default("connected"),
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }),
+    lastValidatedAt: integer("last_validated_at", { mode: "timestamp_ms" }),
+    lastError: text("last_error"),
     connectorStatusSnapshot: text("connector_status_snapshot"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   },
   (table) => ({
     activeIdx: index("ai_profiles_active_idx").on(table.isActive),

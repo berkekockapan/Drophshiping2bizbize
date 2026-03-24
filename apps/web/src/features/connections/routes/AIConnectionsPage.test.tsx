@@ -1,4 +1,4 @@
-﻿import "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,179 +6,96 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AIConnectionsPage } from "./AIConnectionsPage";
 import { renderWithProviders } from "../../../test/test-utils";
 
+function jsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 describe("AIConnectionsPage", () => {
   afterEach(() => {
+    localStorage.clear();
     vi.restoreAllMocks();
   });
 
-  it("starts OAuth connection, polls completion, and supports account actions", async () => {
+  it("loads target settings, starts OAuth polling, and supports auth-file actions", async () => {
     const user = userEvent.setup();
     const windowOpenSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
-    let activeProfile: {
-      id: string;
-      label: string;
-      emailMasked: string | null;
-      provider: string;
-      status: "connected" | "needs_reauth" | "disconnected" | "error";
-      lastValidatedAt: number | null;
-      lastError: string | null;
-      isActive?: boolean;
-    } | null = null;
+    let settings = {
+      id: "default",
+      refreshIntervalHours: 5,
+      promptPreferences: null,
+      connectorHealthcheckEnabled: true,
+      aiTargetBaseUrl: "https://clip.example.com",
+      aiTargetManagementKey: "mgmt_live_123",
+      aiTargetLabel: "Windows",
+      aiTargetApiKey: "api_live_123",
+    };
 
-    let connectionAttempt: {
-      id: string;
-      provider: "openai";
-      status:
-        | "pending_browser_launch"
-        | "waiting_for_login"
-        | "verifying_session"
-        | "completed"
-        | "failed"
-        | "cancelled";
-      profileId: string | null;
-      error: string | null;
-      createdAt: number;
-      updatedAt: number;
-    } | null = null;
+    let authFiles = [
+      { name: "primary.json", label: "Primary Workspace", disabled: false },
+      { name: "backup.json", label: "Backup Workspace", disabled: true },
+    ];
 
-    let profiles: Array<{
-      id: string;
-      label: string;
-      emailMasked: string | null;
-      provider: string;
-      status: "connected" | "needs_reauth" | "disconnected" | "error";
-      lastValidatedAt: number | null;
-      lastError: string | null;
-      isActive?: boolean;
-    }> = [];
-
-    let attemptPollCount = 0;
+    let authStatusPollCount = 0;
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url.endsWith("/ai-profiles/health")) {
-        return new Response(
-          JSON.stringify({
-            status: "online",
-            provider: "openai-oauth",
-            activeProfile,
-            connectionAttempt,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
+        return jsonResponse(settings);
       }
 
-      if (url.endsWith("/ai-profiles") && (!init?.method || init?.method === "GET")) {
-        return new Response(
-          JSON.stringify({
-            items: profiles,
-            activeProfile,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      }
-
-      if (url.endsWith("/ai-profiles/openai/start") && init?.method === "POST") {
-        connectionAttempt = {
-          id: "attempt_1",
-          provider: "openai",
-          status: "waiting_for_login",
-          profileId: "profile_primary",
-          error: null,
-          createdAt: Date.parse("2026-03-24T10:00:00.000Z"),
-          updatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
+      if (url.endsWith("/settings") && init?.method === "PATCH") {
+        settings = {
+          ...settings,
+          ...(JSON.parse(String(init.body)) as Partial<typeof settings>),
         };
 
-        return new Response(
-          JSON.stringify({
-            attempt: connectionAttempt,
-            authorizationUrl: "https://auth.openai.com/oauth/authorize?client_id=test",
-          }),
-          { status: 202, headers: { "Content-Type": "application/json" } },
-        );
+        return jsonResponse(settings);
       }
 
-      if (
-        url.includes("/ai-profiles/openai/attempts/attempt_1") &&
-        (!init?.method || init?.method === "GET")
-      ) {
-        attemptPollCount += 1;
+      if (url === "https://clip.example.com/v0/management/auth-files") {
+        return jsonResponse({ items: authFiles });
+      }
 
-        if (attemptPollCount >= 2) {
-          activeProfile = {
-            id: "profile_primary",
-            label: "OpenAI Workspace",
-            emailMasked: "wo***@company.com",
-            provider: "openai-oauth",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T10:00:05.000Z"),
-            lastError: null,
-            isActive: true,
-          };
-          profiles = [
-            activeProfile,
-            {
-              id: "profile_backup",
-              label: "Backup Workspace",
-              emailMasked: "ba***@company.com",
-              provider: "openai-oauth",
-              status: "connected",
-              lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-              lastError: null,
-              isActive: false,
-            },
-          ];
-          connectionAttempt = {
-            ...connectionAttempt!,
-            status: "completed",
-            updatedAt: Date.parse("2026-03-24T10:00:05.000Z"),
-          };
-        }
+      if (url === "https://clip.example.com/v0/management/codex-auth-url?is_webui=1") {
+        authFiles = [];
 
-        return new Response(JSON.stringify({ attempt: connectionAttempt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
+        return jsonResponse({
+          authorizationUrl: "https://auth.openai.com/oauth/authorize?client_id=test",
+          state: "oauth_state_1",
         });
       }
 
-      if (url.endsWith("/ai-profiles/profile_backup/activate") && init?.method === "POST") {
-        activeProfile = profiles.find((profile) => profile.id === "profile_backup") ?? null;
-        profiles = profiles.map((profile) => ({
-          ...profile,
-          isActive: profile.id === "profile_backup",
-        }));
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            activeProfile,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+      if (url === "https://clip.example.com/v0/management/get-auth-status?state=oauth_state_1") {
+        authStatusPollCount += 1;
+
+        if (authStatusPollCount >= 2) {
+          authFiles = [
+            { name: "primary.json", label: "Primary Workspace", disabled: false },
+            { name: "backup.json", label: "Backup Workspace", disabled: true },
+          ];
+
+          return jsonResponse({
+            status: "ok",
+            authFile: authFiles[0],
+          });
+        }
+
+        return jsonResponse({ status: "wait" });
       }
 
-      if (url.endsWith("/ai-profiles/profile_primary/reconnect") && init?.method === "POST") {
-        return new Response(
-          JSON.stringify({
-            attempt: {
-              id: "attempt_reconnect",
-              provider: "openai",
-              status: "waiting_for_login",
-              profileId: "profile_primary",
-              error: null,
-              createdAt: Date.parse("2026-03-24T10:00:06.000Z"),
-              updatedAt: Date.parse("2026-03-24T10:00:06.000Z"),
-            },
-            authorizationUrl: "https://auth.openai.com/oauth/authorize?client_id=test",
-          }),
-          { status: 202, headers: { "Content-Type": "application/json" } },
-        );
+      if (url === "https://clip.example.com/v0/management/auth-files/status" && init?.method === "PATCH") {
+        const payload = JSON.parse(String(init.body)) as { name: string; disabled: boolean };
+        authFiles = authFiles.map((item) => (item.name === payload.name ? { ...item, disabled: payload.disabled } : item));
+        return jsonResponse({ ok: true });
       }
 
-      if (url.endsWith("/ai-profiles/profile_primary") && init?.method === "DELETE") {
-        profiles = profiles.filter((profile) => profile.id !== "profile_primary");
-        activeProfile = profiles[0] ?? null;
+      if (url === "https://clip.example.com/v0/management/auth-files?name=backup.json" && init?.method === "DELETE") {
+        authFiles = authFiles.filter((item) => item.name !== "backup.json");
         return new Response(null, { status: 204 });
       }
 
@@ -187,21 +104,24 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText(/provider: openai-oauth/i)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("https://clip.example.com")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Windows")).toBeInTheDocument();
+    expect(await screen.findByText(/primary workspace aktif hesap olarak hazır/i)).toBeInTheDocument();
 
-    await user.click(await screen.findByRole("button", { name: /openai ile bağlan/i }));
+    await user.click(screen.getByRole("button", { name: /openai ile bağlan/i }));
 
     expect(windowOpenSpy).toHaveBeenCalledWith(
       "https://auth.openai.com/oauth/authorize?client_id=test",
       "_blank",
       "noopener,noreferrer",
     );
+    expect(await screen.findByText(/windows oturumunda giriş tamamlayın/i)).toBeInTheDocument();
     expect(await screen.findByText(/tarayıcıda giriş bekleniyor/i)).toBeInTheDocument();
-    expect(await screen.findByText(/openai workspace bağlı/i, {}, { timeout: 2_500 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /yeniden bağlan/i }, { timeout: 2_500 })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /bağlantıyı kaldır/i }, { timeout: 2_500 })).toBeInTheDocument();
+    expect(await screen.findByText(/primary workspace aktif hesap olarak hazır/i, {}, { timeout: 2_500 })).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: /aktif yap/i }));
+
+    expect(await screen.findByText(/backup workspace aktif hesap olarak hazır/i)).toBeInTheDocument();
 
     const backupCard = screen
       .getAllByText("Backup Workspace")
@@ -210,32 +130,31 @@ describe("AIConnectionsPage", () => {
 
     expect(backupCard).not.toBeNull();
     expect(within(backupCard!).getByText(/aktif hesap/i)).toBeInTheDocument();
+
+    await user.click(within(backupCard!).getByRole("button", { name: /bağlantıyı kaldır/i }));
+
+    expect(screen.queryByText(/backup workspace/i)).not.toBeInTheDocument();
   });
 
-  it("shows empty state when no profile is connected yet", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  it("shows empty state when no codex account is connected yet", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url.endsWith("/ai-profiles/health")) {
-        return new Response(
-          JSON.stringify({
-            status: "online",
-            provider: "openai-oauth",
-            activeProfile: null,
-            connectionAttempt: null,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: "https://clip.example.com",
+          aiTargetManagementKey: "mgmt_live_123",
+          aiTargetLabel: "Windows",
+          aiTargetApiKey: "api_live_123",
+        });
       }
 
-      if (url.endsWith("/ai-profiles")) {
-        return new Response(
-          JSON.stringify({
-            items: [],
-            activeProfile: null,
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+      if (url === "https://clip.example.com/v0/management/auth-files") {
+        return jsonResponse({ items: [] });
       }
 
       throw new Error(`Unhandled request: ${url}`);
@@ -243,7 +162,7 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText(/henüz bağlı bir openai hesabı yok/i)).toBeInTheDocument();
+    expect(await screen.findByText(/henüz bağlı codex hesabı yok/i)).toBeInTheDocument();
     expect(await screen.findByText(/henüz bağlı hesap yok/i)).toBeInTheDocument();
   });
 });

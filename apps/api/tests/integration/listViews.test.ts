@@ -21,6 +21,10 @@ describe("list and detail views", () => {
     expect(await settingsResponse.json()).toMatchObject({
       refreshIntervalHours: 5,
       connectorHealthcheckEnabled: true,
+      aiTargetBaseUrl: null,
+      aiTargetLabel: null,
+      aiTargetManagementKey: null,
+      aiTargetApiKey: null,
     });
 
     const seeded = await createTrackedProduct(

@@ -1,4 +1,5 @@
-﻿import { ConnectorStatusCard } from "../components/ConnectorStatusCard";
+import { AiTargetConfigPanel } from "../components/AiTargetConfigPanel";
+import { ConnectorStatusCard } from "../components/ConnectorStatusCard";
 import { useAIConnections } from "../hooks/useAIConnections";
 
 export function AIConnectionsPage() {
@@ -9,19 +10,26 @@ export function AIConnectionsPage() {
       {connections.isLoading ? <p className="text-sm text-slate-500">Bağlantı durumu yükleniyor...</p> : null}
       {connections.isError ? <p className="text-sm text-rose-600">{connections.errorMessage}</p> : null}
 
+      <AiTargetConfigPanel
+        initialValue={connections.configInitialValue}
+        pending={connections.isSavingTarget}
+        onSubmit={connections.saveTarget}
+      />
+
       {!connections.isLoading ? (
         <ConnectorStatusCard
-          health={connections.health}
-          profiles={connections.profiles}
-          attempt={connections.connectionAttempt}
+          targetLabel={connections.target?.label ?? "Windows"}
+          targetBaseUrl={connections.target?.baseUrl ?? null}
+          authFiles={connections.authFiles}
+          activeFileName={connections.activeFileName}
+          attemptMessage={connections.attemptMessage}
           isStartingConnection={connections.isStartingConnection}
-          activatingProfileId={connections.activatingProfileId}
-          reconnectingProfileId={connections.reconnectingProfileId}
-          deletingProfileId={connections.deletingProfileId}
+          activatingFileName={connections.activatingFileName}
+          deletingFileName={connections.deletingFileName}
+          startDisabled={!connections.canStartConnection}
           onStartConnection={connections.startConnection}
-          onActivate={connections.activateProfile}
-          onReconnect={connections.reconnectProfile}
-          onDelete={connections.deleteProfile}
+          onActivate={connections.activateAuthFile}
+          onDelete={connections.deleteAuthFile}
         />
       ) : null}
     </div>

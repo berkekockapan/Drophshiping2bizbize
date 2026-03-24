@@ -161,17 +161,9 @@ export interface EtsyDraft {
 
 export type EtsyPrepField = "title" | "description" | "tags";
 
-export interface EtsyPrepConnectorProfileSnapshot {
-  id: string;
-  label: string;
-  status: string;
-  lastValidatedAt: number | null;
-}
-
 export interface EtsyPrepBootstrapResponse {
   product: ProductDetailResponse["product"];
   draft: EtsyDraft;
-  connectorProfileSnapshot: EtsyPrepConnectorProfileSnapshot | null;
 }
 
 export interface EtsyPrepAnalysisInsights {
@@ -322,6 +314,10 @@ export interface AppSettingsResponse {
   refreshIntervalHours: number;
   promptPreferences: Record<string, unknown> | null;
   connectorHealthcheckEnabled: boolean;
+  aiTargetBaseUrl: string | null;
+  aiTargetManagementKey: string | null;
+  aiTargetLabel: string | null;
+  aiTargetApiKey: string | null;
 }
 
 export interface ManualRefreshRunSummary {
@@ -781,9 +777,13 @@ export async function fetchSettings() {
 }
 
 export async function patchSettings(payload: {
-  refreshIntervalHours: number;
+  refreshIntervalHours?: number;
   promptPreferences?: Record<string, unknown> | null;
   connectorHealthcheckEnabled?: boolean;
+  aiTargetBaseUrl?: string | null;
+  aiTargetManagementKey?: string | null;
+  aiTargetLabel?: string | null;
+  aiTargetApiKey?: string | null;
 }) {
   const response = await fetchWithTimeout("/settings", {
     method: "PATCH",

@@ -245,6 +245,10 @@ export const appSettings = sqliteTable("app_settings", {
   refreshIntervalHours: integer("refresh_interval_hours").notNull().default(5),
   promptPreferencesJson: text("prompt_preferences_json"),
   connectorHealthcheckEnabled: integer("connector_healthcheck_enabled", { mode: "boolean" }).notNull().default(true),
+  aiTargetBaseUrl: text("ai_target_base_url"),
+  aiTargetManagementKey: text("ai_target_management_key"),
+  aiTargetLabel: text("ai_target_label"),
+  aiTargetApiKey: text("ai_target_api_key"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });

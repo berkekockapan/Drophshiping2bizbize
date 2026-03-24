@@ -40,7 +40,7 @@ export function PrepModeHeader({
               {isDirty ? "Kaydedilmemiş değişiklik var" : "Tüm değişiklikler kaydedildi"}
             </span>
             <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-              {connectorLabel ? `Aktif Bağlantı: ${connectorLabel}` : "Connector profili seçili değil"}
+              {connectorLabel ? `Aktif Bağlantı: ${connectorLabel}` : "AI hedefi yapılandırılmadı"}
             </span>
           </div>
 

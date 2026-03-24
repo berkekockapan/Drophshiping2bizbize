@@ -137,27 +137,33 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
           lastGeneratedAt: null,
           manualEditsPresent: false,
         },
-        connectorProfileSnapshot: {
-          id: "profile_1",
-          label: "Mock Connector",
-        },
       }),
     });
   });
 
-  await page.route("http://127.0.0.1:4317/health", async (route) => {
+  await page.route("**/settings", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        status: "online",
-        provider: "mock",
-        activeProfile: {
-          id: "profile_1",
-          label: "Mock Connector",
-          emailMasked: null,
-          provider: "mock",
-        },
+        id: "default",
+        refreshIntervalHours: 5,
+        promptPreferences: null,
+        connectorHealthcheckEnabled: true,
+        aiTargetBaseUrl: "https://clip.example.com",
+        aiTargetManagementKey: "mgmt_live_123",
+        aiTargetLabel: "Windows",
+        aiTargetApiKey: "api_live_123",
+      }),
+    });
+  });
+
+  await page.route("https://clip.example.com/v0/management/auth-files", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: [{ name: "primary.json", label: "Mock Connector", disabled: false }],
       }),
     });
   });
@@ -215,15 +221,22 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
     });
   });
 
-  await page.route("http://127.0.0.1:4317/generate-field", async (route) => {
-    const body = route.request().postDataJSON() as { field?: string };
+  await page.route("https://clip.example.com/v1/chat/completions", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        field: body.field ?? "title",
-        value: "Handmade Oversize Hoodie",
-        provider: "mock",
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                field: "title",
+                value: "Handmade Oversize Hoodie",
+              }),
+            },
+          },
+        ],
+        model: "gpt-4.1-mini",
       }),
     });
   });

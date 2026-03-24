@@ -137,6 +137,7 @@ function ndjsonResponse(events: unknown[]) {
 
 describe("ProductDetailPage", () => {
   afterEach(() => {
+    localStorage.clear();
     vi.restoreAllMocks();
   });
 
@@ -233,12 +234,6 @@ describe("ProductDetailPage", () => {
             lastGeneratedAt: null,
             manualEditsPresent: false,
           },
-          connectorProfileSnapshot: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-          },
         });
       }
 
@@ -259,20 +254,22 @@ describe("ProductDetailPage", () => {
         ]);
       }
 
-      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
-          status: "online",
-          provider: "openai-oauth",
-          activeProfile: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            emailMasked: null,
-            provider: "openai-oauth",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-            lastError: null,
-          },
-          connectionAttempt: null,
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: "https://clip.example.com",
+          aiTargetManagementKey: "mgmt_live_123",
+          aiTargetLabel: "Windows",
+          aiTargetApiKey: "api_live_123",
+        });
+      }
+
+      if (url === "https://clip.example.com/v0/management/auth-files") {
+        return jsonResponse({
+          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: false }],
         });
       }
 
@@ -321,29 +318,25 @@ describe("ProductDetailPage", () => {
             lastGeneratedAt: null,
             manualEditsPresent: false,
           },
-          connectorProfileSnapshot: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-          },
         });
       }
 
-      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
-          status: "online",
-          provider: "openai-oauth",
-          activeProfile: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            emailMasked: null,
-            provider: "openai-oauth",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-            lastError: null,
-          },
-          connectionAttempt: null,
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: "https://clip.example.com",
+          aiTargetManagementKey: "mgmt_live_123",
+          aiTargetLabel: "Windows",
+          aiTargetApiKey: "api_live_123",
+        });
+      }
+
+      if (url === "https://clip.example.com/v0/management/auth-files") {
+        return jsonResponse({
+          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: false }],
         });
       }
 

@@ -20,12 +20,48 @@ function ndjsonResponse(events: unknown[]) {
   });
 }
 
+function createBootstrapPayload() {
+  return {
+    product: {
+      id: "prod_1",
+      trendyolUrl: "https://www.trendyol.com/example",
+      sourceProductId: "123",
+      title: "Oversize Hoodie",
+      brand: "North Apparel",
+      category: "Sweatshirt",
+      descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+      attributes: [{ key: "Renk", value: "Siyah" }],
+      images: ["https://cdn.example.com/hoodie-1.jpg"],
+      status: "ACTIVE",
+      parseStatus: "OK",
+      lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+    },
+    draft: {
+      id: "draft_1",
+      productId: "prod_1",
+      englishTitle: null,
+      shortDescription: null,
+      longDescription: null,
+      tags: [],
+      materials: [],
+      attributes: [],
+      seoNotes: null,
+      policyNotes: null,
+      generatedVersion: 0,
+      editedVersion: 0,
+      lastGeneratedAt: null,
+      manualEditsPresent: false,
+    },
+  };
+}
+
 describe("EtsyPrepWorkspace", () => {
   afterEach(() => {
+    localStorage.clear();
     vi.restoreAllMocks();
   });
 
-  it("streams analysis steps, keeps insight blocks read-only, persists risk notes, and resets generation metadata after save", async () => {
+  it("streams analysis steps, uses direct inference, persists risk notes, and resets generation metadata after save", async () => {
     const user = userEvent.setup();
     const savePayloads: Array<{
       englishTitle: string | null;
@@ -37,64 +73,29 @@ describe("EtsyPrepWorkspace", () => {
       editedFields: string[];
     }> = [];
 
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
       if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse(createBootstrapPayload());
+      }
+
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
-          product: {
-            id: "prod_1",
-            trendyolUrl: "https://www.trendyol.com/example",
-            sourceProductId: "123",
-            title: "Oversize Hoodie",
-            brand: "North Apparel",
-            category: "Sweatshirt",
-            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
-            attributes: [{ key: "Renk", value: "Siyah" }],
-            images: ["https://cdn.example.com/hoodie-1.jpg"],
-            status: "ACTIVE",
-            parseStatus: "OK",
-            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
-          },
-          draft: {
-            id: "draft_1",
-            productId: "prod_1",
-            englishTitle: null,
-            shortDescription: null,
-            longDescription: null,
-            tags: [],
-            materials: [],
-            attributes: [],
-            seoNotes: null,
-            policyNotes: null,
-            generatedVersion: 0,
-            editedVersion: 0,
-            lastGeneratedAt: null,
-            manualEditsPresent: false,
-          },
-          connectorProfileSnapshot: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-          },
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: "https://clip.example.com",
+          aiTargetManagementKey: "mgmt_live_123",
+          aiTargetLabel: "Windows",
+          aiTargetApiKey: "api_live_123",
         });
       }
 
-      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
+      if (url === "https://clip.example.com/v0/management/auth-files") {
         return jsonResponse({
-          status: "online",
-          provider: "openai-oauth",
-          activeProfile: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            emailMasked: null,
-            provider: "openai-oauth",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-            lastError: null,
-          },
-          connectionAttempt: null,
+          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: false }],
         });
       }
 
@@ -128,11 +129,16 @@ describe("EtsyPrepWorkspace", () => {
         ]);
       }
 
-      if (url.includes("/ai-profiles/generate-field") && init?.method === "POST") {
+      if (url === "https://clip.example.com/v1/chat/completions" && init?.method === "POST") {
         return jsonResponse({
-          field: "title",
-          value: "Handmade Oversize Hoodie",
-          provider: "openai-oauth",
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({ field: "title", value: "Handmade Oversize Hoodie" }),
+              },
+            },
+          ],
+          model: "gpt-4.1-mini",
         });
       }
 
@@ -172,8 +178,13 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByText(/signals/i)).toBeInTheDocument();
+    expect(await screen.findByText(/aktif bağlantı: windows • openai workspace/i)).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /title üret/i }));
     expect(await screen.findByLabelText(/title/i)).toHaveValue("Handmade Oversize Hoodie");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://clip.example.com/v1/chat/completions",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(screen.getByText(/Lead with hoodie keyword\./i)).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /seo notları/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /kaydet/i }));
@@ -194,65 +205,24 @@ describe("EtsyPrepWorkspace", () => {
     expect(savePayloads[1]?.generatedFields).toEqual([]);
   });
 
-  it("blocks generation and shows reconnect guidance when the active profile needs reauth", async () => {
+  it("blocks generation when target settings are missing", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
       if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          product: {
-            id: "prod_1",
-            trendyolUrl: "https://www.trendyol.com/example",
-            sourceProductId: "123",
-            title: "Oversize Hoodie",
-            brand: "North Apparel",
-            category: "Sweatshirt",
-            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
-            attributes: [{ key: "Renk", value: "Siyah" }],
-            images: ["https://cdn.example.com/hoodie-1.jpg"],
-            status: "ACTIVE",
-            parseStatus: "OK",
-            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
-          },
-          draft: {
-            id: "draft_1",
-            productId: "prod_1",
-            englishTitle: null,
-            shortDescription: null,
-            longDescription: null,
-            tags: [],
-            materials: [],
-            attributes: [],
-            seoNotes: null,
-            policyNotes: null,
-            generatedVersion: 0,
-            editedVersion: 0,
-            lastGeneratedAt: null,
-            manualEditsPresent: false,
-          },
-          connectorProfileSnapshot: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            status: "needs_reauth",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-          },
-        });
+        return jsonResponse(createBootstrapPayload());
       }
 
-      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
-          status: "online",
-          provider: "openai-oauth",
-          activeProfile: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            emailMasked: "wo***@company.com",
-            provider: "openai-oauth",
-            status: "needs_reauth",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-            lastError: "Session expired",
-          },
-          connectionAttempt: null,
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: null,
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
         });
       }
 
@@ -266,77 +236,34 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect(await screen.findByText("Aktif hesap yeniden bağlanmalı.")).toBeInTheDocument();
+    expect(await screen.findByText(/ai hedef ayarları eksik/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
   });
 
-  it("blocks generation while a login flow is still in progress", async () => {
+  it("blocks generation when no active auth file exists", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
       if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse(createBootstrapPayload());
+      }
+
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
-          product: {
-            id: "prod_1",
-            trendyolUrl: "https://www.trendyol.com/example",
-            sourceProductId: "123",
-            title: "Oversize Hoodie",
-            brand: "North Apparel",
-            category: "Sweatshirt",
-            descriptionRaw: "Yumuşak dokulu oversize hoodie.",
-            attributes: [{ key: "Renk", value: "Siyah" }],
-            images: ["https://cdn.example.com/hoodie-1.jpg"],
-            status: "ACTIVE",
-            parseStatus: "OK",
-            lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
-          },
-          draft: {
-            id: "draft_1",
-            productId: "prod_1",
-            englishTitle: null,
-            shortDescription: null,
-            longDescription: null,
-            tags: [],
-            materials: [],
-            attributes: [],
-            seoNotes: null,
-            policyNotes: null,
-            generatedVersion: 0,
-            editedVersion: 0,
-            lastGeneratedAt: null,
-            manualEditsPresent: false,
-          },
-          connectorProfileSnapshot: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-          },
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: "https://clip.example.com",
+          aiTargetManagementKey: "mgmt_live_123",
+          aiTargetLabel: "Windows",
+          aiTargetApiKey: "api_live_123",
         });
       }
 
-      if (url.includes("/ai-profiles/health") && (!init?.method || init.method === "GET")) {
+      if (url === "https://clip.example.com/v0/management/auth-files") {
         return jsonResponse({
-          status: "online",
-          provider: "openai-oauth",
-          activeProfile: {
-            id: "profile_1",
-            label: "OpenAI Workspace",
-            emailMasked: "wo***@company.com",
-            provider: "openai-oauth",
-            status: "connected",
-            lastValidatedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-            lastError: null,
-          },
-          connectionAttempt: {
-            id: "attempt_1",
-            provider: "openai",
-            status: "waiting_for_login",
-            profileId: "profile_1",
-            error: null,
-            createdAt: Date.parse("2026-03-24T09:00:00.000Z"),
-            updatedAt: Date.parse("2026-03-24T09:00:01.000Z"),
-          },
+          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: true }],
         });
       }
 
@@ -350,7 +277,7 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect(screen.getByText(/giriş tamamlanana kadar bekleniyor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/üretim için en az bir etkin codex hesabı gerekli/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
   });
 });

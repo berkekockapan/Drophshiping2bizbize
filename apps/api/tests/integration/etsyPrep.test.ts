@@ -61,48 +61,16 @@ describe("etsy prep", () => {
 
     const app = createApp();
 
-    const syncResponse = await app.request(
-      "http://localhost/ai-profiles/sync",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          connectorStatus: {
-            status: "online",
-            provider: "chatgpt-web",
-          },
-          profiles: [
-            {
-              id: "profile_primary",
-              label: "ChatGPT Workspace",
-              emailMasked: "wo***@company.com",
-              provider: "chatgpt-web",
-              isActive: true,
-              status: "connected",
-              lastValidatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
-              lastError: null,
-            },
-          ],
-        }),
-      },
-      env,
-    );
-    expect(syncResponse.status).toBe(200);
-
     const bootstrap = await app.request(`http://localhost/products/${seeded.product.id}/etsy-prep`, undefined, env);
     expect(bootstrap.status).toBe(200);
-    expect(await bootstrap.json()).toEqual(
+    const bootstrapJson = await bootstrap.json();
+    expect(bootstrapJson).toEqual(
       expect.objectContaining({
         product: expect.objectContaining({ id: seeded.product.id, title: expect.any(String) }),
         draft: expect.objectContaining({ productId: seeded.product.id }),
-        connectorProfileSnapshot: expect.objectContaining({
-          id: "profile_primary",
-          label: "ChatGPT Workspace",
-          status: "connected",
-          lastValidatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
-        }),
       }),
     );
+    expect(bootstrapJson).not.toHaveProperty("connectorProfileSnapshot");
 
     const save = await app.request(
       `http://localhost/products/${seeded.product.id}/etsy-prep/save`,

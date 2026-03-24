@@ -1,11 +1,13 @@
 import type {
   AIProvider,
+  ConnectorHealth,
   GenerateFieldRequest,
   GenerateFieldResponse,
   GenerateRequest,
   GenerateResponse,
   UpsertProfileInput,
 } from "./base";
+import type { ConnectionAttempt } from "../store/connectionAttemptStore";
 import type { ConnectorProfile, ProfileStore } from "../store/profileStore";
 
 function normalizeTag(value: string) {
@@ -51,6 +53,8 @@ function buildFieldValue(request: GenerateFieldRequest) {
 
 export class MockProvider implements AIProvider {
   readonly id = "mock";
+  private connectionAttempts = new Map<string, ConnectionAttempt>();
+  private latestAttemptId: string | null = null;
 
   constructor(private readonly store: ProfileStore) {}
 
@@ -65,7 +69,16 @@ export class MockProvider implements AIProvider {
       label: "Mock Workspace",
       emailMasked: "mo***@local.dev",
       provider: "mock",
+      status: "connected",
+      lastValidatedAt: Date.now(),
+      lastError: null,
     });
+  }
+
+  private rememberAttempt(attempt: ConnectionAttempt) {
+    this.connectionAttempts.set(attempt.id, attempt);
+    this.latestAttemptId = attempt.id;
+    return attempt;
   }
 
   async listProfiles(): Promise<ConnectorProfile[]> {
@@ -78,13 +91,86 @@ export class MockProvider implements AIProvider {
     return this.store.getActiveProfile();
   }
 
+  async getHealth(): Promise<ConnectorHealth> {
+    const activeProfile = await this.getActiveProfile();
+
+    return {
+      status: "online",
+      provider: this.id,
+      activeProfile,
+      connectionAttempt: this.latestAttemptId ? (this.connectionAttempts.get(this.latestAttemptId) ?? null) : null,
+    };
+  }
+
+  async startConnection(_provider: "openai") {
+    const now = Date.now();
+    const profileId = `mock-profile-${now}`;
+    await this.upsertProfile({
+      id: profileId,
+      label: `Mock Workspace ${new Date(now).toISOString()}`,
+      emailMasked: "mo***@local.dev",
+      provider: "mock",
+      status: "connected",
+      lastValidatedAt: now,
+      lastError: null,
+      makeActive: true,
+    });
+
+    return this.rememberAttempt({
+      id: `mock-attempt-${now}`,
+      provider: "openai",
+      status: "completed",
+      profileId,
+      error: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  async getConnectionAttempt(attemptId: string) {
+    return this.connectionAttempts.get(attemptId) ?? null;
+  }
+
+  async reconnectProfile(profileId: string) {
+    await this.ensureDefaultProfile();
+    const now = Date.now();
+    await this.store.updateProfile(profileId, {
+      status: "connected",
+      lastValidatedAt: now,
+      lastError: null,
+    });
+
+    return this.rememberAttempt({
+      id: `mock-attempt-${now}`,
+      provider: "openai",
+      status: "completed",
+      profileId,
+      error: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  async deleteProfile(profileId: string) {
+    await this.store.deleteProfile(profileId);
+  }
+
   async activateProfile(profileId: string) {
     await this.ensureDefaultProfile();
     return this.store.setActiveProfile(profileId);
   }
 
   async upsertProfile(input: UpsertProfileInput) {
-    const profile = await this.store.saveProfile(input);
+    const profile = await this.store.saveProfile({
+      id: input.id,
+      label: input.label,
+      emailMasked: input.emailMasked,
+      provider: input.provider,
+      status: input.status ?? "connected",
+      lastValidatedAt: input.lastValidatedAt ?? Date.now(),
+      lastError: input.lastError ?? null,
+      sessionSecret: input.sessionSecret,
+    });
 
     if (input.makeActive) {
       return this.store.setActiveProfile(profile.id);

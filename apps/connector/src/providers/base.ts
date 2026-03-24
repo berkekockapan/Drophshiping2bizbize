@@ -1,4 +1,5 @@
-import type { ConnectorProfile, ProviderId } from "../store/profileStore";
+import type { ConnectionAttempt } from "../store/connectionAttemptStore";
+import type { ConnectorProfile, ConnectorProfileStatus, ProviderId } from "../store/profileStore";
 
 export interface GenerateRequest {
   productId: string;
@@ -40,14 +41,29 @@ export interface UpsertProfileInput {
   label: string;
   emailMasked: string | null;
   provider: ProviderId;
+  status?: ConnectorProfileStatus;
+  lastValidatedAt?: number | null;
+  lastError?: string | null;
   sessionSecret?: string | null;
   makeActive?: boolean;
+}
+
+export interface ConnectorHealth {
+  status: "online";
+  provider: ProviderId;
+  activeProfile: ConnectorProfile | null;
+  connectionAttempt: ConnectionAttempt | null;
 }
 
 export interface AIProvider {
   readonly id: string;
   listProfiles(): Promise<ConnectorProfile[]>;
   getActiveProfile(): Promise<ConnectorProfile | null>;
+  getHealth(): Promise<ConnectorHealth>;
+  startConnection(provider: "openai"): Promise<ConnectionAttempt>;
+  getConnectionAttempt(attemptId: string): Promise<ConnectionAttempt | null>;
+  reconnectProfile(profileId: string): Promise<ConnectionAttempt>;
+  deleteProfile(profileId: string): Promise<void>;
   activateProfile(profileId: string): Promise<ConnectorProfile>;
   upsertProfile(input: UpsertProfileInput): Promise<ConnectorProfile>;
   generate(request: GenerateRequest): Promise<GenerateResponse>;

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  ConnectorRequestError,
   connectorGenerateField,
   fetchConnectorHealth,
   fetchEtsyPrepWorkspace,
@@ -72,6 +73,37 @@ function createInitialFieldGenerationState(): Record<EtsyPrepField, FieldGenerat
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "İşlem tamamlanamadı.";
+}
+
+function mapConnectorGenerationError(error: unknown) {
+  if (error instanceof ConnectorRequestError && error.code === "PROFILE_NEEDS_REAUTH") {
+    return "Aktif hesap yeniden giriş istiyor. AI Bağlantıları sayfasından yeniden bağlanın.";
+  }
+
+  if (error instanceof ConnectorRequestError && error.code === "LOGIN_IN_PROGRESS") {
+    return "Giriş tamamlanana kadar bekleniyor.";
+  }
+
+  if (error instanceof ConnectorRequestError && error.code === "NO_ACTIVE_PROFILE") {
+    return "Aktif hesap bulunamadı. AI Bağlantıları sayfasından bir profil seçin.";
+  }
+
+  return getErrorMessage(error);
+}
+
+function getConnectorStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "connected":
+      return "bağlı";
+    case "needs_reauth":
+      return "yeniden bağlanmalı";
+    case "disconnected":
+      return "bağlantı kaldırıldı";
+    case "error":
+      return "hata";
+    default:
+      return "durum bilinmiyor";
+  }
 }
 
 function tagsToText(tags: string[]) {
@@ -457,7 +489,7 @@ export function useEtsyPrepWorkspace(productId: string) {
         [field]: {
           ...current[field],
           isGenerating: false,
-          error: getErrorMessage(error),
+          error: mapConnectorGenerationError(error),
           helper: null,
         },
       }));
@@ -505,7 +537,13 @@ export function useEtsyPrepWorkspace(productId: string) {
 
   const connectorProfileSnapshot = bootstrapQuery.data?.connectorProfileSnapshot ?? null;
   const connectorHealth = connectorHealthQuery.data ?? null;
-  const canGenerate = Boolean(connectorProfileSnapshot) && Boolean(connectorHealth?.activeProfile);
+  const activeProfileStatus = connectorHealth?.activeProfile?.status ?? connectorProfileSnapshot?.status ?? null;
+  const connectionAttemptStatus = connectorHealth?.connectionAttempt?.status ?? null;
+  const loginInProgress =
+    connectionAttemptStatus === "pending_browser_launch" ||
+    connectionAttemptStatus === "waiting_for_login" ||
+    connectionAttemptStatus === "verifying_session";
+  const canGenerate = Boolean(connectorProfileSnapshot) && activeProfileStatus === "connected" && !loginInProgress;
 
   const generationBlockedReason = !connectorProfileSnapshot
     ? "Alan üretimi için aktif bir connector profili gerekli."
@@ -513,13 +551,22 @@ export function useEtsyPrepWorkspace(productId: string) {
       ? "Local connector ulaşılamıyor. AI Bağlantıları sayfasından bağlantıyı kontrol edin."
       : connectorHealthQuery.isPending
         ? "Connector durumu kontrol ediliyor..."
-        : !connectorHealth?.activeProfile
-          ? "Aktif connector profili bulunamadı. AI Bağlantıları sayfasından bir profil seçin."
-          : null;
+        : loginInProgress
+          ? "Giriş tamamlanana kadar bekleniyor."
+          : activeProfileStatus === "needs_reauth"
+            ? "Aktif hesap yeniden bağlanmalı."
+            : !connectorHealth?.activeProfile
+              ? "Aktif connector profili bulunamadı. AI Bağlantıları sayfasından bir profil seçin."
+              : activeProfileStatus !== "connected"
+                ? "Aktif hesap üretim için hazır değil."
+                : null;
 
   return {
     product: bootstrapQuery.data?.product ?? null,
     connectorProfileSnapshot,
+    connectorBadgeLabel: connectorProfileSnapshot
+      ? `${connectorProfileSnapshot.label} • ${getConnectorStatusLabel(activeProfileStatus ?? connectorProfileSnapshot.status)}`
+      : null,
     form,
     liveSteps,
     researchSummary,

@@ -27,7 +27,7 @@ export function EtsyPrepWorkspace({ productId, onBack }: EtsyPrepWorkspaceProps)
         isSaving={workspace.isSaving}
         saveMessage={workspace.saveMessage}
         saveError={workspace.saveError}
-        connectorLabel={workspace.connectorProfileSnapshot?.label ?? null}
+        connectorLabel={workspace.connectorBadgeLabel}
         generationBlockedReason={workspace.generationBlockedReason}
         onBack={onBack}
         onSave={workspace.saveWorkspace}

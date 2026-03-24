@@ -13,9 +13,15 @@ Yerel AI connector servisini güvenli şekilde çalıştırmak.
    - `npx pnpm --filter @trendyol-etsy/connector run dev`
 6. Sağlık kontrolü yapın:
    - `GET http://127.0.0.1:4317/health`
-7. Profil ekleyin (`chatgpt-web` kullanacaksanız):
-   - `POST http://127.0.0.1:4317/profiles`
-   - örnek body: `{ "id": "workspace-main", "label": "Workspace Main", "provider": "chatgpt-web", "makeActive": true }`
+7. Gerçek hesabı UI üzerinden bağlayın (`chatgpt-web` kullanıyorsanız):
+   - uygulamada `AI Bağlantıları > OpenAI ile Bağlan` butonunu kullanın.
+   - açılan tarayıcıda ChatGPT girişini tamamlayın.
+   - bağlantı denemesi tamamlandığında hesap listeye düşer ve aktif hesap olarak işaretlenir.
+8. Hesap yönetimini doğrulayın:
+   - bağlı hesap listesi `GET http://127.0.0.1:4317/profiles` ile görülebilir.
+   - aktif hesap değiştirmek için `POST /profiles/:id/activate`
+   - yeniden bağlanmak için `POST /profiles/:id/reconnect`
+   - bağlantıyı kaldırmak için `DELETE /profiles/:id`
 
 ## Güvenlik Notları
 - Oturum sırlarını API'ye göndermeyin.

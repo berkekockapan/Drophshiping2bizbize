@@ -69,17 +69,28 @@ export class ChatGptWebProvider implements AIProvider {
     this.runFieldPromptImpl = options.runFieldPrompt ?? runFieldPrompt;
   }
 
+  private async listOwnedProfiles() {
+    const profiles = await this.store.listProfiles();
+    return profiles.filter((profile) => profile.provider === this.id);
+  }
+
+  private async getOwnedProfile(profileId: string) {
+    const profiles = await this.listOwnedProfiles();
+    return profiles.find((profile) => profile.id === profileId) ?? null;
+  }
+
   async listProfiles(): Promise<ConnectorProfile[]> {
-    return this.store.listProfiles();
+    return this.listOwnedProfiles();
   }
 
   async getActiveProfile() {
-    return this.store.getActiveProfile();
+    const activeProfile = await this.store.getActiveProfile();
+    return activeProfile?.provider === this.id ? activeProfile : null;
   }
 
   async getHealth(): Promise<ConnectorHealth> {
     const [activeProfile, connectionAttempt] = await Promise.all([
-      this.store.getActiveProfile(),
+      this.getActiveProfile(),
       this.attempts.getLatest(),
     ]);
 
@@ -148,6 +159,11 @@ export class ChatGptWebProvider implements AIProvider {
   }
 
   async reconnectProfile(profileId: string) {
+    const profile = await this.getOwnedProfile(profileId);
+    if (!profile) {
+      throw new ProviderError("NO_ACTIVE_PROFILE", "Yeniden bağlanacak ChatGPT hesabı bulunamadı.", 404);
+    }
+
     await this.store.updateProfile(profileId, {
       status: "needs_reauth",
     });
@@ -156,11 +172,21 @@ export class ChatGptWebProvider implements AIProvider {
   }
 
   async deleteProfile(profileId: string) {
+    const profile = await this.getOwnedProfile(profileId);
+    if (!profile) {
+      throw new ProviderError("NO_ACTIVE_PROFILE", "Silinecek ChatGPT hesabı bulunamadı.", 404);
+    }
+
     await this.store.deleteProfile(profileId);
     await this.browserSession.deleteProfileStorage?.(profileId).catch(() => undefined);
   }
 
   async activateProfile(profileId: string) {
+    const profile = await this.getOwnedProfile(profileId);
+    if (!profile) {
+      throw new ProviderError("NO_ACTIVE_PROFILE", "Aktifleştirilecek ChatGPT hesabı bulunamadı.", 404);
+    }
+
     return this.store.setActiveProfile(profileId);
   }
 
@@ -184,7 +210,7 @@ export class ChatGptWebProvider implements AIProvider {
   }
 
   private async ensureConnectedActiveProfile() {
-    const activeProfile = await this.store.getActiveProfile();
+    const activeProfile = await this.getActiveProfile();
     if (!activeProfile) {
       throw new ProviderError("NO_ACTIVE_PROFILE", "Aktif ChatGPT hesabı bulunamadı.");
     }

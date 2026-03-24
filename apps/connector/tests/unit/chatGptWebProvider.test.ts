@@ -103,4 +103,37 @@ describe("ChatGptWebProvider", () => {
       code: "PROFILE_NEEDS_REAUTH",
     });
   });
+
+  it("ignores stale mock profiles when running in chatgpt-web mode", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "connector-chatgpt-provider-"));
+    const store = createProfileStore(dir);
+
+    await store.saveProfile({
+      id: "mock-default",
+      label: "Mock Workspace",
+      emailMasked: "mo***@local.dev",
+      provider: "mock",
+      status: "connected",
+      lastValidatedAt: null,
+      lastError: null,
+    });
+
+    const provider = new ChatGptWebProvider(store, {
+      stateDir: dir,
+      browserSession: {
+        ensureProfilePage: async () => ({ page: {} as never }),
+      },
+      openLoginPage: async () => undefined,
+      inspectSession: async () => null,
+    });
+
+    await expect(provider.listProfiles()).resolves.toEqual([]);
+    await expect(provider.getActiveProfile()).resolves.toBeNull();
+    await expect(provider.getHealth()).resolves.toEqual(
+      expect.objectContaining({
+        provider: "chatgpt-web",
+        activeProfile: null,
+      }),
+    );
+  });
 });

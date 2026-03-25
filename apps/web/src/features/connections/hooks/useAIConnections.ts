@@ -2,9 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import type { ConnectionAttemptResponse, ConnectorProfile } from "../../../app/api";
-import { fetchSettings, patchSettings } from "../../../app/api";
+import {
+  ConnectorRequestError,
+  deleteConnectorProfile,
+  fetchConnectionAttempt,
+  fetchConnectorHealth,
+  fetchSettings,
+  patchSettings,
+  reconnectConnectorProfile,
+  startOpenAiConnection,
+} from "../../../app/api";
 import { clearAiTargetCache, readAiTargetCache, writeAiTargetCache } from "../lib/aiTargetStorage";
-import { ConnectorApiRequestError, createConnectorApiClient } from "../lib/connectorApi";
 import { resolveConnectorTarget } from "../lib/resolveConnectorTarget";
 
 const IN_PROGRESS_ATTEMPT_STATUSES = new Set<ConnectionAttemptResponse["status"]>([
@@ -46,7 +54,11 @@ function isAttemptInProgress(attempt: ConnectionAttemptResponse | null | undefin
 }
 
 function mapQueryError(error: unknown) {
-  if (error instanceof ConnectorApiRequestError && error.code === "PROFILE_NEEDS_REAUTH") {
+  if (
+    (error instanceof ConnectorRequestError || error instanceof Error) &&
+    "code" in error &&
+    error.code === "PROFILE_NEEDS_REAUTH"
+  ) {
     return "Bağlantı yeniden doğrulanmalı";
   }
 
@@ -115,6 +127,7 @@ function buildViewState({
 export function useAIConnections() {
   const queryClient = useQueryClient();
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<Error | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: ["settings"],
@@ -123,12 +136,11 @@ export function useAIConnections() {
 
   const cachedTarget = readAiTargetCache();
   const target = useMemo(() => resolveConnectorTarget(settingsQuery.data, cachedTarget), [cachedTarget, settingsQuery.data]);
-  const connectorClient = useMemo(() => createConnectorApiClient({ baseUrl: target.baseUrl }), [target.baseUrl]);
-  const healthQueryKey = useMemo(() => ["connector-health", target.baseUrl] as const, [target.baseUrl]);
+  const healthQueryKey = useMemo(() => ["ai-profiles-health"] as const, []);
 
   const healthQuery = useQuery({
     queryKey: healthQueryKey,
-    queryFn: () => connectorClient.getHealth(),
+    queryFn: fetchConnectorHealth,
     retry: false,
     enabled: !settingsQuery.isError,
   });
@@ -138,9 +150,9 @@ export function useAIConnections() {
     (isAttemptInProgress(healthQuery.data?.connectionAttempt) ? healthQuery.data?.connectionAttempt?.id ?? null : null);
 
   const attemptQuery = useQuery({
-    queryKey: ["connector-attempt", target.baseUrl, effectiveAttemptId],
+    queryKey: ["ai-profiles-attempt", effectiveAttemptId],
     enabled: Boolean(effectiveAttemptId),
-    queryFn: () => connectorClient.getConnectionAttempt(effectiveAttemptId as string),
+    queryFn: () => fetchConnectionAttempt(effectiveAttemptId as string),
     retry: false,
     refetchInterval: (query) => {
       const attempt = query.state.data?.attempt;
@@ -180,15 +192,23 @@ export function useAIConnections() {
   });
 
   const startMutation = useMutation({
-    mutationFn: async () => connectorClient.startOpenAiConnection(),
-    onSuccess: async ({ attempt }) => {
+    mutationFn: async () => startOpenAiConnection(),
+    onSuccess: async ({ attempt, authorizationUrl }) => {
       setActiveAttemptId(attempt.id);
+      const popup = window.open(authorizationUrl, "_blank", "noopener");
+
+      if (!popup) {
+        setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));
+      } else {
+        setLaunchError(null);
+      }
+
       await queryClient.invalidateQueries({ queryKey: healthQueryKey });
     },
   });
 
   const reconnectMutation = useMutation({
-    mutationFn: async (profileId: string) => connectorClient.reconnectProfile(profileId),
+    mutationFn: async (profileId: string) => reconnectConnectorProfile(profileId),
     onSuccess: async ({ attempt }) => {
       setActiveAttemptId(attempt.id);
       await queryClient.invalidateQueries({ queryKey: healthQueryKey });
@@ -196,7 +216,7 @@ export function useAIConnections() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (profileId: string) => connectorClient.deleteProfile(profileId),
+    mutationFn: async (profileId: string) => deleteConnectorProfile(profileId),
     onSuccess: async () => {
       setActiveAttemptId(null);
       await queryClient.invalidateQueries({ queryKey: healthQueryKey });
@@ -204,6 +224,7 @@ export function useAIConnections() {
   });
 
   const combinedError =
+    launchError ??
     settingsQuery.error ??
     healthQuery.error ??
     attemptQuery.error ??
@@ -230,13 +251,17 @@ export function useAIConnections() {
     isReconnecting: reconnectMutation.isPending,
     isDeleting: deleteMutation.isPending,
     saveTarget: (payload: { baseUrl: string }) => saveTargetMutation.mutate(payload),
-    startConnection: () => startMutation.mutate(),
+    startConnection: () => {
+      setLaunchError(null);
+      startMutation.mutate();
+    },
     reconnectProfile: (profileId: string) => reconnectMutation.mutate(profileId),
     deleteProfile: (profileId: string) => deleteMutation.mutate(profileId),
     retry: async () => {
+      setLaunchError(null);
       await queryClient.invalidateQueries({ queryKey: healthQueryKey });
       if (effectiveAttemptId) {
-        await queryClient.invalidateQueries({ queryKey: ["connector-attempt", target.baseUrl, effectiveAttemptId] });
+        await queryClient.invalidateQueries({ queryKey: ["ai-profiles-attempt", effectiveAttemptId] });
       }
     },
   };

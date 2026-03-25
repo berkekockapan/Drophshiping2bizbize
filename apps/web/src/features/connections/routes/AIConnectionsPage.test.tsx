@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AIConnectionsPage } from "./AIConnectionsPage";
@@ -17,9 +17,11 @@ function jsonResponse(payload: unknown, status = 200) {
 function mockConnectorFetches({
   health,
   healthError,
+  authorizationUrl = "https://auth.openai.test/oauth",
 }: {
   health?: Record<string, unknown>;
   healthError?: Error;
+  authorizationUrl?: string;
 }) {
   const settings = {
     id: "default",
@@ -47,7 +49,7 @@ function mockConnectorFetches({
       });
     }
 
-    if (url === "http://127.0.0.1:4317/health") {
+    if (url.endsWith("/ai-profiles/health")) {
       if (healthError) {
         throw healthError;
       }
@@ -62,7 +64,7 @@ function mockConnectorFetches({
       );
     }
 
-    if (url === "http://127.0.0.1:4317/connections/openai/start" && init?.method === "POST") {
+    if (url.endsWith("/ai-profiles/openai/start") && init?.method === "POST") {
       return jsonResponse(
         {
           attempt: {
@@ -74,12 +76,27 @@ function mockConnectorFetches({
             createdAt: Date.now(),
             updatedAt: Date.now(),
           },
+          authorizationUrl,
         },
         202,
       );
     }
 
-    if (url === "http://127.0.0.1:4317/profiles/profile_main/reconnect" && init?.method === "POST") {
+    if (url.endsWith("/ai-profiles/openai/attempts/attempt_1")) {
+      return jsonResponse({
+        attempt: {
+          id: "attempt_1",
+          provider: "openai",
+          status: "waiting_for_login",
+          profileId: null,
+          error: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      });
+    }
+
+    if (url.endsWith("/ai-profiles/profile_main/reconnect") && init?.method === "POST") {
       return jsonResponse(
         {
           attempt: {
@@ -96,22 +113,8 @@ function mockConnectorFetches({
       );
     }
 
-    if (url === "http://127.0.0.1:4317/profiles/profile_main" && init?.method === "DELETE") {
+    if (url.endsWith("/ai-profiles/profile_main") && init?.method === "DELETE") {
       return new Response(null, { status: 204 });
-    }
-
-    if (url === "http://127.0.0.1:4317/connections/openai/attempts/attempt_1") {
-      return jsonResponse({
-        attempt: {
-          id: "attempt_1",
-          provider: "openai",
-          status: "waiting_for_login",
-          profileId: null,
-          error: null,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        },
-      });
     }
 
     throw new Error(`Unhandled request: ${url}`);
@@ -148,10 +151,10 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText("OpenAI ba\u011flant\u0131s\u0131 haz\u0131r")).toBeInTheDocument();
+    expect(await screen.findByText("OpenAI bağlantısı hazır")).toBeInTheDocument();
     expect(screen.getAllByText(/wo\*\*\*@company.com/i)).not.toHaveLength(0);
-    expect(screen.queryByLabelText("Ba\u011flant\u0131 Servisi URL")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ba\u011flant\u0131y\u0131 Kald\u0131r" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Bağlantı Servisi URL")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bağlantıyı Kaldır" })).toBeInTheDocument();
   });
 
   it("keeps advanced settings collapsed until the user opens them", async () => {
@@ -163,11 +166,11 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText("Yerel ba\u011flant\u0131 servisi haz\u0131r de\u011fil")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Ba\u011flant\u0131 Servisi URL")).not.toBeInTheDocument();
+    expect(await screen.findByText("Yerel bağlantı servisi hazır değil")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Bağlantı Servisi URL")).not.toBeInTheDocument();
 
-    await user.click(screen.getByText("Geli\u015fmi\u015f Ayarlar"));
-    expect(screen.getByLabelText("Ba\u011flant\u0131 Servisi URL")).toBeInTheDocument();
+    await user.click(screen.getByText("Gelişmiş Ayarlar"));
+    expect(screen.getByLabelText("Bağlantı Servisi URL")).toBeInTheDocument();
   });
 
   it("shows the disconnected desktop state with a single connect action", async () => {
@@ -182,8 +185,56 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText("OpenAI ba\u011flant\u0131s\u0131 gerekli")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "OpenAI ile Ba\u011flan" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ba\u011flant\u0131y\u0131 Kald\u0131r" })).not.toBeInTheDocument();
+    expect(await screen.findByText("OpenAI bağlantısı gerekli")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "OpenAI ile giriş yap" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Bağlantıyı Kaldır" })).not.toBeInTheDocument();
+  });
+
+  it("opens the authorization URL in a new tab when the connection starts", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as WindowProxy);
+
+    mockConnectorFetches({
+      health: {
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: null,
+        connectionAttempt: null,
+      },
+      authorizationUrl: "https://auth.openai.test/oauth?attempt=attempt_1",
+    });
+
+    renderWithProviders(<AIConnectionsPage />);
+
+    await user.click(await screen.findByRole("button", { name: "OpenAI ile giriş yap" }));
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith("https://auth.openai.test/oauth?attempt=attempt_1", "_blank", "noopener");
+    });
+
+    expect(await screen.findByText("OpenAI bağlantısı kuruluyor")).toBeInTheDocument();
+  });
+
+  it("shows a product error when the browser blocks the popup", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "open").mockReturnValueOnce(null);
+
+    mockConnectorFetches({
+      health: {
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: null,
+        connectionAttempt: null,
+      },
+    });
+
+    renderWithProviders(<AIConnectionsPage />);
+
+    await user.click(await screen.findByRole("button", { name: "OpenAI ile giriş yap" }));
+
+    expect(
+      await screen.findByText("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tekrar Dene" })).toBeInTheDocument();
   });
 });

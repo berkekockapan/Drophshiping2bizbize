@@ -63,7 +63,7 @@ export function ConnectorStatusCard({
             disabled={isStartingConnection}
             onClick={onStartConnection}
           >
-            {isStartingConnection ? "Bağlantı Başlatılıyor..." : "OpenAI ile Bağlan"}
+            {isStartingConnection ? "Giriş Sekmesi Açılıyor..." : "OpenAI ile giriş yap"}
           </button>
         ) : null}
 

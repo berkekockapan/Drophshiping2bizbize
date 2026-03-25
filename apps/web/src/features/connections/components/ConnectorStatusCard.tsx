@@ -67,6 +67,26 @@ export function ConnectorStatusCard({
           </button>
         ) : null}
 
+        {viewState.kind === "connecting" ? (
+          <>
+            <button
+              type="button"
+              className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              disabled={isStartingConnection}
+              onClick={onStartConnection}
+            >
+              {isStartingConnection ? "Giriş Sekmesi Açılıyor..." : "Giriş sekmesini yeniden aç"}
+            </button>
+            <button
+              type="button"
+              className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700"
+              onClick={onRetry}
+            >
+              Durumu Yenile
+            </button>
+          </>
+        ) : null}
+
         {viewState.kind === "ready_connected" ? (
           <>
             <button

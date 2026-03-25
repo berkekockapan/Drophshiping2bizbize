@@ -17,11 +17,15 @@ function jsonResponse(payload: unknown, status = 200) {
 function mockConnectorFetches({
   health,
   healthError,
+  connectorHealth,
   authorizationUrl = "https://auth.openai.test/oauth",
+  connectorStartAttemptId = "attempt_local",
 }: {
   health?: Record<string, unknown>;
   healthError?: Error;
+  connectorHealth?: Record<string, unknown>;
   authorizationUrl?: string;
+  connectorStartAttemptId?: string;
 }) {
   const settings = {
     id: "default",
@@ -64,6 +68,17 @@ function mockConnectorFetches({
       );
     }
 
+    if (url === "http://127.0.0.1:4317/health") {
+      return jsonResponse(
+        connectorHealth ?? {
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: null,
+          connectionAttempt: null,
+        },
+      );
+    }
+
     if (url.endsWith("/ai-profiles/openai/start") && init?.method === "POST") {
       return jsonResponse(
         {
@@ -82,10 +97,41 @@ function mockConnectorFetches({
       );
     }
 
+    if (url === "http://127.0.0.1:4317/connections/openai/start" && init?.method === "POST") {
+      return jsonResponse(
+        {
+          attempt: {
+            id: connectorStartAttemptId,
+            provider: "openai",
+            status: "waiting_for_login",
+            profileId: null,
+            error: null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        },
+        202,
+      );
+    }
+
     if (url.endsWith("/ai-profiles/openai/attempts/attempt_1")) {
       return jsonResponse({
         attempt: {
           id: "attempt_1",
+          provider: "openai",
+          status: "waiting_for_login",
+          profileId: null,
+          error: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      });
+    }
+
+    if (url === `http://127.0.0.1:4317/connections/openai/attempts/${connectorStartAttemptId}`) {
+      return jsonResponse({
+        attempt: {
+          id: connectorStartAttemptId,
           provider: "openai",
           status: "waiting_for_login",
           profileId: null,
@@ -236,5 +282,46 @@ describe("AIConnectionsPage", () => {
       await screen.findByText("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tekrar Dene" })).toBeInTheDocument();
+  });
+
+  it("falls back to the local connector flow when cloud oauth config is invalid", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as WindowProxy);
+
+    mockConnectorFetches({
+      health: {
+        status: "online",
+        provider: "openai-oauth",
+        activeProfile: null,
+        connectionAttempt: {
+          id: "attempt_cloud_failed",
+          provider: "openai",
+          status: "failed",
+          profileId: null,
+          error: "OPENAI_OAUTH_CLIENT_ID örnek placeholder görünüyor.",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      },
+      connectorHealth: {
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: null,
+        connectionAttempt: null,
+      },
+    });
+
+    renderWithProviders(<AIConnectionsPage />);
+
+    await user.click(await screen.findByRole("button", { name: "OpenAI ile giriş yap" }));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "http://127.0.0.1:4317/connections/openai/start",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText("OpenAI bağlantısı kuruluyor")).toBeInTheDocument();
   });
 });

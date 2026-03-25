@@ -13,6 +13,7 @@ import {
   startOpenAiConnection,
 } from "../../../app/api";
 import { clearAiTargetCache, readAiTargetCache, writeAiTargetCache } from "../lib/aiTargetStorage";
+import { ConnectorApiRequestError, createConnectorApiClient } from "../lib/connectorApi";
 import { resolveConnectorTarget } from "../lib/resolveConnectorTarget";
 
 const IN_PROGRESS_ATTEMPT_STATUSES = new Set<ConnectionAttemptResponse["status"]>([
@@ -53,9 +54,17 @@ function isAttemptInProgress(attempt: ConnectionAttemptResponse | null | undefin
   return Boolean(attempt && IN_PROGRESS_ATTEMPT_STATUSES.has(attempt.status));
 }
 
+function isOauthConfigErrorMessage(message: string | null | undefined) {
+  if (!message) {
+    return false;
+  }
+
+  return /OPENAI_OAUTH_|örnek placeholder|Yerel OAuth yapılandırması eksik|Token şifreleme anahtarı eksik/i.test(message);
+}
+
 function mapQueryError(error: unknown) {
   if (
-    (error instanceof ConnectorRequestError || error instanceof Error) &&
+    (error instanceof ConnectorRequestError || error instanceof ConnectorApiRequestError || error instanceof Error) &&
     "code" in error &&
     error.code === "PROFILE_NEEDS_REAUTH"
   ) {
@@ -136,7 +145,9 @@ export function useAIConnections() {
 
   const cachedTarget = readAiTargetCache();
   const target = useMemo(() => resolveConnectorTarget(settingsQuery.data, cachedTarget), [cachedTarget, settingsQuery.data]);
+  const connectorClient = useMemo(() => createConnectorApiClient({ baseUrl: target.baseUrl }), [target.baseUrl]);
   const healthQueryKey = useMemo(() => ["ai-profiles-health"] as const, []);
+  const connectorHealthQueryKey = useMemo(() => ["connector-health", target.baseUrl] as const, [target.baseUrl]);
 
   const healthQuery = useQuery({
     queryKey: healthQueryKey,
@@ -145,14 +156,31 @@ export function useAIConnections() {
     enabled: !settingsQuery.isError,
   });
 
+  const shouldUseConnectorFallback = isOauthConfigErrorMessage(healthQuery.data?.connectionAttempt?.error);
+
+  const connectorHealthQuery = useQuery({
+    queryKey: connectorHealthQueryKey,
+    queryFn: () => connectorClient.getHealth(),
+    retry: false,
+    enabled: !settingsQuery.isError && shouldUseConnectorFallback,
+  });
+
+  const effectiveHealthQuery = shouldUseConnectorFallback ? connectorHealthQuery : healthQuery;
+  const effectiveHealthQueryKey = shouldUseConnectorFallback ? connectorHealthQueryKey : healthQueryKey;
+
   const effectiveAttemptId =
     activeAttemptId ??
-    (isAttemptInProgress(healthQuery.data?.connectionAttempt) ? healthQuery.data?.connectionAttempt?.id ?? null : null);
+    (isAttemptInProgress(effectiveHealthQuery.data?.connectionAttempt) ? effectiveHealthQuery.data?.connectionAttempt?.id ?? null : null);
 
   const attemptQuery = useQuery({
-    queryKey: ["ai-profiles-attempt", effectiveAttemptId],
+    queryKey: shouldUseConnectorFallback
+      ? (["connector-attempt", target.baseUrl, effectiveAttemptId] as const)
+      : (["ai-profiles-attempt", effectiveAttemptId] as const),
     enabled: Boolean(effectiveAttemptId),
-    queryFn: () => fetchConnectionAttempt(effectiveAttemptId as string),
+    queryFn: () =>
+      shouldUseConnectorFallback
+        ? connectorClient.getConnectionAttempt(effectiveAttemptId as string)
+        : fetchConnectionAttempt(effectiveAttemptId as string),
     retry: false,
     refetchInterval: (query) => {
       const attempt = query.state.data?.attempt;
@@ -167,8 +195,8 @@ export function useAIConnections() {
     }
 
     setActiveAttemptId(null);
-    void queryClient.invalidateQueries({ queryKey: healthQueryKey });
-  }, [attemptQuery.data?.attempt, healthQueryKey, queryClient]);
+    void queryClient.invalidateQueries({ queryKey: effectiveHealthQueryKey });
+  }, [attemptQuery.data?.attempt, effectiveHealthQueryKey, queryClient]);
 
   const saveTargetMutation = useMutation({
     mutationFn: async (payload: { baseUrl: string }) =>
@@ -187,54 +215,64 @@ export function useAIConnections() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["settings"] }),
         queryClient.invalidateQueries({ queryKey: healthQueryKey }),
+        queryClient.invalidateQueries({ queryKey: connectorHealthQueryKey }),
       ]);
     },
   });
 
   const startMutation = useMutation({
-    mutationFn: async () => startOpenAiConnection(),
-    onSuccess: async ({ attempt, authorizationUrl }) => {
+    mutationFn: async () =>
+      shouldUseConnectorFallback ? connectorClient.startOpenAiConnection() : startOpenAiConnection(),
+    onSuccess: async (result) => {
+      const { attempt } = result;
       setActiveAttemptId(attempt.id);
-      const popup = window.open(authorizationUrl, "_blank", "noopener");
 
-      if (!popup) {
-        setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));
+      if (!shouldUseConnectorFallback && "authorizationUrl" in result) {
+        const popup = window.open(result.authorizationUrl, "_blank", "noopener");
+
+        if (!popup) {
+          setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));
+        } else {
+          setLaunchError(null);
+        }
       } else {
         setLaunchError(null);
       }
 
-      await queryClient.invalidateQueries({ queryKey: healthQueryKey });
+      await queryClient.invalidateQueries({ queryKey: effectiveHealthQueryKey });
     },
   });
 
   const reconnectMutation = useMutation({
-    mutationFn: async (profileId: string) => reconnectConnectorProfile(profileId),
+    mutationFn: async (profileId: string) =>
+      shouldUseConnectorFallback ? connectorClient.reconnectProfile(profileId) : reconnectConnectorProfile(profileId),
     onSuccess: async ({ attempt }) => {
       setActiveAttemptId(attempt.id);
-      await queryClient.invalidateQueries({ queryKey: healthQueryKey });
+      await queryClient.invalidateQueries({ queryKey: effectiveHealthQueryKey });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (profileId: string) => deleteConnectorProfile(profileId),
+    mutationFn: async (profileId: string) =>
+      shouldUseConnectorFallback ? connectorClient.deleteProfile(profileId) : deleteConnectorProfile(profileId),
     onSuccess: async () => {
       setActiveAttemptId(null);
-      await queryClient.invalidateQueries({ queryKey: healthQueryKey });
+      await queryClient.invalidateQueries({ queryKey: effectiveHealthQueryKey });
     },
   });
 
   const combinedError =
     launchError ??
     settingsQuery.error ??
-    healthQuery.error ??
+    effectiveHealthQuery.error ??
     attemptQuery.error ??
     startMutation.error ??
     reconnectMutation.error ??
     deleteMutation.error;
 
   const viewState = buildViewState({
-    activeProfile: healthQuery.data?.activeProfile ?? null,
-    attempt: attemptQuery.data?.attempt ?? healthQuery.data?.connectionAttempt ?? null,
+    activeProfile: effectiveHealthQuery.data?.activeProfile ?? null,
+    attempt: attemptQuery.data?.attempt ?? effectiveHealthQuery.data?.connectionAttempt ?? null,
     source: target.source,
     error: combinedError,
   });
@@ -245,7 +283,8 @@ export function useAIConnections() {
     configInitialValue: {
       baseUrl: settingsQuery.data?.aiTargetBaseUrl ?? cachedTarget?.baseUrl ?? "",
     },
-    isLoading: settingsQuery.isLoading || (healthQuery.isLoading && !healthQuery.data && !healthQuery.error),
+    isLoading:
+      settingsQuery.isLoading || (effectiveHealthQuery.isLoading && !effectiveHealthQuery.data && !effectiveHealthQuery.error),
     isSavingTarget: saveTargetMutation.isPending,
     isStartingConnection: startMutation.isPending,
     isReconnecting: reconnectMutation.isPending,
@@ -259,9 +298,13 @@ export function useAIConnections() {
     deleteProfile: (profileId: string) => deleteMutation.mutate(profileId),
     retry: async () => {
       setLaunchError(null);
-      await queryClient.invalidateQueries({ queryKey: healthQueryKey });
+      await queryClient.invalidateQueries({ queryKey: effectiveHealthQueryKey });
       if (effectiveAttemptId) {
-        await queryClient.invalidateQueries({ queryKey: ["ai-profiles-attempt", effectiveAttemptId] });
+        await queryClient.invalidateQueries({
+          queryKey: shouldUseConnectorFallback
+            ? ["connector-attempt", target.baseUrl, effectiveAttemptId]
+            : ["ai-profiles-attempt", effectiveAttemptId],
+        });
       }
     },
   };

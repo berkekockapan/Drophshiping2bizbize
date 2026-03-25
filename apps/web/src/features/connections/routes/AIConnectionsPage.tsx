@@ -8,30 +8,27 @@ export function AIConnectionsPage() {
   return (
     <div className="space-y-6">
       {connections.isLoading ? <p className="text-sm text-slate-500">Bağlantı durumu yükleniyor...</p> : null}
-      {connections.isError ? <p className="text-sm text-rose-600">{connections.errorMessage}</p> : null}
+
+      {!connections.isLoading ? (
+        <ConnectorStatusCard
+          viewState={connections.viewState}
+          isStartingConnection={connections.isStartingConnection}
+          isReconnecting={connections.isReconnecting}
+          isDeleting={connections.isDeleting}
+          onStartConnection={connections.startConnection}
+          onReconnect={connections.reconnectProfile}
+          onDelete={connections.deleteProfile}
+          onRetry={() => {
+            void connections.retry();
+          }}
+        />
+      ) : null}
 
       <AiTargetConfigPanel
         initialValue={connections.configInitialValue}
         pending={connections.isSavingTarget}
         onSubmit={connections.saveTarget}
       />
-
-      {!connections.isLoading ? (
-        <ConnectorStatusCard
-          targetLabel={connections.target?.label ?? "Windows"}
-          targetBaseUrl={connections.target?.baseUrl ?? null}
-          authFiles={connections.authFiles}
-          activeFileName={connections.activeFileName}
-          attemptMessage={connections.attemptMessage}
-          isStartingConnection={connections.isStartingConnection}
-          activatingFileName={connections.activatingFileName}
-          deletingFileName={connections.deletingFileName}
-          startDisabled={!connections.canStartConnection}
-          onStartConnection={connections.startConnection}
-          onActivate={connections.activateAuthFile}
-          onDelete={connections.deleteAuthFile}
-        />
-      ) : null}
     </div>
   );
 }

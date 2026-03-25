@@ -1,9 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AIConnectionsPage } from "./AIConnectionsPage";
+import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
 
 function jsonResponse(payload: unknown, status = 200) {
@@ -13,156 +14,176 @@ function jsonResponse(payload: unknown, status = 200) {
   });
 }
 
+function mockConnectorFetches({
+  health,
+  healthError,
+}: {
+  health?: Record<string, unknown>;
+  healthError?: Error;
+}) {
+  const settings = {
+    id: "default",
+    refreshIntervalHours: 5,
+    promptPreferences: null,
+    connectorHealthcheckEnabled: true,
+    aiTargetBaseUrl: null,
+    aiTargetManagementKey: null,
+    aiTargetLabel: null,
+    aiTargetApiKey: null,
+  };
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = String(input);
+
+    if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
+      return jsonResponse(settings);
+    }
+
+    if (url.endsWith("/settings") && init?.method === "PATCH") {
+      const payload = JSON.parse(String(init.body)) as Partial<typeof settings>;
+      return jsonResponse({
+        ...settings,
+        ...payload,
+      });
+    }
+
+    if (url === "http://127.0.0.1:4317/health") {
+      if (healthError) {
+        throw healthError;
+      }
+
+      return jsonResponse(
+        health ?? {
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: null,
+          connectionAttempt: null,
+        },
+      );
+    }
+
+    if (url === "http://127.0.0.1:4317/connections/openai/start" && init?.method === "POST") {
+      return jsonResponse(
+        {
+          attempt: {
+            id: "attempt_1",
+            provider: "openai",
+            status: "waiting_for_login",
+            profileId: null,
+            error: null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        },
+        202,
+      );
+    }
+
+    if (url === "http://127.0.0.1:4317/profiles/profile_main/reconnect" && init?.method === "POST") {
+      return jsonResponse(
+        {
+          attempt: {
+            id: "attempt_reconnect",
+            provider: "openai",
+            status: "waiting_for_login",
+            profileId: "profile_main",
+            error: null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        },
+        202,
+      );
+    }
+
+    if (url === "http://127.0.0.1:4317/profiles/profile_main" && init?.method === "DELETE") {
+      return new Response(null, { status: 204 });
+    }
+
+    if (url === "http://127.0.0.1:4317/connections/openai/attempts/attempt_1") {
+      return jsonResponse({
+        attempt: {
+          id: "attempt_1",
+          provider: "openai",
+          status: "waiting_for_login",
+          profileId: null,
+          error: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      });
+    }
+
+    throw new Error(`Unhandled request: ${url}`);
+  });
+}
+
 describe("AIConnectionsPage", () => {
+  beforeEach(() => {
+    installMockLocalStorage();
+  });
+
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
   });
 
-  it("loads target settings, starts OAuth polling, and supports auth-file actions", async () => {
-    const user = userEvent.setup();
-    const windowOpenSpy = vi.spyOn(window, "open").mockReturnValue(null);
-
-    let settings = {
-      id: "default",
-      refreshIntervalHours: 5,
-      promptPreferences: null,
-      connectorHealthcheckEnabled: true,
-      aiTargetBaseUrl: "https://clip.example.com",
-      aiTargetManagementKey: "mgmt_live_123",
-      aiTargetLabel: "Windows",
-      aiTargetApiKey: "api_live_123",
-    };
-
-    let authFiles = [
-      { name: "primary.json", label: "Primary Workspace", disabled: false },
-      { name: "backup.json", label: "Backup Workspace", disabled: true },
-    ];
-
-    let authStatusPollCount = 0;
-
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse(settings);
-      }
-
-      if (url.endsWith("/settings") && init?.method === "PATCH") {
-        settings = {
-          ...settings,
-          ...(JSON.parse(String(init.body)) as Partial<typeof settings>),
-        };
-
-        return jsonResponse(settings);
-      }
-
-      if (url === "https://clip.example.com/v0/management/auth-files") {
-        return jsonResponse({ items: authFiles });
-      }
-
-      if (url === "https://clip.example.com/v0/management/codex-auth-url?is_webui=1") {
-        authFiles = [];
-
-        return jsonResponse({
-          authorizationUrl: "https://auth.openai.com/oauth/authorize?client_id=test",
-          state: "oauth_state_1",
-        });
-      }
-
-      if (url === "https://clip.example.com/v0/management/get-auth-status?state=oauth_state_1") {
-        authStatusPollCount += 1;
-
-        if (authStatusPollCount >= 2) {
-          authFiles = [
-            { name: "primary.json", label: "Primary Workspace", disabled: false },
-            { name: "backup.json", label: "Backup Workspace", disabled: true },
-          ];
-
-          return jsonResponse({
-            status: "ok",
-            authFile: authFiles[0],
-          });
-        }
-
-        return jsonResponse({ status: "wait" });
-      }
-
-      if (url === "https://clip.example.com/v0/management/auth-files/status" && init?.method === "PATCH") {
-        const payload = JSON.parse(String(init.body)) as { name: string; disabled: boolean };
-        authFiles = authFiles.map((item) => (item.name === payload.name ? { ...item, disabled: payload.disabled } : item));
-        return jsonResponse({ ok: true });
-      }
-
-      if (url === "https://clip.example.com/v0/management/auth-files?name=backup.json" && init?.method === "DELETE") {
-        authFiles = authFiles.filter((item) => item.name !== "backup.json");
-        return new Response(null, { status: 204 });
-      }
-
-      throw new Error(`Unhandled request: ${url}`);
+  it("shows the connected desktop state without exposing technical fields by default", async () => {
+    mockConnectorFetches({
+      health: {
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: {
+          id: "profile_main",
+          label: "OpenAI Workspace",
+          emailMasked: "wo***@company.com",
+          provider: "chatgpt-web",
+          status: "connected",
+          lastValidatedAt: Date.now(),
+          lastError: null,
+        },
+        connectionAttempt: null,
+      },
     });
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByDisplayValue("https://clip.example.com")).toBeInTheDocument();
-    expect(await screen.findByDisplayValue("Windows")).toBeInTheDocument();
-    expect(await screen.findByText(/primary workspace aktif hesap olarak hazır/i)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /openai ile bağlan/i }));
-
-    expect(windowOpenSpy).toHaveBeenCalledWith(
-      "https://auth.openai.com/oauth/authorize?client_id=test",
-      "_blank",
-      "noopener,noreferrer",
-    );
-    expect(await screen.findByText(/windows oturumunda giriş tamamlayın/i)).toBeInTheDocument();
-    expect(await screen.findByText(/tarayıcıda giriş bekleniyor/i)).toBeInTheDocument();
-    expect(await screen.findByText(/primary workspace aktif hesap olarak hazır/i, {}, { timeout: 2_500 })).toBeInTheDocument();
-
-    await user.click(await screen.findByRole("button", { name: /aktif yap/i }));
-
-    expect(await screen.findByText(/backup workspace aktif hesap olarak hazır/i)).toBeInTheDocument();
-
-    const backupCard = screen
-      .getAllByText("Backup Workspace")
-      .map((node) => node.closest("article"))
-      .find((node): node is HTMLElement => node instanceof HTMLElement);
-
-    expect(backupCard).not.toBeNull();
-    expect(within(backupCard!).getByText(/aktif hesap/i)).toBeInTheDocument();
-
-    await user.click(within(backupCard!).getByRole("button", { name: /bağlantıyı kaldır/i }));
-
-    expect(screen.queryByText(/backup workspace/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("OpenAI ba\u011flant\u0131s\u0131 haz\u0131r")).toBeInTheDocument();
+    expect(screen.getAllByText(/wo\*\*\*@company.com/i)).not.toHaveLength(0);
+    expect(screen.queryByLabelText("Ba\u011flant\u0131 Servisi URL")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ba\u011flant\u0131y\u0131 Kald\u0131r" })).toBeInTheDocument();
   });
 
-  it("shows empty state when no codex account is connected yet", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
+  it("keeps advanced settings collapsed until the user opens them", async () => {
+    const user = userEvent.setup();
 
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: "mgmt_live_123",
-          aiTargetLabel: "Windows",
-          aiTargetApiKey: "api_live_123",
-        });
-      }
-
-      if (url === "https://clip.example.com/v0/management/auth-files") {
-        return jsonResponse({ items: [] });
-      }
-
-      throw new Error(`Unhandled request: ${url}`);
+    mockConnectorFetches({
+      healthError: new Error("connect ECONNREFUSED 127.0.0.1:4317"),
     });
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText(/henüz bağlı codex hesabı yok/i)).toBeInTheDocument();
-    expect(await screen.findByText(/henüz bağlı hesap yok/i)).toBeInTheDocument();
+    expect(await screen.findByText("Yerel ba\u011flant\u0131 servisi haz\u0131r de\u011fil")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Ba\u011flant\u0131 Servisi URL")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Geli\u015fmi\u015f Ayarlar"));
+    expect(screen.getByLabelText("Ba\u011flant\u0131 Servisi URL")).toBeInTheDocument();
+  });
+
+  it("shows the disconnected desktop state with a single connect action", async () => {
+    mockConnectorFetches({
+      health: {
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: null,
+        connectionAttempt: null,
+      },
+    });
+
+    renderWithProviders(<AIConnectionsPage />);
+
+    expect(await screen.findByText("OpenAI ba\u011flant\u0131s\u0131 gerekli")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "OpenAI ile Ba\u011flan" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ba\u011flant\u0131y\u0131 Kald\u0131r" })).not.toBeInTheDocument();
   });
 });

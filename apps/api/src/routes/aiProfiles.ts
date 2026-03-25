@@ -154,7 +154,7 @@ export function createAiProfilesRouter() {
   const app = new Hono<{ Bindings: Env }>();
 
   app.get("/health", async (c) => {
-    const health = await getOpenAiConnectionHealth(c.env.DB);
+    const health = await getOpenAiConnectionHealth(c.env.DB, c.env);
     return c.json(health);
   });
 

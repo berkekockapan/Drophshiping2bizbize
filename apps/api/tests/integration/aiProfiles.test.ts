@@ -66,6 +66,7 @@ describe("aiProfiles integration", () => {
     const { env } = createTestEnv();
     env.OPENAI_OAUTH_CLIENT_ID = "client_test";
     env.OPENAI_OAUTH_REDIRECT_URI = "http://localhost/ai-profiles/openai/callback";
+    env.OPENAI_OAUTH_ENCRYPTION_KEY = "12345678901234567890123456789012";
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       return new Response(null, {
@@ -112,6 +113,46 @@ describe("aiProfiles integration", () => {
         error: expect.objectContaining({
           code: "OPENAI_OAUTH_CONFIG_MISSING",
           message: expect.stringContaining("örnek placeholder"),
+        }),
+      }),
+    );
+  });
+
+  it("fails stuck in-progress attempts during health check when oauth config is invalid", async () => {
+    const { env } = createTestEnv();
+    env.OPENAI_OAUTH_CLIENT_ID = "app_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    env.OPENAI_OAUTH_REDIRECT_URI = "http://localhost/ai-profiles/openai/callback";
+
+    const now = Date.now();
+    await env.DB.prepare(
+      `insert into ai_openai_connection_attempts (
+        id, provider, profile_id, status, error, oauth_state, code_verifier, nonce,
+        redirect_uri, authorization_url, created_at, updated_at
+      ) values (?, 'openai', ?, 'waiting_for_login', null, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        "attempt_stuck",
+        "profile_main",
+        "state_stuck",
+        "verifier_stuck",
+        "nonce_stuck",
+        "http://localhost/ai-profiles/openai/callback",
+        "https://auth.openai.com/oauth/authorize?client_id=app_x",
+        now,
+        now,
+      )
+      .run();
+
+    const app = createApp();
+    const response = await app.request("http://localhost/ai-profiles/health", undefined, env);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        connectionAttempt: expect.objectContaining({
+          id: "attempt_stuck",
+          status: "failed",
+          error: expect.stringContaining("örnek placeholder"),
         }),
       }),
     );

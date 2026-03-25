@@ -310,6 +310,13 @@ async function readEncryptionKey(env: Env) {
   return crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
+async function validateOauthStartConfiguration(env: Env) {
+  const clientId = requireOauthClientId(env);
+  const redirectUri = requireOauthRedirectUri(env);
+  await readEncryptionKey(env);
+  return { clientId, redirectUri };
+}
+
 async function encryptSecret(value: string, env: Env) {
   const key = await readEncryptionKey(env);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -655,8 +662,8 @@ export async function startOpenAiConnection(
   env: Env,
   options: { profileId?: string | null } = {},
 ): Promise<StartOpenAiConnectionResult> {
-  const clientId = requireOauthClientId(env);
-  const redirectUri = requireOauthRedirectUri(env);
+  await cancelInProgressConnectionAttempts(db);
+  const { clientId, redirectUri } = await validateOauthStartConfiguration(env);
   const state = crypto.randomUUID();
   const codeVerifier = buildCodeVerifier();
   const codeChallenge = await buildCodeChallenge(codeVerifier);
@@ -668,7 +675,6 @@ export async function startOpenAiConnection(
     codeChallenge,
     nonce,
   });
-  await cancelInProgressConnectionAttempts(db);
   await ensureOauthClientIsSupported(authorizationUrl);
   const now = Date.now();
   const attemptId = crypto.randomUUID();
@@ -1198,7 +1204,7 @@ export async function reconnectAiProfile(db: D1Database, env: Env, profileId: st
   return startOpenAiConnection(db, env, { profileId });
 }
 
-export async function getOpenAiConnectionHealth(db: D1Database): Promise<OpenAiConnectionHealth> {
+export async function getOpenAiConnectionHealth(db: D1Database, env?: Env): Promise<OpenAiConnectionHealth> {
   const [activeProfile, latestAttemptRaw] = await Promise.all([getActiveAiProfile(db), getLatestAttempt(db)]);
   let latestAttempt = latestAttemptRaw;
   if (
@@ -1212,6 +1218,23 @@ export async function getOpenAiConnectionHealth(db: D1Database): Promise<OpenAiC
       oauthState: null,
       codeVerifier: null,
     });
+  }
+
+  if (latestAttempt && IN_PROGRESS_ATTEMPT_STATUSES.has(latestAttempt.status) && env) {
+    try {
+      await validateOauthStartConfiguration(env);
+    } catch (error) {
+      if (error instanceof OpenAiAuthError) {
+        latestAttempt = await updateAttempt(db, latestAttempt.id, {
+          status: "failed",
+          error: error.message,
+          oauthState: null,
+          codeVerifier: null,
+        });
+      } else {
+        throw error;
+      }
+    }
   }
 
   return {

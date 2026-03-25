@@ -9,6 +9,72 @@ import { createConnectionAttemptStore } from "../../src/store/connectionAttemptS
 import { createProfileStore } from "../../src/store/profileStore";
 
 describe("ChatGptWebProvider", () => {
+  it("marks the active profile as needs_reauth when health validation sees an expired session", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "connector-chatgpt-provider-"));
+    const store = createProfileStore(dir);
+
+    await store.saveProfile({
+      id: "profile_main",
+      label: "ChatGPT Workspace",
+      emailMasked: "wo***@company.com",
+      provider: "chatgpt-web",
+      status: "connected",
+      lastValidatedAt: Date.parse("2026-03-25T09:00:00.000Z"),
+      lastError: null,
+    });
+
+    const provider = new ChatGptWebProvider(store, {
+      stateDir: dir,
+      browserSession: {
+        ensureProfilePage: async () => ({ page: {} as never }),
+      },
+      inspectSession: async () => null,
+      openLoginPage: async () => undefined,
+    });
+
+    const health = await provider.getHealth();
+
+    expect(health.activeProfile?.status).toBe("needs_reauth");
+    expect(health.activeProfile?.lastError).toBe("Session expired");
+  });
+
+  it("keeps only the newest connected chatgpt-web profile after a successful connection", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "connector-chatgpt-provider-"));
+    const store = createProfileStore(dir);
+    const attempts = createConnectionAttemptStore(dir);
+
+    await store.saveProfile({
+      id: "profile_old",
+      label: "Old Workspace",
+      emailMasked: "ol***@mail.com",
+      provider: "chatgpt-web",
+      status: "connected",
+      lastValidatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
+      lastError: null,
+    });
+
+    let verified = false;
+    const provider = new ChatGptWebProvider(store, {
+      stateDir: dir,
+      attempts,
+      browserSession: {
+        ensureProfilePage: async () => ({ page: {} as never }),
+        deleteProfileStorage: async () => undefined,
+      },
+      openLoginPage: async () => undefined,
+      inspectSession: async () =>
+        verified ? { label: "New Workspace", emailMasked: "ne***@mail.com" } : null,
+      createId: () => "profile_new",
+    });
+
+    const started = await provider.startConnection("openai");
+    verified = true;
+    await provider.getConnectionAttempt(started.id);
+
+    const profiles = await provider.listProfiles();
+    expect(profiles.map((item) => item.id)).toEqual(["profile_new"]);
+  });
+
   it("starts a connection, completes it on poll, and reports structured health", async () => {
     const dir = await mkdtemp(join(tmpdir(), "connector-chatgpt-provider-"));
     const store = createProfileStore(dir);

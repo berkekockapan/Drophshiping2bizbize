@@ -27,6 +27,9 @@ describe("connector server", () => {
       label: "Primary",
       emailMasked: "wo***@company.com",
       provider: "chatgpt-web",
+      status: "connected",
+      lastValidatedAt: null,
+      lastError: null,
     });
 
     const provider = new MockProvider(store);

@@ -4,13 +4,15 @@ import { resolve } from "node:path";
 import type { Page } from "playwright";
 
 import { BrowserSession } from "../browser/browserSession";
-import { runFieldPrompt, type GenerateFieldRequest, type GenerateFieldResponse } from "../browser/runFieldPrompt";
+import { runFieldPrompt } from "../browser/runFieldPrompt";
 import { runPrompt } from "../browser/runPrompt";
 import { createConnectionAttemptStore, type ConnectionAttempt, type ConnectionAttemptStore } from "../store/connectionAttemptStore";
 import type {
   AIProvider,
   ConnectorHealth,
   ConnectorProviderError,
+  GenerateFieldRequest,
+  GenerateFieldResponse,
   GenerateRequest,
   GenerateResponse,
   UpsertProfileInput,
@@ -88,11 +90,54 @@ export class ChatGptWebProvider implements AIProvider {
     return activeProfile?.provider === this.id ? activeProfile : null;
   }
 
+  private async validateActiveProfileForHealth() {
+    const activeProfile = await this.getActiveProfile();
+    if (!activeProfile || activeProfile.status !== "connected") {
+      return activeProfile;
+    }
+
+    const latestAttempt = await this.attempts.getLatest();
+    if (latestAttempt && IN_PROGRESS_ATTEMPT_STATUSES.has(latestAttempt.status)) {
+      return activeProfile;
+    }
+
+    const { page } = await this.browserSession.ensureProfilePage(activeProfile.id);
+    const session = await this.inspectSessionImpl(page, activeProfile.id);
+
+    if (!session) {
+      return this.store.updateProfile(activeProfile.id, {
+        status: "needs_reauth",
+        lastError: SESSION_EXPIRED_MESSAGE,
+      });
+    }
+
+    return this.store.saveProfile({
+      id: activeProfile.id,
+      label: session.label || activeProfile.label,
+      emailMasked: session.emailMasked ?? activeProfile.emailMasked,
+      provider: this.id,
+      status: "connected",
+      lastValidatedAt: this.now(),
+      lastError: null,
+    });
+  }
+
+  private async pruneOtherOwnedProfiles(keepProfileId: string) {
+    const profiles = await this.listOwnedProfiles();
+
+    for (const profile of profiles) {
+      if (profile.id === keepProfileId) {
+        continue;
+      }
+
+      await this.store.deleteProfile(profile.id);
+      await this.browserSession.deleteProfileStorage?.(profile.id).catch(() => undefined);
+    }
+  }
+
   async getHealth(): Promise<ConnectorHealth> {
-    const [activeProfile, connectionAttempt] = await Promise.all([
-      this.getActiveProfile(),
-      this.attempts.getLatest(),
-    ]);
+    const activeProfile = await this.validateActiveProfileForHealth();
+    const connectionAttempt = await this.attempts.getLatest();
 
     return {
       status: "online",
@@ -306,6 +351,7 @@ export class ChatGptWebProvider implements AIProvider {
       lastError: null,
     });
     await this.store.setActiveProfile(profileId);
+    await this.pruneOtherOwnedProfiles(profileId);
 
     return this.attempts.update(attemptId, {
       status: "completed",

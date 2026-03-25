@@ -10,3 +10,6 @@ OPENAI_OAUTH_ENCRYPTION_KEY=replace_with_32_byte_base64url_key
 OPENAI_DEFAULT_MODEL=gpt-5-mini
 OPENAI_API_BASE_URL=https://api.openai.com/v1
 OPENAI_OAUTH_ORIGINATOR=dropshipingtakip_cloud
+# Codex/CLI özel authorize parametreleri için gerekirse 1 yapın.
+# Web OAuth akışında varsayılan olarak kapalı bırakılmalıdır.
+# OPENAI_OAUTH_USE_CODEX_FLOW=1

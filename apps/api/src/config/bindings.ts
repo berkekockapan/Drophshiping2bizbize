@@ -44,6 +44,7 @@ export interface Env {
   OPENAI_OAUTH_ENCRYPTION_KEY?: string;
   OPENAI_OAUTH_AUTHORIZE_URL?: string;
   OPENAI_OAUTH_TOKEN_URL?: string;
+  OPENAI_OAUTH_USE_CODEX_FLOW?: string;
   OPENAI_API_BASE_URL?: string;
   OPENAI_DEFAULT_MODEL?: string;
   OPENAI_ORGANIZATION?: string;

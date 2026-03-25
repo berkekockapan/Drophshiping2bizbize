@@ -191,6 +191,10 @@ function readOauthOriginator(env: Env) {
   return env.OPENAI_OAUTH_ORIGINATOR?.trim() || "dropshipingtakip_cloud";
 }
 
+function shouldUseCodexSimplifiedFlow(env: Env) {
+  return env.OPENAI_OAUTH_USE_CODEX_FLOW?.trim() === "1";
+}
+
 function resolveAccessTokenExpiresAt(expiresInSeconds: number | undefined, now = Date.now()) {
   if (!expiresInSeconds || !Number.isFinite(expiresInSeconds) || expiresInSeconds <= 0) {
     return null;
@@ -465,8 +469,12 @@ function buildAuthorizationUrl(env: Env, input: {
   url.searchParams.set("code_challenge_method", "S256");
   url.searchParams.set("nonce", input.nonce);
   url.searchParams.set("id_token_add_organizations", "true");
-  url.searchParams.set("codex_cli_simplified_flow", "true");
-  url.searchParams.set("originator", readOauthOriginator(env));
+
+  if (shouldUseCodexSimplifiedFlow(env)) {
+    url.searchParams.set("codex_cli_simplified_flow", "true");
+    url.searchParams.set("originator", readOauthOriginator(env));
+  }
+
   return url.toString();
 }
 

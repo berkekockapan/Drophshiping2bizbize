@@ -92,6 +92,31 @@ describe("aiProfiles integration", () => {
     expect(body.attempt.status).toBe("waiting_for_login");
   });
 
+  it("returns a config error when OPENAI_OAUTH_CLIENT_ID is left as placeholder", async () => {
+    const { env } = createTestEnv();
+    env.OPENAI_OAUTH_CLIENT_ID = "app_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    env.OPENAI_OAUTH_REDIRECT_URI = "http://localhost/ai-profiles/openai/callback";
+
+    const app = createApp();
+    const response = await app.request(
+      "http://localhost/ai-profiles/openai/start",
+      {
+        method: "POST",
+      },
+      env,
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: "OPENAI_OAUTH_CONFIG_MISSING",
+          message: expect.stringContaining("örnek placeholder"),
+        }),
+      }),
+    );
+  });
+
   it("returns a structured auth error when generation is requested without an active profile", async () => {
     const { env } = createTestEnv();
     const app = createApp();

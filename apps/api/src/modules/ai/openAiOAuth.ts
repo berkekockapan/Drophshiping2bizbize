@@ -155,6 +155,14 @@ function requireOauthClientId(env: Env) {
     );
   }
 
+  if (/^app_x+$/i.test(value)) {
+    throw new OpenAiAuthError(
+      "OPENAI_OAUTH_CONFIG_MISSING",
+      "OPENAI_OAUTH_CLIENT_ID örnek placeholder görünüyor. apps/api/.dev.vars içinde OpenAI Dashboard'dan aldığınız gerçek client_id değerini kullanın.",
+      503,
+    );
+  }
+
   return value;
 }
 

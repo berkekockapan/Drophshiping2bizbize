@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -7,12 +7,15 @@ import {
   saveEtsyPrepWorkspace,
   streamEtsyPrepAnalysis,
   streamEtsyPrepFieldPackage,
+  type ConnectionAttemptResponse,
+  type ConnectorProfile,
   type EtsyPrepBootstrapResponse,
   type EtsyPrepField,
   type EtsyPrepStreamEvent,
 } from "../../../app/api";
 import { readAiTargetCache } from "../../connections/lib/aiTargetStorage";
-import { CliProxyRequestError, createCliProxyApiClient } from "../../connections/lib/cliProxyApi";
+import { ConnectorApiRequestError, createConnectorApiClient } from "../../connections/lib/connectorApi";
+import { resolveConnectorTarget } from "../../connections/lib/resolveConnectorTarget";
 import { readNdjsonStream } from "../lib/readNdjsonStream";
 
 interface WorkspaceFormState {
@@ -63,6 +66,12 @@ const initialFieldGenerationState: Record<EtsyPrepField, FieldGenerationState> =
   tags: { isGenerating: false, error: null, helper: null, provider: null },
 };
 
+const IN_PROGRESS_ATTEMPT_STATUSES = new Set<ConnectionAttemptResponse["status"]>([
+  "pending_browser_launch",
+  "waiting_for_login",
+  "verifying_session",
+]);
+
 function createInitialFieldGenerationState(): Record<EtsyPrepField, FieldGenerationState> {
   return {
     title: { ...initialFieldGenerationState.title },
@@ -75,83 +84,86 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "İşlem tamamlanamadı.";
 }
 
-function mapDirectGenerationError(error: unknown) {
-  if (error instanceof CliProxyRequestError && error.code === "TARGET_INFERENCE_UNAUTHORIZED") {
-    return "Inference API key geçersiz. AI Bağlantıları sayfasından hedef ayarlarını güncelleyin.";
+function isConnectorOfflineError(error: unknown) {
+  return error instanceof Error && /ECONNREFUSED|Failed to fetch|fetch failed|NetworkError/i.test(error.message);
+}
+
+function mapConnectorStateError(error: unknown) {
+  if (error instanceof ConnectorApiRequestError && error.code === "PROFILE_NEEDS_REAUTH") {
+    return "Bağlantı yeniden doğrulanmalı";
   }
 
-  if (error instanceof CliProxyRequestError && error.code === "TARGET_REQUEST_TIMEOUT") {
-    return "Hedef sunucu zamanında yanıt vermedi.";
+  if (error instanceof ConnectorApiRequestError && error.code === "NO_ACTIVE_PROFILE") {
+    return "OpenAI bağlantısı gerekli";
+  }
+
+  if (isConnectorOfflineError(error)) {
+    return "Yerel bağlantı servisi hazır değil";
   }
 
   return getErrorMessage(error);
 }
 
-function buildAiTarget(
-  settings:
-    | {
-        aiTargetBaseUrl: string | null;
-        aiTargetManagementKey: string | null;
-        aiTargetLabel: string | null;
-        aiTargetApiKey: string | null;
-      }
-    | undefined,
-  cached: ReturnType<typeof readAiTargetCache>,
-) {
-  const baseUrl = settings?.aiTargetBaseUrl ?? cached?.baseUrl ?? null;
+function mapGenerateFieldError(error: unknown) {
+  if (error instanceof ConnectorApiRequestError) {
+    if (error.code === "PROFILE_NEEDS_REAUTH") {
+      return "Bağlantı yeniden doğrulanmalı";
+    }
 
-  if (!baseUrl) {
-    return null;
+    if (error.code === "NO_ACTIVE_PROFILE") {
+      return "OpenAI bağlantısı gerekli";
+    }
   }
 
-  return {
-    baseUrl,
-    label: settings?.aiTargetLabel ?? cached?.label ?? "Windows",
-    managementKey: settings?.aiTargetManagementKey ?? null,
-    apiKey: settings?.aiTargetApiKey ?? null,
-  };
+  if (isConnectorOfflineError(error)) {
+    return "Yerel bağlantı servisi hazır değil";
+  }
+
+  return getErrorMessage(error);
 }
 
-function parseGeneratedFieldValue(field: EtsyPrepField, rawContent: string) {
-  const content = rawContent.trim();
+function isAttemptInProgress(attempt: ConnectionAttemptResponse | null | undefined) {
+  return Boolean(attempt && IN_PROGRESS_ATTEMPT_STATUSES.has(attempt.status));
+}
 
-  if (!content) {
-    throw new Error("AI yanıtı boş geldi.");
+function getConnectionStatusLabel(activeProfile: ConnectorProfile | null, attempt: ConnectionAttemptResponse | null, error: unknown) {
+  if (error) {
+    return mapConnectorStateError(error);
   }
 
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(content) as Record<string, unknown>;
-  } catch {
-    throw new Error("AI yanıtı geçerli JSON formatında değil.");
+  if (isAttemptInProgress(attempt)) {
+    return "Tarayıcıda girişinizi tamamlayın";
   }
 
-  if (typeof parsed.value === "string" && parsed.value.trim()) {
-    return parsed.value.trim();
+  if (!activeProfile) {
+    return "OpenAI bağlantısı gerekli";
   }
 
-  if (field === "title" && typeof parsed.title === "string" && parsed.title.trim()) {
-    return parsed.title.trim();
+  if (activeProfile.status === "needs_reauth") {
+    return "Bağlantı yeniden doğrulanmalı";
   }
 
-  if (field === "description") {
-    if (typeof parsed.longDescription === "string" && parsed.longDescription.trim()) {
-      return parsed.longDescription.trim();
-    }
+  return activeProfile.emailMasked ?? activeProfile.label;
+}
 
-    if (typeof parsed.shortDescription === "string" && parsed.shortDescription.trim()) {
-      return parsed.shortDescription.trim();
-    }
+function getGenerationBlockedReason(activeProfile: ConnectorProfile | null, attempt: ConnectionAttemptResponse | null, error: unknown) {
+  if (error) {
+    return mapConnectorStateError(error);
   }
 
-  if (field === "tags" && Array.isArray(parsed.tags)) {
-    const tags = parsed.tags.map((item) => String(item).trim()).filter(Boolean);
-    if (tags.length > 0) {
-      return tags.join(", ");
-    }
+  if (isAttemptInProgress(attempt)) {
+    return "Tarayıcıda girişinizi tamamlayın";
   }
 
-  throw new Error("AI yanıtı beklenen alan formatında değil.");
+  if (!activeProfile) {
+    return "OpenAI bağlantısı gerekli";
+  }
+
+  if (activeProfile.status === "needs_reauth") {
+    return "Bağlantı yeniden doğrulanmalı";
+  }
+
+  return null;
 }
 
 function tagsToText(tags: string[]) {
@@ -286,13 +298,12 @@ export function useEtsyPrepWorkspace(productId: string) {
   });
 
   const cachedTarget = readAiTargetCache();
-  const target = useMemo(() => buildAiTarget(settingsQuery.data, cachedTarget), [cachedTarget, settingsQuery.data]);
-  const client = useMemo(() => (target ? createCliProxyApiClient(target) : null), [target]);
+  const target = useMemo(() => resolveConnectorTarget(settingsQuery.data, cachedTarget), [cachedTarget, settingsQuery.data]);
+  const connectorClient = useMemo(() => createConnectorApiClient({ baseUrl: target.baseUrl }), [target.baseUrl]);
 
-  const authFilesQuery = useQuery({
-    queryKey: ["cli-proxy-auth-files", target?.baseUrl],
-    enabled: Boolean(client && target?.managementKey),
-    queryFn: () => client!.listAuthFiles(),
+  const connectorHealthQuery = useQuery({
+    queryKey: ["connector-health", target.baseUrl],
+    queryFn: () => connectorClient.getHealth(),
     retry: false,
   });
 
@@ -499,7 +510,7 @@ export function useEtsyPrepWorkspace(productId: string) {
               ...current,
               [field]: {
                 ...current[field],
-                helper: "Direct inference çağrısı hazırlanıyor...",
+                helper: "OpenAI isteği hazırlanıyor...",
               },
             }));
           }
@@ -509,7 +520,7 @@ export function useEtsyPrepWorkspace(productId: string) {
               ...current,
               [field]: {
                 ...current[field],
-                helper: "Hedef AI üzerinden üretiliyor...",
+                helper: "OpenAI bağlantısı üzerinden üretiliyor...",
               },
             }));
           }
@@ -525,36 +536,20 @@ export function useEtsyPrepWorkspace(productId: string) {
         throw new Error("Prompt paketi alınamadı.");
       }
 
-      if (!client) {
-        throw new Error("AI hedefi hazır değil.");
-      }
-
-      const completion = await client.createChatCompletion({
-        messages: [
-          {
-            role: "system",
-            content: "You generate Etsy listing fields. Return valid JSON only.",
-          },
-          {
-            role: "user",
-            content: `${promptPackage.prompt}\n\nCONTEXT: ${JSON.stringify(promptPackage.context)}`,
-          },
-        ],
-        response_format: {
-          type: "json_object",
-        },
-        temperature: 0.2,
+      const generated = await connectorClient.generateField({
+        field,
+        prompt: promptPackage.prompt,
+        context: promptPackage.context,
       });
-      const generatedValue = parseGeneratedFieldValue(field, completion.choices[0]?.message?.content ?? "");
 
-      handleGeneratedFieldWrite(field, generatedValue);
+      handleGeneratedFieldWrite(field, generated.value);
       setFieldStates((current) => ({
         ...current,
         [field]: {
           isGenerating: false,
           error: null,
-          helper: target?.label ? `${target.label} hedefi ile üretildi` : "AI hedefi ile üretildi",
-          provider: target?.label ?? "cli-proxy",
+          helper: "OpenAI bağlantısı ile üretildi",
+          provider: generated.provider,
         },
       }));
     } catch (error) {
@@ -563,7 +558,7 @@ export function useEtsyPrepWorkspace(productId: string) {
         [field]: {
           ...current[field],
           isGenerating: false,
-          error: mapDirectGenerationError(error),
+          error: mapGenerateFieldError(error),
           helper: null,
         },
       }));
@@ -608,31 +603,15 @@ export function useEtsyPrepWorkspace(productId: string) {
     }
   }
 
-  const activeAuthFile = authFilesQuery.data?.items.find((item) => !item.disabled) ?? null;
-  const hasTargetConfiguration = Boolean(target?.baseUrl && target?.managementKey && target?.apiKey);
-  const canGenerate = Boolean(hasTargetConfiguration && activeAuthFile);
-
-  const generationBlockedReason = settingsQuery.isPending
-    ? "AI hedef ayarları yükleniyor..."
-    : settingsQuery.isError
-      ? "AI hedef ayarları alınamadı. AI Bağlantıları sayfasından bağlantıyı kontrol edin."
-      : !hasTargetConfiguration
-        ? "AI hedef ayarları eksik. AI Bağlantıları sayfasından Windows hedefini kaydedin."
-        : authFilesQuery.isError
-          ? "AI bağlantı servisine ulaşılamıyor. AI Bağlantıları sayfasından bağlantıyı kontrol edin."
-          : authFilesQuery.isPending
-            ? "Bağlı Codex hesabı kontrol ediliyor..."
-            : !activeAuthFile
-              ? "Üretim için en az bir etkin Codex hesabı gerekli."
-              : null;
+  const activeProfile = connectorHealthQuery.data?.activeProfile ?? null;
+  const connectionAttempt = connectorHealthQuery.data?.connectionAttempt ?? null;
+  const connectorStateError = connectorHealthQuery.error;
+  const generationBlockedReason = getGenerationBlockedReason(activeProfile, connectionAttempt, connectorStateError);
+  const canGenerate = !generationBlockedReason;
 
   return {
     product: bootstrapQuery.data?.product ?? null,
-    connectorBadgeLabel: target?.label
-      ? activeAuthFile
-        ? `${target.label} • ${activeAuthFile.label}`
-        : `${target.label} • hesap yok`
-      : null,
+    connectorBadgeLabel: getConnectionStatusLabel(activeProfile, connectionAttempt, connectorStateError),
     form,
     liveSteps,
     researchSummary,

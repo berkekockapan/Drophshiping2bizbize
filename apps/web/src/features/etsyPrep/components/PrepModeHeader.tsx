@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 
 interface PrepModeHeaderProps {
   isDirty: boolean;
@@ -40,7 +40,7 @@ export function PrepModeHeader({
               {isDirty ? "Kaydedilmemiş değişiklik var" : "Tüm değişiklikler kaydedildi"}
             </span>
             <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-              {connectorLabel ? `Aktif Bağlantı: ${connectorLabel}` : "AI hedefi yapılandırılmadı"}
+              {connectorLabel ? `Bağlantı Durumu: ${connectorLabel}` : "Bağlantı Durumu: OpenAI bağlantısı gerekli"}
             </span>
           </div>
 

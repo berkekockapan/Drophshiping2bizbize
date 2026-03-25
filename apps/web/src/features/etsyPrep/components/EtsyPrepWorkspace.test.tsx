@@ -1,8 +1,9 @@
-import "@testing-library/jest-dom/vitest";
+﻿import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
 import { EtsyPrepWorkspace } from "./EtsyPrepWorkspace";
 
@@ -56,12 +57,16 @@ function createBootstrapPayload() {
 }
 
 describe("EtsyPrepWorkspace", () => {
+  beforeEach(() => {
+    installMockLocalStorage();
+  });
+
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
   });
 
-  it("streams analysis steps, uses direct inference, persists risk notes, and resets generation metadata after save", async () => {
+  it("streams analysis steps, uses the local connector generate-field endpoint, persists risk notes, and resets generation metadata after save", async () => {
     const user = userEvent.setup();
     const savePayloads: Array<{
       englishTitle: string | null;
@@ -87,15 +92,26 @@ describe("EtsyPrepWorkspace", () => {
           promptPreferences: null,
           connectorHealthcheckEnabled: true,
           aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: "mgmt_live_123",
-          aiTargetLabel: "Windows",
-          aiTargetApiKey: "api_live_123",
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
         });
       }
 
-      if (url === "https://clip.example.com/v0/management/auth-files") {
+      if (url === "https://clip.example.com/health") {
         return jsonResponse({
-          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: false }],
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: {
+            id: "profile_main",
+            label: "OpenAI Workspace",
+            emailMasked: "wo***@company.com",
+            provider: "chatgpt-web",
+            status: "connected",
+            lastValidatedAt: Date.now(),
+            lastError: null,
+          },
+          connectionAttempt: null,
         });
       }
 
@@ -129,16 +145,11 @@ describe("EtsyPrepWorkspace", () => {
         ]);
       }
 
-      if (url === "https://clip.example.com/v1/chat/completions" && init?.method === "POST") {
+      if (url === "https://clip.example.com/generate-field" && init?.method === "POST") {
         return jsonResponse({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({ field: "title", value: "Handmade Oversize Hoodie" }),
-              },
-            },
-          ],
-          model: "gpt-4.1-mini",
+          field: "title",
+          value: "Handmade Oversize Hoodie",
+          provider: "chatgpt-web",
         });
       }
 
@@ -178,11 +189,11 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByText(/signals/i)).toBeInTheDocument();
-    expect(await screen.findByText(/aktif bağlantı: windows • openai workspace/i)).toBeInTheDocument();
+    expect(await screen.findByText(/bağlantı durumu: wo\*\*\*@company.com/i)).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /title üret/i }));
     expect(await screen.findByLabelText(/title/i)).toHaveValue("Handmade Oversize Hoodie");
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://clip.example.com/v1/chat/completions",
+      "https://clip.example.com/generate-field",
       expect.objectContaining({ method: "POST" }),
     );
     expect(screen.getByText(/Lead with hoodie keyword\./i)).toBeInTheDocument();
@@ -205,42 +216,7 @@ describe("EtsyPrepWorkspace", () => {
     expect(savePayloads[1]?.generatedFields).toEqual([]);
   });
 
-  it("blocks generation when target settings are missing", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-
-      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
-        return jsonResponse(createBootstrapPayload());
-      }
-
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: null,
-          aiTargetManagementKey: null,
-          aiTargetLabel: null,
-          aiTargetApiKey: null,
-        });
-      }
-
-      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
-        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
-      }
-
-      throw new Error(`Unhandled request: ${url}`);
-    });
-
-    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
-
-    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect(await screen.findByText(/ai hedef ayarları eksik/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
-  });
-
-  it("blocks generation when no active auth file exists", async () => {
+  it("blocks field generation with a product-language message when no active connector profile exists", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
@@ -255,15 +231,18 @@ describe("EtsyPrepWorkspace", () => {
           promptPreferences: null,
           connectorHealthcheckEnabled: true,
           aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: "mgmt_live_123",
-          aiTargetLabel: "Windows",
-          aiTargetApiKey: "api_live_123",
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
         });
       }
 
-      if (url === "https://clip.example.com/v0/management/auth-files") {
+      if (url === "https://clip.example.com/health") {
         return jsonResponse({
-          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: true }],
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: null,
+          connectionAttempt: null,
         });
       }
 
@@ -277,7 +256,60 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect(await screen.findByText(/üretim için en az bir etkin codex hesabı gerekli/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/openai bağlantısı gerekli/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
+  });
+
+  it("blocks generation when the connector profile needs reauth", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+        return jsonResponse(createBootstrapPayload());
+      }
+
+      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
+        return jsonResponse({
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: "https://clip.example.com",
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
+        });
+      }
+
+      if (url === "https://clip.example.com/health") {
+        return jsonResponse({
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: {
+            id: "profile_main",
+            label: "OpenAI Workspace",
+            emailMasked: "wo***@company.com",
+            provider: "chatgpt-web",
+            status: "needs_reauth",
+            lastValidatedAt: Date.now(),
+            lastError: "Session expired",
+          },
+          connectionAttempt: null,
+        });
+      }
+
+      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+
+    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
+    expect((await screen.findAllByText(/bağlantı yeniden doğrulanmalı/i)).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
   });
 });
+

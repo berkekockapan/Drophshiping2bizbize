@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 function ndjsonBody(events: unknown[]) {
   return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
@@ -151,19 +151,30 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
         promptPreferences: null,
         connectorHealthcheckEnabled: true,
         aiTargetBaseUrl: "https://clip.example.com",
-        aiTargetManagementKey: "mgmt_live_123",
-        aiTargetLabel: "Windows",
-        aiTargetApiKey: "api_live_123",
+        aiTargetManagementKey: null,
+        aiTargetLabel: null,
+        aiTargetApiKey: null,
       }),
     });
   });
 
-  await page.route("https://clip.example.com/v0/management/auth-files", async (route) => {
+  await page.route("https://clip.example.com/health", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: [{ name: "primary.json", label: "Mock Connector", disabled: false }],
+        status: "online",
+        provider: "chatgpt-web",
+        activeProfile: {
+          id: "profile_main",
+          label: "OpenAI Workspace",
+          emailMasked: "wo***@company.com",
+          provider: "chatgpt-web",
+          status: "connected",
+          lastValidatedAt: Date.now(),
+          lastError: null,
+        },
+        connectionAttempt: null,
       }),
     });
   });
@@ -221,22 +232,14 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
     });
   });
 
-  await page.route("https://clip.example.com/v1/chat/completions", async (route) => {
+  await page.route("https://clip.example.com/generate-field", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                field: "title",
-                value: "Handmade Oversize Hoodie",
-              }),
-            },
-          },
-        ],
-        model: "gpt-4.1-mini",
+        field: "title",
+        value: "Handmade Oversize Hoodie",
+        provider: "chatgpt-web",
       }),
     });
   });

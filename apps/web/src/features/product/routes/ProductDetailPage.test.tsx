@@ -1,9 +1,10 @@
-import "@testing-library/jest-dom/vitest";
+﻿import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NotificationsPage } from "../../notifications/routes/NotificationsPage";
+import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
 import { ProductDetailPage } from "./ProductDetailPage";
 
@@ -136,6 +137,10 @@ function ndjsonResponse(events: unknown[]) {
 }
 
 describe("ProductDetailPage", () => {
+  beforeEach(() => {
+    installMockLocalStorage();
+  });
+
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -267,9 +272,20 @@ describe("ProductDetailPage", () => {
         });
       }
 
-      if (url === "https://clip.example.com/v0/management/auth-files") {
+      if (url === "https://clip.example.com/health") {
         return jsonResponse({
-          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: false }],
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: {
+            id: "profile_main",
+            label: "OpenAI Workspace",
+            emailMasked: "wo***@company.com",
+            provider: "chatgpt-web",
+            status: "connected",
+            lastValidatedAt: Date.now(),
+            lastError: null,
+          },
+          connectionAttempt: null,
         });
       }
 
@@ -334,9 +350,20 @@ describe("ProductDetailPage", () => {
         });
       }
 
-      if (url === "https://clip.example.com/v0/management/auth-files") {
+      if (url === "https://clip.example.com/health") {
         return jsonResponse({
-          items: [{ name: "primary.json", label: "OpenAI Workspace", disabled: false }],
+          status: "online",
+          provider: "chatgpt-web",
+          activeProfile: {
+            id: "profile_main",
+            label: "OpenAI Workspace",
+            emailMasked: "wo***@company.com",
+            provider: "chatgpt-web",
+            status: "connected",
+            lastValidatedAt: Date.now(),
+            lastError: null,
+          },
+          connectionAttempt: null,
         });
       }
 
@@ -365,3 +392,5 @@ describe("ProductDetailPage", () => {
     expect(await screen.findByLabelText(/title/i)).toHaveValue("Unsaved prep title");
   });
 });
+
+

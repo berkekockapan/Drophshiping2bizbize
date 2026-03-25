@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../../src/index";
 import { createTestEnv } from "../support/sqlite";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("aiProfiles integration", () => {
   it("returns cloud OpenAI health payload", async () => {
@@ -56,6 +60,36 @@ describe("aiProfiles integration", () => {
         lastValidatedAt: Date.parse("2026-03-24T10:00:00.000Z"),
       }),
     );
+  });
+
+  it("returns authorizationUrl and waiting_for_login when starting an OpenAI connection", async () => {
+    const { env } = createTestEnv();
+    env.OPENAI_OAUTH_CLIENT_ID = "client_test";
+    env.OPENAI_OAUTH_REDIRECT_URI = "http://localhost/ai-profiles/openai/callback";
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: String(input),
+        },
+      });
+    });
+
+    const app = createApp();
+
+    const response = await app.request("http://localhost/ai-profiles/openai/start", {
+      method: "POST",
+    }, env);
+
+    expect(response.status).toBe(202);
+    const body = (await response.json()) as {
+      authorizationUrl: string;
+      attempt: { status: string };
+    };
+
+    expect(body.authorizationUrl).toContain("client_id=client_test");
+    expect(body.attempt.status).toBe("waiting_for_login");
   });
 
   it("returns a structured auth error when generation is requested without an active profile", async () => {

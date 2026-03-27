@@ -8,6 +8,8 @@ export interface ConnectorConfig {
   port: number;
   provider: ProviderId;
   stateDir: string;
+  browserChannel: string | null;
+  browserFallbackChannels: string[];
 }
 
 export interface DotEnvLoadResult {
@@ -81,11 +83,30 @@ function toProviderId(value: string | undefined): ProviderId {
   return "chatgpt-web";
 }
 
+function normalizeOptionalEnv(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parseCommaSeparatedList(value: string | undefined, fallback: string[]) {
+  const normalized = normalizeOptionalEnv(value);
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConnectorConfig {
   return {
     host: env.CONNECTOR_HOST ?? "127.0.0.1",
     port: Number(env.CONNECTOR_PORT ?? 4317),
     provider: toProviderId(env.CONNECTOR_PROVIDER),
     stateDir: resolve(process.cwd(), env.CONNECTOR_STATE_DIR ?? ".state"),
+    browserChannel: normalizeOptionalEnv(env.CONNECTOR_BROWSER_CHANNEL) ?? "chrome",
+    browserFallbackChannels: parseCommaSeparatedList(env.CONNECTOR_BROWSER_FALLBACK_CHANNELS, ["msedge"]),
   };
 }

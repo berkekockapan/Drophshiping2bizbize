@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { D1Database } from "../../config/bindings";
 import { createDraftsRepo, type EtsyDraftRecord } from "../../db/repositories/draftsRepo";
 
@@ -67,18 +69,22 @@ function isSaveInput(input: unknown): input is SaveEtsyPrepDraftInput {
   );
 }
 
-async function productExists(db: D1Database, productId: string) {
-  const product = await db.prepare("select id from products where id = ? limit 1").bind(productId).first<{ id: string }>();
+async function productExists(db: D1Database, ownerKey: OwnerKey, productId: string) {
+  const product = await db
+    .prepare("select id from products where id = ? and owner_key = ? and deleted_at is null limit 1")
+    .bind(productId, ownerKey)
+    .first<{ id: string }>();
   return Boolean(product);
 }
 
 export async function saveEtsyPrepDraft(
   db: D1Database,
+  ownerKey: OwnerKey,
   productId: string,
   input: unknown,
   savedAt: number,
 ): Promise<EtsyDraftRecord | null> {
-  if (!(await productExists(db, productId))) {
+  if (!(await productExists(db, ownerKey, productId))) {
     return null;
   }
 

@@ -61,7 +61,7 @@ describe("etsy prep", () => {
 
     const app = createApp();
 
-    const bootstrap = await app.request(`http://localhost/products/${seeded.product.id}/etsy-prep`, undefined, env);
+    const bootstrap = await app.request(`http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep`, undefined, env);
     expect(bootstrap.status).toBe(200);
     const bootstrapJson = await bootstrap.json();
     expect(bootstrapJson).toEqual(
@@ -73,7 +73,7 @@ describe("etsy prep", () => {
     expect(bootstrapJson).not.toHaveProperty("connectorProfileSnapshot");
 
     const save = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/save`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -112,7 +112,7 @@ describe("etsy prep", () => {
     const app = createApp();
 
     const response = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/save`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -138,7 +138,7 @@ describe("etsy prep", () => {
     const app = createApp();
 
     const manualEdit = await app.request(
-      `http://localhost/drafts/${seeded.product.id}`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/draft`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -149,7 +149,7 @@ describe("etsy prep", () => {
     expect(manualEdit.status).toBe(200);
 
     const save = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/save`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -185,7 +185,7 @@ describe("etsy prep", () => {
     const app = createApp();
 
     const response = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/analyze`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/analyze`,
       { method: "POST" },
       env,
     );
@@ -217,7 +217,7 @@ describe("etsy prep", () => {
       },
     );
 
-    const detail = await buildEtsyPrepView(env.DB, seeded.product.id);
+    const detail = await buildEtsyPrepView(env.DB, "berke", seeded.product.id);
     expect(detail).not.toBeNull();
 
     const gate = createDeferred();
@@ -280,7 +280,7 @@ describe("etsy prep", () => {
 
     try {
       const response = await app.request(
-        `http://localhost/products/${seeded.product.id}/etsy-prep/generate-title`,
+        `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-title`,
         { method: "POST" },
         env,
       );
@@ -348,7 +348,7 @@ describe("etsy prep", () => {
 
     const app = createApp();
     const response = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/generate-tags`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-tags`,
       { method: "POST" },
       env,
     );
@@ -398,7 +398,7 @@ describe("etsy prep", () => {
 
     const app = createApp();
     const response = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/generate-title`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-title`,
       { method: "POST" },
       env,
     );
@@ -450,7 +450,7 @@ describe("etsy prep", () => {
 
     const app = createApp();
     const response = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/generate-title`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-title`,
       { method: "POST" },
       env,
     );
@@ -480,7 +480,7 @@ describe("etsy prep", () => {
 
     const app = createApp();
     const response = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/generate-description`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-description`,
       { method: "POST" },
       env,
     );

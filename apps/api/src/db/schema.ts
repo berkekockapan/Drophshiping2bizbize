@@ -5,24 +5,51 @@ export const products = sqliteTable(
   "products",
   {
     id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull().default("berke"),
     trendyolUrl: text("trendyol_url").notNull(),
     sourceProductId: text("source_product_id"),
     title: text("title"),
     brand: text("brand"),
     category: text("category"),
+    userCategoryId: text("user_category_id"),
     descriptionRaw: text("description_raw"),
     attributesRaw: text("attributes_raw"),
     imagesRaw: text("images_raw"),
     isFavorite: integer("is_favorite", { mode: "boolean" }).notNull().default(false),
     status: text("status").notNull(),
     parseStatus: text("parse_status").notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    deletedReason: text("deleted_reason"),
     lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   },
   (table) => ({
-    trendyolUrlUnique: uniqueIndex("products_trendyol_url_unique").on(table.trendyolUrl),
+    ownerTrendyolActiveUnique: uniqueIndex("products_owner_trendyol_active_unique")
+      .on(table.ownerKey, table.trendyolUrl)
+      .where(sql`${table.deletedAt} is null`),
+    ownerDeletedCreatedIdx: index("products_owner_deleted_created_idx").on(table.ownerKey, table.deletedAt, table.createdAt),
+    ownerCategoryCreatedIdx: index("products_owner_category_created_idx").on(
+      table.ownerKey,
+      table.userCategoryId,
+      table.createdAt,
+    ),
     sourceProductIdIdx: index("products_source_product_id_idx").on(table.sourceProductId),
+  }),
+);
+
+export const productCategories = sqliteTable(
+  "product_categories",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    ownerNameUnique: uniqueIndex("product_categories_owner_name_unique").on(table.ownerKey, table.name),
+    ownerNameIdx: index("product_categories_owner_name_idx").on(table.ownerKey, table.name),
   }),
 );
 
@@ -133,6 +160,7 @@ export const notifications = sqliteTable(
   {
     id: text("id").primaryKey(),
     productId: text("product_id"),
+    ownerKey: text("owner_key").notNull().default("berke"),
     type: text("type").notNull(),
     severity: text("severity").notNull(),
     title: text("title").notNull(),
@@ -143,6 +171,7 @@ export const notifications = sqliteTable(
   (table) => ({
     productIdx: index("notifications_product_id_idx").on(table.productId),
     readIdx: index("notifications_read_at_idx").on(table.readAt),
+    ownerCreatedIdx: index("notifications_owner_created_idx").on(table.ownerKey, table.createdAt),
   }),
 );
 
@@ -257,6 +286,7 @@ export const manualRefreshRuns = sqliteTable(
   "manual_refresh_runs",
   {
     id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull().default("berke"),
     scope: text("scope").notNull(),
     sourceRunId: text("source_run_id"),
     status: text("status").notNull(),
@@ -272,6 +302,11 @@ export const manualRefreshRuns = sqliteTable(
   },
   (table) => ({
     statusCreatedAtIdx: index("manual_refresh_runs_status_created_at_idx").on(table.status, table.createdAt),
+    ownerStatusCreatedIdx: index("manual_refresh_runs_owner_status_created_idx").on(
+      table.ownerKey,
+      table.status,
+      table.createdAt,
+    ),
   }),
 );
 
@@ -312,6 +347,7 @@ export const schema = {
   appSettings,
   manualRefreshRuns,
   manualRefreshRunItems,
+  productCategories,
 };
 
 export const schemaTableNames = [
@@ -331,4 +367,5 @@ export const schemaTableNames = [
   "app_settings",
   "manual_refresh_runs",
   "manual_refresh_run_items",
+  "product_categories",
 ] as const;

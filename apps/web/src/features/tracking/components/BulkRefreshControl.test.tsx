@@ -8,6 +8,7 @@ import { renderWithProviders } from "../../../test/test-utils";
 
 const runningRun = {
   id: "run_1",
+  ownerKey: "berke",
   status: "RUNNING",
   totalCount: 40,
   pendingCount: 24,
@@ -43,21 +44,21 @@ describe("BulkRefreshControl", () => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
-      if (url.includes("/tracking/products/refresh-runs/active")) {
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
 
-      if (url.includes("/tracking/products/refresh-runs") && method === "POST" && !url.includes("retry-failed")) {
+      if (url.includes("/owners/berke/products/refresh-runs") && method === "POST" && !url.includes("retry-failed")) {
         return new Response(JSON.stringify({ run: runningRun }), {
           status: 202,
           headers: { "Content-Type": "application/json" },
         });
       }
 
-      if (url.includes("/tracking/products/refresh-runs/run_1") && method === "GET") {
+      if (url.includes("/owners/berke/products/refresh-runs/run_1") && method === "GET") {
         statusRequestCount += 1;
 
         return new Response(JSON.stringify({ run: statusRequestCount === 1 ? runningRun : completedRun }), {
@@ -69,7 +70,7 @@ describe("BulkRefreshControl", () => {
       throw new Error(`Unhandled request: ${method} ${url}`);
     });
 
-    renderWithProviders(<BulkRefreshControl />);
+    renderWithProviders(<BulkRefreshControl ownerKey="berke" />);
 
     await user.click(screen.getByRole("button", { name: /tüm ürünleri yenile/i }));
 

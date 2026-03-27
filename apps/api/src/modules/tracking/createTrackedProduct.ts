@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { Env } from "../../config/bindings";
 import { fetchTrendyolHtml } from "../scraping/fetchTrendyolHtml";
 import { parseTrendyolProduct } from "../scraping/parseTrendyolProduct";
@@ -5,6 +7,7 @@ import { extractSourceProductId } from "./extractSourceProductId";
 import { normalizeTrendyolUrl } from "./normalizeTrendyolUrl";
 
 export interface CreateTrackedProductInput {
+  ownerKey?: OwnerKey;
   trendyolUrl: string;
 }
 
@@ -15,8 +18,16 @@ export interface CreateTrackedProductOptions {
 }
 
 export class DuplicateProductError extends Error {
-  constructor(public readonly normalizedUrl: string) {
-    super(`Tracked product already exists for ${normalizedUrl}`);
+  constructor(
+    public readonly normalizedUrl: string,
+    public readonly reason: "ACTIVE_DUPLICATE" | "TRASH_DUPLICATE",
+    public readonly trashedProductId: string | null,
+  ) {
+    super(
+      reason === "TRASH_DUPLICATE"
+        ? `Tracked product already exists in trash for ${normalizedUrl}`
+        : `Tracked product already exists for ${normalizedUrl}`,
+    );
     this.name = "DuplicateProductError";
   }
 }
@@ -30,14 +41,24 @@ export async function createTrackedProduct(
   input: CreateTrackedProductInput,
   options: CreateTrackedProductOptions = {}
 ) {
+  const ownerKey = input.ownerKey ?? "berke";
   const normalizedUrl = normalizeTrendyolUrl(input.trendyolUrl);
   const existing = await env.DB
-    .prepare("select id from products where trendyol_url = ? limit 1")
-    .bind(normalizedUrl)
-    .first<{ id: string }>();
+    .prepare(
+      `select id, deleted_at as deletedAt
+       from products
+       where owner_key = ? and trendyol_url = ?
+       limit 1`,
+    )
+    .bind(ownerKey, normalizedUrl)
+    .first<{ id: string; deletedAt: number | null }>();
 
-  if (existing) {
-    throw new DuplicateProductError(normalizedUrl);
+  if (existing && existing.deletedAt == null) {
+    throw new DuplicateProductError(normalizedUrl, "ACTIVE_DUPLICATE", null);
+  }
+
+  if (existing && existing.deletedAt != null) {
+    throw new DuplicateProductError(normalizedUrl, "TRASH_DUPLICATE", existing.id);
   }
 
   const html = await fetchTrendyolHtml(normalizedUrl, {
@@ -53,12 +74,13 @@ export async function createTrackedProduct(
   await env.DB
     .prepare(
       `insert into products (
-        id, trendyol_url, source_product_id, title, brand, category, description_raw, attributes_raw, images_raw,
-        status, parse_status, is_favorite, last_checked_at, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, owner_key, trendyol_url, source_product_id, title, brand, category, description_raw, attributes_raw, images_raw,
+        status, parse_status, is_favorite, deleted_at, deleted_reason, last_checked_at, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       productId,
+      ownerKey,
       normalizedUrl,
       sourceProductId,
       parsed.title,
@@ -70,6 +92,8 @@ export async function createTrackedProduct(
       "ACTIVE",
       "OK",
       false,
+      null,
+      null,
       now.getTime(),
       now.getTime(),
       now.getTime()
@@ -119,6 +143,7 @@ export async function createTrackedProduct(
   return {
     product: {
       id: productId,
+      ownerKey,
       trendyolUrl: normalizedUrl,
       sourceProductId,
       title: parsed.title,

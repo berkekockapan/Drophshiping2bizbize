@@ -36,7 +36,7 @@ describe("product image download", () => {
     );
 
     const okResponse = await app.request(
-      `http://localhost/products/${seeded.product.id}/images/download?url=https://cdn.example.com/hoodie-1.jpg`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/images/download?url=https://cdn.example.com/hoodie-1.jpg`,
       undefined,
       env,
     );
@@ -47,7 +47,7 @@ describe("product image download", () => {
     expect(new Uint8Array(await okResponse.arrayBuffer())).toEqual(new Uint8Array([255, 216, 255, 217]));
 
     const invalidResponse = await app.request(
-      `http://localhost/products/${seeded.product.id}/images/download?url=https://cdn.example.com/not-owned.jpg`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/images/download?url=https://cdn.example.com/not-owned.jpg`,
       undefined,
       env,
     );

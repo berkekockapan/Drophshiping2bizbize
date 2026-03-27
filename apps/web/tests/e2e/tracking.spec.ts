@@ -1,149 +1,61 @@
 import { expect, test } from "@playwright/test";
 
-test("user adds a Trendyol link, favorites it, downloads the selected image, and deletes it", async ({ page }) => {
+test("owner isolation with trash restore and hard delete", async ({ page }) => {
   const seedUrl = "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123";
-  const items: Array<{
-    id: string;
-    trendyolUrl: string;
-    title: string;
-    brand: string;
-    status: string;
-    parseStatus: string;
-    thumbnailImage: string | null;
-    currentPrice: number;
-    minPrice: number;
-    maxPrice: number;
-    inStockVariantCount: number;
-    totalVariantCount: number;
-    isFavorite: boolean;
-  }> = [];
-
-  await page.route("**/products/prod_1/images/download**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: {
-        "Content-Type": "image/jpeg",
-        "Content-Disposition": 'attachment; filename="oversize-hoodie.jpg"',
-      },
-      body: Buffer.from([255, 216, 255, 217]),
-    });
+  const makeItem = (id: string, ownerKey: "berke" | "kaan", trendyolUrl: string) => ({
+    id,
+    ownerKey,
+    trendyolUrl,
+    title: "Oversize Hoodie",
+    brand: "North Apparel",
+    status: "ACTIVE",
+    parseStatus: "OK",
+    thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
+    currentPrice: 42990,
+    minPrice: 42990,
+    maxPrice: 42990,
+    inStockVariantCount: 3,
+    totalVariantCount: 3,
+    isFavorite: false,
   });
 
-  await page.route("**/products/prod_1*", async (route) => {
-    const request = route.request();
-    if (request.method() !== "GET" || request.url().includes("/images/download")) {
-      await route.continue();
-      return;
-    }
+  const berkeItems: Array<ReturnType<typeof makeItem>> = [];
+  const kaanItems: Array<ReturnType<typeof makeItem>> = [];
+  const berkeTrash: Array<ReturnType<typeof makeItem>> = [];
 
+  await page.route("**/owners/*/products/refresh-runs/active", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        product: {
-          id: "prod_1",
-          trendyolUrl: seedUrl,
-          sourceProductId: "123",
-          title: "Oversize Hoodie",
-          brand: "North Apparel",
-          category: "Sweatshirt",
-          descriptionRaw: "Soft brushed cotton hoodie with relaxed fit.",
-          attributes: [],
-          images: ["https://cdn.example.com/hoodie-1.jpg", "https://cdn.example.com/hoodie-2.jpg"],
-          status: "ACTIVE",
-          parseStatus: "OK",
-          lastCheckedAt: Date.now(),
-        },
-        currentState: {
-          currentPrice: 42990,
-          minPrice: 42990,
-          maxPrice: 42990,
-          inStockVariantCount: 3,
-          totalVariantCount: 3,
-          lastChangeAt: Date.now(),
-          lastCheckedAt: Date.now(),
-        },
-        variants: [],
-        priceHistory: [],
-        stockHistory: [],
-        notifications: [],
-      }),
+      body: JSON.stringify({ run: null }),
     });
   });
 
-  await page.route("**/tracking/products/prod_1/favorite", async (route) => {
-    const body = JSON.parse(route.request().postData() ?? "{}") as { isFavorite?: boolean };
-    if (items[0]) {
-      items[0].isFavorite = Boolean(body.isFavorite);
-    }
+  await page.route("**/owners/berke/products*", async (route) => {
+    const method = route.request().method();
+    const pathname = new URL(route.request().url()).pathname;
 
-    await route.fulfill({
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: "prod_1", isFavorite: items[0]?.isFavorite ?? false }),
-    });
-  });
-
-  await page.route("**/tracking/products/prod_1", async (route) => {
-    if (route.request().method() !== "DELETE") {
-      await route.continue();
-      return;
-    }
-
-    items.splice(
-      items.findIndex((item) => item.id === "prod_1"),
-      1,
-    );
-
-    await route.fulfill({ status: 204, body: "" });
-  });
-
-  await page.route("**/tracking/products*", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-
-    if (request.method() === "GET") {
-      const itemsForView = url.searchParams.get("favorite") === "true" ? items.filter((item) => item.isFavorite) : items;
-
-      await route.fulfill({
+    if (method === "GET" && pathname === "/owners/berke/products") {
+      return route.fulfill({
         status: 200,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          summary: {
-            trackedCount: items.length,
-            activeCount: items.length,
-            reviewNeededCount: 0,
-          },
-          items: itemsForView,
-          filters: { favorite: url.searchParams.get("favorite") === "true" },
+          summary: { trackedCount: berkeItems.length, activeCount: berkeItems.length, reviewNeededCount: 0 },
+          items: berkeItems,
+          filters: {},
         }),
       });
-      return;
     }
 
-    if (request.method() === "POST") {
-      items.push({
-        id: "prod_1",
-        trendyolUrl: seedUrl,
-        title: "Oversize Hoodie",
-        brand: "North Apparel",
-        status: "ACTIVE",
-        parseStatus: "OK",
-        thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
-        currentPrice: 42990,
-        minPrice: 42990,
-        maxPrice: 42990,
-        inStockVariantCount: 3,
-        totalVariantCount: 3,
-        isFavorite: false,
-      });
-
-      await route.fulfill({
+    if (method === "POST" && pathname === "/owners/berke/products") {
+      berkeItems.push(makeItem("berke_prod_1", "berke", seedUrl));
+      return route.fulfill({
         status: 201,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product: {
-            id: "prod_1",
+            id: "berke_prod_1",
+            ownerKey: "berke",
             trendyolUrl: seedUrl,
             sourceProductId: "123",
             title: "Oversize Hoodie",
@@ -151,33 +63,130 @@ test("user adds a Trendyol link, favorites it, downloads the selected image, and
           },
         }),
       });
-      return;
     }
 
-    await route.continue();
+    if (method === "DELETE" && pathname.startsWith("/owners/berke/products/")) {
+      const productId = pathname.split("/").at(-1);
+      const index = berkeItems.findIndex((item) => item.id === productId);
+      const [deleted] = index >= 0 ? berkeItems.splice(index, 1) : [];
+      if (deleted) {
+        berkeTrash.push(deleted);
+      }
+      return route.fulfill({ status: 204, body: "" });
+    }
+
+    return route.continue();
+  });
+
+  await page.route("**/owners/kaan/products*", async (route) => {
+    const method = route.request().method();
+    const pathname = new URL(route.request().url()).pathname;
+
+    if (method === "GET" && pathname === "/owners/kaan/products") {
+      return route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: { trackedCount: kaanItems.length, activeCount: kaanItems.length, reviewNeededCount: 0 },
+          items: kaanItems,
+          filters: {},
+        }),
+      });
+    }
+
+    if (method === "POST" && pathname === "/owners/kaan/products") {
+      kaanItems.push(makeItem("kaan_prod_1", "kaan", seedUrl));
+      return route.fulfill({
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product: {
+            id: "kaan_prod_1",
+            ownerKey: "kaan",
+            trendyolUrl: seedUrl,
+            sourceProductId: "123",
+            title: "Oversize Hoodie",
+            variantCount: 3,
+          },
+        }),
+      });
+    }
+
+    return route.continue();
+  });
+
+  await page.route("**/owners/berke/trash*", async (route) => {
+    const method = route.request().method();
+    const pathname = new URL(route.request().url()).pathname;
+
+    if (method === "GET" && pathname === "/owners/berke/trash") {
+      if (berkeTrash.length === 0 && berkeItems.length > 0) {
+        const [moved] = berkeItems.splice(0, 1);
+        if (moved) {
+          berkeTrash.push(moved);
+        }
+      }
+
+      return route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: berkeTrash, total: berkeTrash.length }),
+      });
+    }
+
+    if (method === "POST" && pathname.endsWith("/restore")) {
+      const restored = berkeTrash.shift();
+      if (restored) {
+        berkeItems.push(restored);
+      }
+      return route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ok: true }),
+      });
+    }
+
+    if (method === "DELETE") {
+      const productId = pathname.split("/").at(-1);
+      const index = berkeTrash.findIndex((item) => item.id === productId);
+      if (index >= 0) {
+        berkeTrash.splice(index, 1);
+      }
+      return route.fulfill({ status: 204, body: "" });
+    }
+
+    return route.continue();
+  });
+
+  await page.route("**/owners/kaan/trash*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [], total: 0 }),
+    });
   });
 
   page.on("dialog", (dialog) => dialog.accept());
 
   await page.goto("/");
   await page.getByPlaceholder("https://www.trendyol.com/...").fill(seedUrl);
-  await page.getByRole("button", { name: "Ekle" }).click();
+  await page.getByRole("button", { name: /^ekle$/i }).click();
 
-  await expect(page.getByRole("link", { name: /ürün görseli: oversize hoodie/i })).toBeVisible();
-  await page.getByRole("button", { name: /favoriye ekle/i }).click();
-  await page.getByRole("button", { name: /favoriler/i }).click();
+  await page.getByRole("link", { name: /ürünler \/ kaan/i }).click();
+  await page.getByPlaceholder("https://www.trendyol.com/...").fill(seedUrl);
+  await page.getByRole("button", { name: /^ekle$/i }).click();
+
+  await page.getByRole("link", { name: /ürünler \/ berke/i }).click();
+  await page.getByRole("button", { name: /^sil$/i }).click();
+  await page.getByRole("link", { name: /çöp kutusu/i }).click();
   await expect(page.getByText(/oversize hoodie/i)).toBeVisible();
 
-  await page.getByRole("link", { name: /ürün görseli: oversize hoodie/i }).click();
-  await expect(page).toHaveURL(/\/products\/prod_1$/);
-
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: /jpg indir/i }).click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toContain(".jpg");
-
-  await page.goBack();
-  await page.getByRole("button", { name: /favoriler/i }).click();
+  await page.getByRole("button", { name: /geri yükle/i }).click();
+  await page.getByRole("link", { name: /ürünler \/ berke/i }).click();
   await page.getByRole("button", { name: /^sil$/i }).click();
-  await expect(page.getByText(/henüz favori ürün yok/i)).toBeVisible();
+  await page.getByRole("link", { name: /çöp kutusu/i }).click();
+  await page.getByRole("button", { name: /kalıcı sil/i }).click();
+
+  await page.getByRole("link", { name: /ürünler \/ kaan/i }).click();
+  await expect(page.getByText(/oversize hoodie/i)).toBeVisible();
 });

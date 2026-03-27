@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { D1Database } from "../../config/bindings";
 
 export type ManualRefreshRunScope = "ALL" | "FAILED_ONLY";
@@ -6,6 +8,7 @@ export type ManualRefreshRunItemStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FA
 
 export interface ManualRefreshRunRecord {
   id: string;
+  ownerKey: OwnerKey;
   scope: ManualRefreshRunScope;
   sourceRunId: string | null;
   status: ManualRefreshRunStatus;
@@ -36,6 +39,7 @@ export interface ManualRefreshRunItemRecord {
 function mapRun(
   row: {
     id: string;
+    ownerKey: OwnerKey;
     scope: string;
     sourceRunId: string | null;
     status: string;
@@ -56,6 +60,7 @@ function mapRun(
 
   return {
     id: row.id,
+    ownerKey: row.ownerKey,
     scope: row.scope as ManualRefreshRunScope,
     sourceRunId: row.sourceRunId,
     status: row.status as ManualRefreshRunStatus,
@@ -99,10 +104,22 @@ function mapItem(
   } satisfies ManualRefreshRunItemRecord;
 }
 
+function withOptionalOwnerFilter(query: string, ownerKey?: OwnerKey) {
+  if (!ownerKey) {
+    return { query, values: [] as unknown[] };
+  }
+
+  return {
+    query: `${query} and owner_key = ?`,
+    values: [ownerKey] as unknown[],
+  };
+}
+
 export function createManualRefreshRunsRepo(db: D1Database) {
   return {
     async createRun(
       input: {
+        ownerKey: OwnerKey;
         productIds: string[];
         scope: ManualRefreshRunScope;
         sourceRunId?: string | null;
@@ -117,12 +134,13 @@ export function createManualRefreshRunsRepo(db: D1Database) {
       await db
         .prepare(
           `insert into manual_refresh_runs (
-             id, scope, source_run_id, status, total_count, pending_count, running_count,
+             id, owner_key, scope, source_run_id, status, total_count, pending_count, running_count,
              success_count, failed_count, started_at, finished_at, created_at, updated_at
-           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           runId,
+          input.ownerKey,
           input.scope,
           input.sourceRunId ?? null,
           "RUNNING",
@@ -163,21 +181,23 @@ export function createManualRefreshRunsRepo(db: D1Database) {
 
       return { id: runId };
     },
-    async getRun(runId: string) {
+    async getRun(runId: string, ownerKey?: OwnerKey) {
+      const query = withOptionalOwnerFilter(
+        `select id, owner_key as ownerKey, scope, source_run_id as sourceRunId, status,
+                total_count as totalCount, pending_count as pendingCount, running_count as runningCount,
+                success_count as successCount, failed_count as failedCount,
+                started_at as startedAt, finished_at as finishedAt,
+                created_at as createdAt, updated_at as updatedAt
+         from manual_refresh_runs
+         where id = ?`,
+        ownerKey,
+      );
       const row = await db
-        .prepare(
-          `select id, scope, source_run_id as sourceRunId, status,
-                  total_count as totalCount, pending_count as pendingCount, running_count as runningCount,
-                  success_count as successCount, failed_count as failedCount,
-                  started_at as startedAt, finished_at as finishedAt,
-                  created_at as createdAt, updated_at as updatedAt
-           from manual_refresh_runs
-           where id = ?
-           limit 1`,
-        )
-        .bind(runId)
+        .prepare(`${query.query} limit 1`)
+        .bind(runId, ...query.values)
         .first<{
           id: string;
+          ownerKey: OwnerKey;
           scope: string;
           sourceRunId: string | null;
           status: string;
@@ -194,21 +214,23 @@ export function createManualRefreshRunsRepo(db: D1Database) {
 
       return mapRun(row);
     },
-    async getActiveRun() {
+    async getActiveRun(ownerKey: OwnerKey) {
       const row = await db
         .prepare(
-          `select id, scope, source_run_id as sourceRunId, status,
+          `select id, owner_key as ownerKey, scope, source_run_id as sourceRunId, status,
                   total_count as totalCount, pending_count as pendingCount, running_count as runningCount,
                   success_count as successCount, failed_count as failedCount,
                   started_at as startedAt, finished_at as finishedAt,
                   created_at as createdAt, updated_at as updatedAt
            from manual_refresh_runs
-           where status != 'COMPLETED'
+           where owner_key = ? and status != 'COMPLETED'
            order by created_at desc
            limit 1`,
         )
+        .bind(ownerKey)
         .first<{
           id: string;
+          ownerKey: OwnerKey;
           scope: string;
           sourceRunId: string | null;
           status: string;
@@ -225,15 +247,16 @@ export function createManualRefreshRunsRepo(db: D1Database) {
 
       return mapRun(row);
     },
-    async listStaleRunIds(updatedBefore: number) {
+    async listStaleRunIds(updatedBefore: number, ownerKey?: OwnerKey) {
+      const query = withOptionalOwnerFilter(
+        `select id
+         from manual_refresh_runs
+         where status != 'COMPLETED' and updated_at < ?`,
+        ownerKey,
+      );
       const rows = await db
-        .prepare(
-          `select id
-           from manual_refresh_runs
-           where status != 'COMPLETED' and updated_at < ?
-           order by created_at asc`,
-        )
-        .bind(updatedBefore)
+        .prepare(`${query.query} order by created_at asc`)
+        .bind(updatedBefore, ...query.values)
         .all<{ id: string }>();
 
       return rows.results.map((row) => row.id);
@@ -265,8 +288,8 @@ export function createManualRefreshRunsRepo(db: D1Database) {
 
       return rows.results.map(mapItem);
     },
-    async getRunWithItems(runId: string) {
-      const run = await this.getRun(runId);
+    async getRunWithItems(runId: string, ownerKey?: OwnerKey) {
+      const run = await this.getRun(runId, ownerKey);
       if (!run) {
         return null;
       }

@@ -13,6 +13,7 @@ import {
   type EtsyPrepField,
   type EtsyPrepStreamEvent,
 } from "../../../app/api";
+import type { OwnerKey } from "../../shared/lib/ownerRouteState";
 import { readAiTargetCache } from "../../connections/lib/aiTargetStorage";
 import { ConnectorApiRequestError, createConnectorApiClient } from "../../connections/lib/connectorApi";
 import { resolveConnectorTarget } from "../../connections/lib/resolveConnectorTarget";
@@ -285,11 +286,11 @@ function summarizeCompletedEvent(event: Extract<EtsyPrepStreamEvent, { type: "st
   return locale ? `Prompt hazırlandı (${locale})` : "Adım tamamlandı";
 }
 
-export function useEtsyPrepWorkspace(productId: string) {
+export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
   const bootstrapQuery = useQuery({
-    queryKey: ["etsy-prep-workspace", productId],
+    queryKey: ["etsy-prep-workspace", ownerKey, productId],
     enabled: Boolean(productId),
-    queryFn: () => fetchEtsyPrepWorkspace(productId),
+    queryFn: () => fetchEtsyPrepWorkspace(ownerKey, productId),
   });
 
   const settingsQuery = useQuery({
@@ -391,7 +392,7 @@ export function useEtsyPrepWorkspace(productId: string) {
     setSaveError(null);
     setSaveMessage(null);
     setSavedSnapshot(createSnapshotSignature(nextWorkspaceState.form, nextWorkspaceState.riskNotes, [], []));
-  }, [bootstrapQuery.data, productId]);
+  }, [bootstrapQuery.data, ownerKey, productId]);
 
   useEffect(() => {
     if (!isDirty) {
@@ -418,7 +419,7 @@ export function useEtsyPrepWorkspace(productId: string) {
     setResearchSummary(null);
 
     try {
-      const response = await streamEtsyPrepAnalysis(productId);
+      const response = await streamEtsyPrepAnalysis(ownerKey, productId);
       await readNdjsonStream<EtsyPrepStreamEvent>(response, {
         onEvent: (event) => {
           if (event.type === "step_started") {
@@ -471,7 +472,7 @@ export function useEtsyPrepWorkspace(productId: string) {
 
     analysisStartedRef.current = productId;
     void runAnalysis();
-  }, [bootstrapQuery.data, productId]);
+  }, [bootstrapQuery.data, ownerKey, productId]);
 
   async function generateField(field: EtsyPrepField) {
     if (!productId) {
@@ -491,7 +492,7 @@ export function useEtsyPrepWorkspace(productId: string) {
     setSaveError(null);
 
     try {
-      const streamResponse = await streamEtsyPrepFieldPackage(productId, field);
+      const streamResponse = await streamEtsyPrepFieldPackage(ownerKey, productId, field);
 
       const events = await readNdjsonStream<EtsyPrepStreamEvent>(streamResponse, {
         onEvent: (event) => {
@@ -575,7 +576,7 @@ export function useEtsyPrepWorkspace(productId: string) {
     setSaveMessage(null);
 
     try {
-      const savedDraft = await saveEtsyPrepWorkspace(productId, {
+      const savedDraft = await saveEtsyPrepWorkspace(ownerKey, productId, {
         englishTitle: toNullableString(form.title),
         longDescription: toNullableString(form.description),
         tags: parseTagsText(form.tags),

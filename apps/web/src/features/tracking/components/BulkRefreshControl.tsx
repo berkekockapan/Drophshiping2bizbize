@@ -8,6 +8,11 @@ import {
   startManualRefreshRun,
   type ManualRefreshRunSummary,
 } from "../../../app/api";
+import type { OwnerKey } from "../../shared/lib/ownerRouteState";
+
+interface BulkRefreshControlProps {
+  ownerKey: OwnerKey;
+}
 
 function getCompletedCount(run: ManualRefreshRunSummary) {
   return run.successCount + run.failedCount;
@@ -25,21 +30,22 @@ function getCompletionMessage(run: ManualRefreshRunSummary) {
   return `${run.successCount} ürün güncellendi`;
 }
 
-export function BulkRefreshControl() {
+export function BulkRefreshControl({ ownerKey }: BulkRefreshControlProps) {
   const queryClient = useQueryClient();
   const [runId, setRunId] = useState<string | null>(null);
   const [resultPopup, setResultPopup] = useState<ManualRefreshRunSummary | null>(null);
   const [isSyncingFreshData, setIsSyncingFreshData] = useState(false);
   const finalizingRunIdRef = useRef<string | null>(null);
+
   const activeRunQuery = useQuery({
-    queryKey: ["tracking-refresh-run", "active"],
-    queryFn: fetchActiveManualRefreshRun,
+    queryKey: ["tracking-refresh-run", ownerKey, "active"],
+    queryFn: () => fetchActiveManualRefreshRun(ownerKey),
   });
 
   const runStatusQuery = useQuery({
-    queryKey: ["tracking-refresh-run", runId],
+    queryKey: ["tracking-refresh-run", ownerKey, runId],
     enabled: Boolean(runId),
-    queryFn: () => fetchManualRefreshRun(runId as string),
+    queryFn: () => fetchManualRefreshRun(ownerKey, runId as string),
     refetchInterval: (query) => {
       const data = query.state.data as { run: ManualRefreshRunSummary } | undefined;
       return data?.run.status === "COMPLETED" ? false : 400;
@@ -47,21 +53,21 @@ export function BulkRefreshControl() {
   });
 
   function activateRun(run: ManualRefreshRunSummary) {
-    queryClient.setQueryData(["tracking-refresh-run", "active"], { run });
-    queryClient.setQueryData(["tracking-refresh-run", run.id], { run });
+    queryClient.setQueryData(["tracking-refresh-run", ownerKey, "active"], { run });
+    queryClient.setQueryData(["tracking-refresh-run", ownerKey, run.id], { run });
     setResultPopup(null);
     setRunId(run.id);
   }
 
   const startMutation = useMutation({
-    mutationFn: () => startManualRefreshRun(),
+    mutationFn: () => startManualRefreshRun(ownerKey),
     onSuccess: ({ run }) => {
       activateRun(run);
     },
   });
 
   const retryMutation = useMutation({
-    mutationFn: (sourceRunId: string) => retryFailedManualRefreshRun(sourceRunId),
+    mutationFn: (sourceRunId: string) => retryFailedManualRefreshRun(ownerKey, sourceRunId),
     onSuccess: ({ run }) => {
       activateRun(run);
     },
@@ -73,9 +79,9 @@ export function BulkRefreshControl() {
       return;
     }
 
-    queryClient.setQueryData(["tracking-refresh-run", activeRun.id], { run: activeRun });
+    queryClient.setQueryData(["tracking-refresh-run", ownerKey, activeRun.id], { run: activeRun });
     setRunId(activeRun.id);
-  }, [activeRunQuery.data?.run, queryClient, runId]);
+  }, [activeRunQuery.data?.run, ownerKey, queryClient, runId]);
 
   const run = runId ? (runStatusQuery.data?.run ?? null) : null;
 
@@ -90,15 +96,15 @@ export function BulkRefreshControl() {
     async function syncFreshData() {
       await Promise.allSettled([
         queryClient.invalidateQueries({
-          queryKey: ["tracking-products"],
+          queryKey: ["tracking-products", ownerKey],
           refetchType: "active",
         }),
         queryClient.invalidateQueries({
-          queryKey: ["product-detail"],
+          queryKey: ["product-detail", ownerKey],
           refetchType: "active",
         }),
       ]);
-      queryClient.setQueryData(["tracking-refresh-run", "active"], { run: null });
+      queryClient.setQueryData(["tracking-refresh-run", ownerKey, "active"], { run: null });
       setResultPopup(run);
       setRunId(null);
       finalizingRunIdRef.current = null;
@@ -106,7 +112,7 @@ export function BulkRefreshControl() {
     }
 
     void syncFreshData();
-  }, [queryClient, run, runId]);
+  }, [ownerKey, queryClient, run, runId]);
 
   const completedCount = run ? getCompletedCount(run) : 0;
   const percent = run && run.totalCount > 0 ? Math.round((completedCount / run.totalCount) * 100) : 0;
@@ -129,10 +135,7 @@ export function BulkRefreshControl() {
       {run ? (
         <div className="min-w-[280px] overflow-hidden rounded-[24px] border border-sky-200 bg-white shadow-sm">
           <div className="h-2 bg-sky-100">
-            <div
-              className="h-full bg-sky-500 transition-[width] duration-300"
-              style={{ width: `${percent}%` }}
-            />
+            <div className="h-full bg-sky-500 transition-[width] duration-300" style={{ width: `${percent}%` }} />
           </div>
           <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
             <div>

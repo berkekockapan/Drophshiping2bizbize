@@ -2,18 +2,23 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { createTrackedProduct } from "../../../app/api";
+import type { OwnerKey } from "../../shared/lib/ownerRouteState";
 
-export function AddLinkForm() {
+interface AddLinkFormProps {
+  ownerKey: OwnerKey;
+}
+
+export function AddLinkForm({ ownerKey }: AddLinkFormProps) {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: createTrackedProduct,
+    mutationFn: (url: string) => createTrackedProduct(ownerKey, url),
     onSuccess: async () => {
       setValue("");
       setError(null);
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products"] });
+      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
     },
     onError: (mutationError) => {
       setError(mutationError instanceof Error ? mutationError.message : "Ürün eklenemedi");

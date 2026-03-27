@@ -50,4 +50,21 @@ describe("config", () => {
 
     expect(config.provider).toBe("mock");
   });
+
+  it("defaults browser launch to stable Chrome with Edge fallback", () => {
+    const config = loadConfig({} as NodeJS.ProcessEnv);
+
+    expect(config.browserChannel).toBe("chrome");
+    expect(config.browserFallbackChannels).toEqual(["msedge"]);
+  });
+
+  it("allows overriding browser channels from env", () => {
+    const config = loadConfig({
+      CONNECTOR_BROWSER_CHANNEL: "msedge",
+      CONNECTOR_BROWSER_FALLBACK_CHANNELS: "chrome, chrome-beta",
+    } as NodeJS.ProcessEnv);
+
+    expect(config.browserChannel).toBe("msedge");
+    expect(config.browserFallbackChannels).toEqual(["chrome", "chrome-beta"]);
+  });
 });

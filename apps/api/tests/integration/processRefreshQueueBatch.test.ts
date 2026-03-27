@@ -73,7 +73,7 @@ describe("processRefreshQueueBatch", () => {
       },
     );
 
-    await deleteTrackedProduct(env.DB, seeded.product.id);
+    await deleteTrackedProduct(env.DB, "berke", seeded.product.id);
 
     let acked = false;
     let retried = false;

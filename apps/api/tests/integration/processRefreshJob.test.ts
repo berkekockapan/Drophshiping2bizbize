@@ -389,7 +389,7 @@ describe("processRefreshJob", () => {
     );
   });
 
-  it("does not recreate child rows when the product is deleted during refresh", async () => {
+  it("stops refresh when the product is deleted during refresh", async () => {
     const { env, sqlite } = createTestEnv();
     const seeded = await createTrackedProduct(
       env,
@@ -406,7 +406,7 @@ describe("processRefreshJob", () => {
         { productId: seeded.product.id },
         {
           fetchImpl: async () => {
-            await deleteTrackedProduct(env.DB, seeded.product.id);
+            await deleteTrackedProduct(env.DB, "berke", seeded.product.id);
             return new Response(basicProductHtml, { status: 200 });
           },
           now: new Date("2026-03-20T01:00:00.000Z"),
@@ -415,21 +415,25 @@ describe("processRefreshJob", () => {
     ).rejects.toBeInstanceOf(RefreshProductNotFoundError);
 
     const counts = {
-      products: sqlite.prepare("select count(*) as count from products where id = ?").get(seeded.product.id),
+      product: sqlite
+        .prepare("select deleted_at as deletedAt from products where id = ?")
+        .get(seeded.product.id),
       variants: sqlite.prepare("select count(*) as count from product_variants where product_id = ?").get(seeded.product.id),
       currentState: sqlite.prepare("select count(*) as count from product_current_state where product_id = ?").get(seeded.product.id),
       priceHistory: sqlite.prepare("select count(*) as count from price_history where product_id = ?").get(seeded.product.id),
       stockHistory: sqlite.prepare("select count(*) as count from stock_history where product_id = ?").get(seeded.product.id),
       notifications: sqlite.prepare("select count(*) as count from notifications where product_id = ?").get(seeded.product.id),
+      audits: sqlite.prepare("select count(*) as count from product_refresh_audits where product_id = ?").get(seeded.product.id),
     };
 
     expect(counts).toEqual({
-      products: { count: 0 },
-      variants: { count: 0 },
-      currentState: { count: 0 },
+      product: { deletedAt: expect.any(Number) },
+      variants: { count: 1 },
+      currentState: { count: 1 },
       priceHistory: { count: 0 },
       stockHistory: { count: 0 },
       notifications: { count: 0 },
+      audits: { count: 0 },
     });
   });
 });

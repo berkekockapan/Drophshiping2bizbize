@@ -29,6 +29,7 @@ describe("ProductImageGallery", () => {
 
     renderWithProviders(
       <ProductImageGallery
+        ownerKey="berke"
         productId="prod_1"
         title="Oversize Hoodie"
         images={["https://cdn.example.com/hoodie-1.jpg", "https://cdn.example.com/hoodie-2.jpg"]}
@@ -57,6 +58,7 @@ describe("ProductImageGallery", () => {
 
     renderWithProviders(
       <ProductImageGallery
+        ownerKey="berke"
         productId="prod_1"
         title="Oversize Hoodie"
         images={["https://cdn.example.com/hoodie-1.jpg", "https://cdn.example.com/hoodie-2.jpg"]}
@@ -66,11 +68,11 @@ describe("ProductImageGallery", () => {
     await user.click(screen.getByRole("button", { name: /görsel 2/i }));
     await user.click(screen.getByRole("button", { name: /jpg indir/i }));
 
-    expect(downloadProductImage).toHaveBeenCalledWith("prod_1", "https://cdn.example.com/hoodie-2.jpg");
+    expect(downloadProductImage).toHaveBeenCalledWith("berke", "prod_1", "https://cdn.example.com/hoodie-2.jpg");
   });
 
   it("shows an empty-state placeholder when there are no usable images", () => {
-    renderWithProviders(<ProductImageGallery productId="prod_1" title={null} images={[" ", null, undefined]} />);
+    renderWithProviders(<ProductImageGallery ownerKey="berke" productId="prod_1" title={null} images={[" ", null, undefined]} />);
 
     expect(screen.getByText(/görsel bulunamadı/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /jpg indir/i })).not.toBeInTheDocument();

@@ -12,6 +12,7 @@ export async function enqueueTrackedProducts(env: Env, now: Date) {
         `select id
          from products
          where status = 'ACTIVE'
+           and deleted_at is null
            and (last_checked_at is null or last_checked_at <= ?)
          order by created_at asc`,
       )

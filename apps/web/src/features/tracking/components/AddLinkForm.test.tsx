@@ -8,7 +8,7 @@ import { renderWithProviders } from "../../../test/test-utils";
 
 describe("AddLinkForm", () => {
   it("submits a Trendyol URL and shows validation errors inline", async () => {
-    renderWithProviders(<AddLinkForm />);
+    renderWithProviders(<AddLinkForm ownerKey="berke" />);
 
     await userEvent.click(screen.getByRole("button", { name: /ekle/i }));
 

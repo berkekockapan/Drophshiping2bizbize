@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -9,24 +9,30 @@ import {
   patchDraft,
   saveGeneratedDraft,
 } from "../../../app/api";
+import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { DraftEditor } from "../components/DraftEditor";
 import { SourceProductPanel } from "../components/SourceProductPanel";
 
+function isOwnerKey(value: string | undefined): value is OwnerKey {
+  return ownerOptions.some((owner) => owner.key === value);
+}
+
 export function SeoEditorPage() {
   const queryClient = useQueryClient();
-  const params = useParams<{ productId: string }>();
+  const params = useParams<{ ownerKey: string; productId: string }>();
+  const ownerKey = isOwnerKey(params.ownerKey) ? params.ownerKey : null;
   const productId = params.productId ?? "prod_1";
 
   const detailQuery = useQuery({
-    queryKey: ["product-detail", productId],
-    queryFn: () => fetchProductDetail(productId),
-    enabled: Boolean(productId),
+    queryKey: ["product-detail", ownerKey, productId],
+    queryFn: () => fetchProductDetail(ownerKey as OwnerKey, productId),
+    enabled: Boolean(ownerKey && productId),
   });
 
   const draftQuery = useQuery({
-    queryKey: ["draft", productId],
-    queryFn: () => fetchDraft(productId),
-    enabled: Boolean(productId),
+    queryKey: ["draft", ownerKey, productId],
+    queryFn: () => fetchDraft(ownerKey as OwnerKey, productId),
+    enabled: Boolean(ownerKey && productId),
   });
 
   const [draftMeta, setDraftMeta] = useState({
@@ -36,7 +42,7 @@ export function SeoEditorPage() {
 
   const generateTitleMutation = useMutation({
     mutationFn: async () => {
-      if (!detailQuery.data) {
+      if (!detailQuery.data || !ownerKey) {
         throw new Error("Product detail is not ready");
       }
 
@@ -48,7 +54,7 @@ export function SeoEditorPage() {
         sourceAttributes: detailQuery.data.product.attributes ?? [],
       });
 
-      const savedDraft = await saveGeneratedDraft(productId, {
+      const savedDraft = await saveGeneratedDraft(ownerKey, productId, {
         overwrite: !draftMeta.manualEditsPresent || draftMeta.allowOverwrite,
         generated: {
           englishTitle: generated.englishTitle,
@@ -65,7 +71,7 @@ export function SeoEditorPage() {
       return savedDraft;
     },
     onSuccess: (savedDraft) => {
-      queryClient.setQueryData<{ draft: typeof savedDraft; prompt: unknown } | undefined>(["draft", productId], (previous) => ({
+      queryClient.setQueryData<{ draft: typeof savedDraft; prompt: unknown } | undefined>(["draft", ownerKey, productId], (previous) => ({
         draft: savedDraft,
         prompt: previous?.prompt ?? null,
       }));
@@ -74,18 +80,22 @@ export function SeoEditorPage() {
 
   const saveDraftMutation = useMutation({
     mutationFn: (draft: { englishTitle: string; shortDescription: string; longDescription: string }) =>
-      patchDraft(productId, {
+      patchDraft(ownerKey as OwnerKey, productId, {
         englishTitle: draft.englishTitle,
         shortDescription: draft.shortDescription,
         longDescription: draft.longDescription,
       }),
     onSuccess: (savedDraft) => {
-      queryClient.setQueryData<{ draft: typeof savedDraft; prompt: unknown } | undefined>(["draft", productId], (previous) => ({
+      queryClient.setQueryData<{ draft: typeof savedDraft; prompt: unknown } | undefined>(["draft", ownerKey, productId], (previous) => ({
         draft: savedDraft,
         prompt: previous?.prompt ?? null,
       }));
     },
   });
+
+  if (!ownerKey) {
+    return <p className="text-sm text-rose-600">Owner bulunamadı.</p>;
+  }
 
   const sourceDetail = detailQuery.data;
   const draft = draftQuery.data?.draft;
@@ -108,7 +118,7 @@ export function SeoEditorPage() {
         />
 
         <DraftEditor
-          key={`${productId}-${draft?.generatedVersion ?? 0}-${draft?.editedVersion ?? 0}`}
+          key={`${ownerKey}-${productId}-${draft?.generatedVersion ?? 0}-${draft?.editedVersion ?? 0}`}
           initialValue={{
             englishTitle: draft?.englishTitle ?? "",
             shortDescription: draft?.shortDescription ?? "",

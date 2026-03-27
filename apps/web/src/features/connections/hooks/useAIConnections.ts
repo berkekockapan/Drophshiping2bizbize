@@ -227,8 +227,15 @@ export function useAIConnections() {
       const { attempt } = result;
       setActiveAttemptId(attempt.id);
 
-      if (!shouldUseConnectorFallback && "authorizationUrl" in result) {
-        const popup = window.open(result.authorizationUrl, "_blank", "noopener");
+      const authorizationUrl =
+        !shouldUseConnectorFallback &&
+        "authorizationUrl" in result &&
+        typeof result.authorizationUrl === "string"
+          ? result.authorizationUrl
+          : null;
+
+      if (authorizationUrl) {
+        const popup = window.open(authorizationUrl, "_blank", "noopener");
 
         if (!popup) {
           setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));

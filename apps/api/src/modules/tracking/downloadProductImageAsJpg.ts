@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { D1Database } from "../../config/bindings";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 
@@ -77,12 +79,13 @@ function buildAttachmentHeader(filename: string) {
 
 export async function downloadProductImageAsJpg(
   db: D1Database,
+  ownerKey: OwnerKey,
   productId: string,
   targetUrl: string,
   options: DownloadProductImageAsJpgOptions = {},
 ): Promise<DownloadProductImageAsJpgResult> {
   const productsRepo = createProductsRepo(db);
-  const snapshot = await productsRepo.getProductImageSnapshot(productId);
+  const snapshot = await productsRepo.getProductImageSnapshot(ownerKey, productId);
 
   if (!snapshot) {
     return { kind: "not-found" };

@@ -41,6 +41,8 @@ describe("connector server", () => {
         port: 4317,
         provider: "mock",
         stateDir: dir,
+        browserChannel: "chrome",
+        browserFallbackChannels: ["msedge"],
       },
     });
 
@@ -204,6 +206,8 @@ describe("connector server", () => {
         port: 4317,
         provider: "chatgpt-web",
         stateDir: dir,
+        browserChannel: "chrome",
+        browserFallbackChannels: ["msedge"],
       },
     });
 

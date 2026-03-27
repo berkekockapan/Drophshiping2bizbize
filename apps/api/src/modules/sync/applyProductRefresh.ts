@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { Env, RefreshJob } from "../../config/bindings";
 import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
@@ -12,6 +14,7 @@ export interface ProcessRefreshJobOptions {
   fetchImpl?: typeof fetch;
   fetchTimeoutMs?: number;
   now?: Date;
+  ownerKey?: OwnerKey;
   source?: "MANUAL" | "SCHEDULED";
   manualRefreshRunId?: string;
 }
@@ -33,7 +36,7 @@ export async function processRefreshJob(
   const historyRepo = createHistoryRepo(env.DB);
   const notificationsRepo = createNotificationsRepo(env.DB);
   const refreshAuditRepo = createRefreshAuditRepo(env.DB);
-  const product = await productsRepo.getRefreshSnapshot(job.productId);
+  const product = await productsRepo.getRefreshSnapshot(job.productId, options.ownerKey);
 
   if (!product) {
     throw new RefreshProductNotFoundError(job.productId);
@@ -56,13 +59,13 @@ export async function processRefreshJob(
       },
       toIncomingSnapshot(product.id, parsed, now.getTime()),
     );
-    const stillTracked = await productsRepo.getTrackedProduct(product.id);
+    const stillTracked = await productsRepo.getTrackedProduct(product.id, options.ownerKey);
 
     if (!stillTracked) {
       throw new RefreshProductNotFoundError(product.id);
     }
 
-    await productsRepo.updateProductSnapshot(product.id, parsed, diff.currentState, now);
+    await productsRepo.updateProductSnapshot(product.id, parsed, diff.currentState, now, options.ownerKey);
     await productsRepo.upsertVariants(product.id, parsed.variants, now);
     const audit = await refreshAuditRepo.insertAudit({
       productId: product.id,
@@ -77,7 +80,7 @@ export async function processRefreshJob(
     await refreshAuditRepo.insertContentHistory(product.id, audit.id, diff.contentHistory);
     await historyRepo.insertPriceHistory(product.id, audit.id, diff.priceHistory);
     await historyRepo.insertStockHistory(product.id, audit.id, diff.stockHistory);
-    await notificationsRepo.insertNotifications(product.id, diff.notifications, now);
+    await notificationsRepo.insertNotifications(product.ownerKey, product.id, diff.notifications, now);
 
     return {
       product: {
@@ -88,6 +91,10 @@ export async function processRefreshJob(
       notifications: diff.notifications,
     };
   } catch (error) {
+    if (error instanceof RefreshProductNotFoundError) {
+      throw error;
+    }
+
     if (error instanceof ParseError) {
       const notification = {
         type: "PARSE_ERROR" as const,
@@ -96,7 +103,7 @@ export async function processRefreshJob(
         body: `${error.code}: ${error.message}`,
       };
 
-      await productsRepo.markParseFailure(product.id, "REVIEW_NEEDED", now);
+      await productsRepo.markParseFailure(product.id, "REVIEW_NEEDED", now, options.ownerKey);
       await refreshAuditRepo.insertAudit({
         productId: product.id,
         source: options.source ?? "MANUAL",
@@ -107,7 +114,7 @@ export async function processRefreshJob(
         errorMessage: notification.body,
         checkedAt: now.getTime(),
       });
-      await notificationsRepo.insertNotifications(product.id, [notification], now);
+      await notificationsRepo.insertNotifications(product.ownerKey, product.id, [notification], now);
 
       return {
         product: {

@@ -1,28 +1,38 @@
 import { Link } from "react-router-dom";
 
-import { formatPrice, type TrackingItem } from "../../../app/api";
+import { formatPrice, type ProductCategory, type TrackingItem } from "../../../app/api";
+import type { OwnerKey } from "../../shared/lib/ownerRouteState";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLink";
+import { ProductCategorySelect } from "./ProductCategorySelect";
 
 interface ProductCardProps {
+  ownerKey: OwnerKey;
   item: TrackingItem;
+  categories?: ProductCategory[];
   onToggleFavorite?: (item: TrackingItem) => void;
   onDelete?: (item: TrackingItem) => void;
+  onCategoryChange?: (item: TrackingItem, categoryId: string | null) => void;
   favoritePending?: boolean;
   deletePending?: boolean;
+  categoryPending?: boolean;
 }
 
 export function ProductCard({
+  ownerKey,
   item,
+  categories,
   onToggleFavorite,
   onDelete,
   favoritePending = false,
   deletePending = false,
+  onCategoryChange,
+  categoryPending = false,
 }: ProductCardProps) {
   const title = item.title ?? "Başlıksız ürün";
-  const productHref = `/products/${item.id}`;
+  const productHref = `/owners/${ownerKey}/products/${item.id}`;
   const favoriteLabel = item.isFavorite ? "Favoriden çıkar" : "Favoriye ekle";
-  const actionsDisabled = favoritePending || deletePending;
+  const actionsDisabled = favoritePending || deletePending || categoryPending;
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -50,6 +60,21 @@ export function ProductCard({
               </Link>
             </h3>
             <p className="mt-1 text-sm text-slate-500">{item.brand ?? "Marka yok"}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                {item.userCategory?.name ?? "Kategorisiz"}
+              </span>
+              {categories?.length ? (
+                <ProductCategorySelect
+                  label="Takip kategorisi"
+                  inputId={`product-category-${item.id}`}
+                  categories={categories}
+                  value={item.userCategory?.id ?? null}
+                  disabled={actionsDisabled}
+                  onChange={(categoryId) => onCategoryChange?.(item, categoryId)}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
 

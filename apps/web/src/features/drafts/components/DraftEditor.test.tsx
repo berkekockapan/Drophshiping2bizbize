@@ -23,8 +23,10 @@ describe("DraftEditor", () => {
   it("runs draft generation through the cloud AI endpoint and saves the result via the API", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
+      const pathname = new URL(url, "http://localhost").pathname;
+      const method = init?.method ?? "GET";
 
-      if (url.includes("/products/prod_1")) {
+      if (pathname === "/owners/berke/products/prod_1" && method === "GET") {
         return new Response(
           JSON.stringify({
             product: {
@@ -59,7 +61,7 @@ describe("DraftEditor", () => {
         );
       }
 
-      if (url.includes("/drafts/prod_1") && (!init?.method || init?.method === "GET")) {
+      if (pathname === "/owners/berke/products/prod_1/draft" && method === "GET") {
         return new Response(
           JSON.stringify({
             draft: {
@@ -96,7 +98,7 @@ describe("DraftEditor", () => {
         );
       }
 
-      if (url.includes("/ai-profiles/generate") && init?.method === "POST") {
+      if (pathname === "/ai-profiles/generate" && method === "POST") {
         return new Response(
           JSON.stringify({
             englishTitle: "Handmade Hoodie for Etsy",
@@ -113,7 +115,7 @@ describe("DraftEditor", () => {
         );
       }
 
-      if (url.includes("/drafts/prod_1/generate") && init?.method === "POST") {
+      if (pathname === "/owners/berke/products/prod_1/draft/generate" && method === "POST") {
         return new Response(
           JSON.stringify({
             id: "draft_1",
@@ -139,8 +141,8 @@ describe("DraftEditor", () => {
     });
 
     renderWithProviders(<SeoEditorPage />, {
-      route: "/products/prod_1/seo",
-      path: "/products/:productId/seo",
+      route: "/owners/berke/products/prod_1/seo",
+      path: "/owners/:ownerKey/products/:productId/seo",
     });
 
     await userEvent.click(await screen.findByRole("button", { name: /başlık üret/i }));
@@ -150,8 +152,10 @@ describe("DraftEditor", () => {
   it("saves manual draft edits through PATCH /drafts/:productId", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
+      const pathname = new URL(url, "http://localhost").pathname;
+      const method = init?.method ?? "GET";
 
-      if (url.includes("/products/prod_1")) {
+      if (pathname === "/owners/berke/products/prod_1" && method === "GET") {
         return new Response(
           JSON.stringify({
             product: {
@@ -186,7 +190,7 @@ describe("DraftEditor", () => {
         );
       }
 
-      if (url.includes("/drafts/prod_1") && (!init?.method || init?.method === "GET")) {
+      if (pathname === "/owners/berke/products/prod_1/draft" && method === "GET") {
         return new Response(
           JSON.stringify({
             draft: {
@@ -211,7 +215,7 @@ describe("DraftEditor", () => {
         );
       }
 
-      if (url.includes("/drafts/prod_1") && init?.method === "PATCH") {
+      if (pathname === "/owners/berke/products/prod_1/draft" && method === "PATCH") {
         return new Response(
           JSON.stringify({
             id: "draft_1",
@@ -237,8 +241,8 @@ describe("DraftEditor", () => {
     });
 
     renderWithProviders(<SeoEditorPage />, {
-      route: "/products/prod_1/seo",
-      path: "/products/:productId/seo",
+      route: "/owners/berke/products/prod_1/seo",
+      path: "/owners/:ownerKey/products/:productId/seo",
     });
 
     await userEvent.clear(await screen.findByLabelText(/english title/i));
@@ -246,7 +250,7 @@ describe("DraftEditor", () => {
     await userEvent.click(screen.getByRole("button", { name: /taslağı kaydet/i }));
 
     expect(
-      fetchSpy.mock.calls.some(([input, init]) => String(input).includes("/drafts/prod_1") && init?.method === "PATCH"),
+      fetchSpy.mock.calls.some(([input, init]) => String(input).includes("/owners/berke/products/prod_1/draft") && init?.method === "PATCH"),
     ).toBe(true);
   });
 });

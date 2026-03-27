@@ -22,6 +22,7 @@ import type { ConnectorProfile, ProfileStore } from "../store/profileStore";
 
 interface BrowserSessionLike {
   ensureProfilePage(profileId: string): Promise<{ page: Page }>;
+  getOpenProfilePage?(profileId: string): Promise<{ page: Page } | null>;
   closeProfile?(profileId: string): Promise<void>;
   deleteProfileStorage?(profileId: string): Promise<void>;
 }
@@ -46,6 +47,13 @@ interface ChatGptWebProviderOptions {
 const FINAL_ATTEMPT_STATUSES = new Set(["completed", "failed", "cancelled"]);
 const IN_PROGRESS_ATTEMPT_STATUSES = new Set(["pending_browser_launch", "waiting_for_login", "verifying_session"]);
 const SESSION_EXPIRED_MESSAGE = "Session expired";
+const AUTH_REQUIRED_TEXT_PATTERN =
+  /(log in|sign up|continue with|giris yap|oturum ac|ucretsiz kaydol|google ile devam et|apple ile devam et|telefonla devam et|e-posta adresi|verify you are human|gercek kisi oldugunuzu dogrulayin|cloudflare)/i;
+const AUTH_REQUIRED_TITLE_PATTERN = /(bir dakika lutfen|just a moment|checking your browser|cloudflare)/i;
+
+function normalizeAuthCheckText(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
 
 export class ChatGptWebProvider implements AIProvider {
   readonly id = "chatgpt-web";
@@ -166,22 +174,33 @@ export class ChatGptWebProvider implements AIProvider {
       return attempt;
     }
 
-    await this.attempts.update(attempt.id, {
-      status: "verifying_session",
-      profileId: attempt.profileId,
-      error: null,
-    });
+    const session = this.browserSession.getOpenProfilePage
+      ? await this.browserSession.getOpenProfilePage(attempt.profileId)
+      : await this.browserSession.ensureProfilePage(attempt.profileId);
+    if (!session) {
+      if (attempt.status === "waiting_for_login") {
+        return attempt;
+      }
 
-    const completed = await this.completeAttemptIfPossible(attempt.id, attempt.profileId);
+      return this.attempts.update(attempt.id, {
+        status: "waiting_for_login",
+        profileId: attempt.profileId,
+        error: null,
+      });
+    }
+
+    const completed = await this.completeAttemptIfPossible(attempt.id, attempt.profileId, session.page);
     if (completed) {
       return completed;
     }
 
-    return this.attempts.update(attempt.id, {
-      status: "waiting_for_login",
-      profileId: attempt.profileId,
-      error: null,
-    });
+    return attempt.status === "waiting_for_login"
+      ? attempt
+      : this.attempts.update(attempt.id, {
+          status: "waiting_for_login",
+          profileId: attempt.profileId,
+          error: null,
+        });
   }
 
   async cancelConnectionAttempt(attemptId: string): Promise<ConnectionAttempt | null> {
@@ -332,8 +351,7 @@ export class ChatGptWebProvider implements AIProvider {
     }
   }
 
-  private async completeAttemptIfPossible(attemptId: string, profileId: string) {
-    const { page } = await this.browserSession.ensureProfilePage(profileId);
+  private async completeAttemptIfPossible(attemptId: string, profileId: string, page: Page) {
     const session = await this.inspectSessionImpl(page, profileId);
 
     if (!session) {
@@ -370,20 +388,26 @@ export class ChatGptWebProvider implements AIProvider {
     await page.waitForLoadState("domcontentloaded", {
       timeout: 5_000,
     }).catch(() => undefined);
+    await page.waitForTimeout(750).catch(() => undefined);
 
     const url = page.url().toLowerCase();
     const bodyText = ((await page.textContent("body").catch(() => "")) ?? "").trim();
+    const normalizedBodyText = normalizeAuthCheckText(bodyText.toLocaleLowerCase("tr-TR"));
+    const title = ((await page.title().catch(() => "")) || "").trim();
+    const normalizedTitle = normalizeAuthCheckText(title.toLocaleLowerCase("tr-TR"));
 
     if (
+      bodyText.length === 0 ||
+      title.length === 0 ||
       url.includes("/auth") ||
       url.includes("login") ||
       url.includes("signup") ||
-      /(log in|sign up|continue with|giriş yap)/i.test(bodyText)
+      AUTH_REQUIRED_TITLE_PATTERN.test(normalizedTitle) ||
+      AUTH_REQUIRED_TEXT_PATTERN.test(normalizedBodyText)
     ) {
       return null;
     }
 
-    const title = ((await page.title().catch(() => "")) || "ChatGPT Web").trim();
     const maskedEmailMatch = bodyText.match(/[A-Z0-9._%+-]{2}\*+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
 
     return {

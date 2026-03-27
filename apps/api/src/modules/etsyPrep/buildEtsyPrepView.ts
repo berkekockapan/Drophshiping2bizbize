@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { D1Database } from "../../config/bindings";
 import { createDraftsRepo, type EtsyDraftRecord } from "../../db/repositories/draftsRepo";
 import { buildProductDetailView } from "../tracking/buildProductDetailView";
@@ -7,8 +9,8 @@ export interface EtsyPrepView {
   draft: EtsyDraftRecord;
 }
 
-export async function buildEtsyPrepView(db: D1Database, productId: string): Promise<EtsyPrepView | null> {
-  const detail = await buildProductDetailView(db, productId);
+export async function buildEtsyPrepView(db: D1Database, ownerKey: OwnerKey, productId: string): Promise<EtsyPrepView | null> {
+  const detail = await buildProductDetailView(db, ownerKey, productId);
   if (!detail) {
     return null;
   }

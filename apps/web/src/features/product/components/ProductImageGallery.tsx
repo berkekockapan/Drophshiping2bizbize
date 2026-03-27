@@ -1,9 +1,11 @@
-﻿import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 
 import { downloadProductImage } from "../../../app/api";
+import type { OwnerKey } from "../../shared/lib/ownerRouteState";
 
 interface ProductImageGalleryProps {
+  ownerKey: OwnerKey;
   productId: string;
   title: string | null;
   images: Array<string | null | undefined> | null | undefined;
@@ -15,7 +17,7 @@ function normalizeImages(images: Array<string | null | undefined> | null | undef
     .filter((image): image is string => image.length > 0);
 }
 
-export function ProductImageGallery({ productId, title, images }: ProductImageGalleryProps) {
+export function ProductImageGallery({ ownerKey, productId, title, images }: ProductImageGalleryProps) {
   const normalizedImages = useMemo(() => normalizeImages(images), [images]);
   const [selectedImage, setSelectedImage] = useState<string | null>(normalizedImages[0] ?? null);
 
@@ -30,7 +32,7 @@ export function ProductImageGallery({ productId, title, images }: ProductImageGa
         throw new Error("Görsel indirilemedi.");
       }
 
-      return downloadProductImage(productId, selectedImage);
+      return downloadProductImage(ownerKey, productId, selectedImage);
     },
     onSuccess: ({ blob, filename }) => {
       const objectUrl = URL.createObjectURL(blob);
@@ -43,8 +45,7 @@ export function ProductImageGallery({ productId, title, images }: ProductImageGa
       URL.revokeObjectURL(objectUrl);
     },
   });
-  const downloadErrorMessage =
-    downloadMutation.error instanceof Error ? downloadMutation.error.message : null;
+  const downloadErrorMessage = downloadMutation.error instanceof Error ? downloadMutation.error.message : null;
 
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -73,9 +74,7 @@ export function ProductImageGallery({ productId, title, images }: ProductImageGa
           {selectedImage ? (
             <img src={selectedImage} alt={`${displayTitle} ana görsel`} className="h-[24rem] w-full object-cover" />
           ) : (
-            <div className="flex min-h-[24rem] items-center justify-center px-6 text-sm text-slate-400">
-              Görsel bulunamadı
-            </div>
+            <div className="flex min-h-[24rem] items-center justify-center px-6 text-sm text-slate-400">Görsel bulunamadı</div>
           )}
         </div>
 

@@ -3,14 +3,16 @@ import { InsightBlocks } from "./InsightBlocks";
 import { LiveAnalysisPanel } from "./LiveAnalysisPanel";
 import { PrepModeHeader } from "./PrepModeHeader";
 import { useEtsyPrepWorkspace } from "../hooks/useEtsyPrepWorkspace";
+import type { OwnerKey } from "../../shared/lib/ownerRouteState";
 
 interface EtsyPrepWorkspaceProps {
+  ownerKey: OwnerKey;
   productId: string;
   onBack: () => void;
 }
 
-export function EtsyPrepWorkspace({ productId, onBack }: EtsyPrepWorkspaceProps) {
-  const workspace = useEtsyPrepWorkspace(productId);
+export function EtsyPrepWorkspace({ ownerKey, productId, onBack }: EtsyPrepWorkspaceProps) {
+  const workspace = useEtsyPrepWorkspace(ownerKey, productId);
 
   if (workspace.isLoading) {
     return <p className="text-sm text-slate-500">Hazırlık alanı yükleniyor...</p>;

@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { ProcessRefreshJobOptions } from "../sync/applyProductRefresh";
 import { processRefreshJob } from "../sync/applyProductRefresh";
 import type { Env } from "../../config/bindings";
@@ -9,13 +11,14 @@ function getFailureMessage(result: Awaited<ReturnType<typeof processRefreshJob>>
 
 export async function processManualRefreshRun(
   env: Pick<Env, "DB">,
+  ownerKey: OwnerKey,
   runId: string,
   options: ProcessRefreshJobOptions = {},
 ) {
   await Promise.resolve();
 
   const runsRepo = createManualRefreshRunsRepo(env.DB);
-  const run = await runsRepo.getRunWithItems(runId);
+  const run = await runsRepo.getRunWithItems(runId, ownerKey);
   if (!run) {
     throw new Error(`Manual refresh run ${runId} not found`);
   }
@@ -37,6 +40,7 @@ export async function processManualRefreshRun(
         const result = await processRefreshJob(env, { productId: item.productId }, {
           ...options,
           source: "MANUAL",
+          ownerKey,
           manualRefreshRunId: activeRun.id,
         });
 

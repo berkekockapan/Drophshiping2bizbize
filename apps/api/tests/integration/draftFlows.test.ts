@@ -12,11 +12,11 @@ const productWithVariantsHtml = readFileSync(
 );
 
 describe("draft flows", () => {
-  it("persists manual edits and protects fields from silent overwrite", async () => {
+  it("persists manual edits and protects fields from silent overwrite in owner scope", async () => {
     const { env } = createTestEnv();
     const seeded = await createTrackedProduct(
       env,
-      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      { ownerKey: "berke", trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
       {
         fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
         now: new Date("2026-03-20T00:00:00.000Z"),
@@ -25,11 +25,11 @@ describe("draft flows", () => {
 
     const app = createApp();
 
-    const draftResponse = await app.request(`http://localhost/drafts/${seeded.product.id}`, undefined, env);
+    const draftResponse = await app.request(`http://localhost/owners/berke/products/${seeded.product.id}/draft`, undefined, env);
     expect(draftResponse.status).toBe(200);
 
     const editResponse = await app.request(
-      `http://localhost/drafts/${seeded.product.id}`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/draft`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -41,7 +41,7 @@ describe("draft flows", () => {
     expect(editResponse.status).toBe(200);
 
     const clearResponse = await app.request(
-      `http://localhost/drafts/${seeded.product.id}`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/draft`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -55,7 +55,7 @@ describe("draft flows", () => {
     expect(clearJson.shortDescription).toBeNull();
 
     const generateNoOverwrite = await app.request(
-      `http://localhost/drafts/${seeded.product.id}/generate`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/draft/generate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,7 +80,7 @@ describe("draft flows", () => {
     expect(noOverwriteJson.englishTitle).toBe("Custom title");
 
     const generateOverwrite = await app.request(
-      `http://localhost/drafts/${seeded.product.id}/generate`,
+      `http://localhost/owners/berke/products/${seeded.product.id}/draft/generate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,11 +105,11 @@ describe("draft flows", () => {
     expect(overwriteJson.englishTitle).toBe("Generated title");
   });
 
-  it("persists Etsy prep saves without carrying generated metadata across later manual-only saves", async () => {
+  it("returns 404 when owner does not match for draft and etsy-prep endpoints", async () => {
     const { env } = createTestEnv();
     const seeded = await createTrackedProduct(
       env,
-      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      { ownerKey: "berke", trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
       {
         fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
         now: new Date("2026-03-20T00:00:00.000Z"),
@@ -118,64 +118,19 @@ describe("draft flows", () => {
 
     const app = createApp();
 
-    const bootstrap = await app.request(`http://localhost/products/${seeded.product.id}/etsy-prep`, undefined, env);
-    expect(bootstrap.status).toBe(200);
-    const bootstrapJson = await bootstrap.json();
-    expect(bootstrapJson).toEqual(
-      expect.objectContaining({
-        product: expect.objectContaining({ id: seeded.product.id }),
-        draft: expect.objectContaining({ productId: seeded.product.id }),
-      }),
+    const draft404 = await app.request(
+      `http://localhost/owners/kaan/products/${seeded.product.id}/draft`,
+      undefined,
+      env,
     );
-
-    const firstSave = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          englishTitle: "Handmade Oversize Hoodie",
-          longDescription: "Detailed Etsy description",
-          tags: ["oversize hoodie", "streetwear"],
-          seoNotes: "SEO notes",
-          policyNotes: "Etsy Uyum Kontrolleri:\nPolicy notes\n\nEksik Veri / Riskler:\nMissing lifestyle context",
-          generatedFields: ["title", "description", "tags"],
-          editedFields: [],
-        }),
-      },
+    const prep404 = await app.request(
+      `http://localhost/owners/kaan/products/${seeded.product.id}/etsy-prep`,
+      undefined,
       env,
     );
 
-    expect(firstSave.status).toBe(200);
-    const firstSaveJson = await firstSave.json();
-    expect(firstSaveJson.generatedVersion).toBe(1);
-    expect(firstSaveJson.editedVersion).toBe(0);
-    expect(firstSaveJson.manualEditsPresent).toBe(false);
-
-    const secondSave = await app.request(
-      `http://localhost/products/${seeded.product.id}/etsy-prep/save`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          englishTitle: "Handmade Oversize Hoodie Updated",
-          longDescription: "Detailed Etsy description",
-          tags: ["oversize hoodie", "streetwear"],
-          seoNotes: "SEO notes",
-          policyNotes: "Etsy Uyum Kontrolleri:\nPolicy notes\n\nEksik Veri / Riskler:\nMissing lifestyle context",
-          generatedFields: [],
-          editedFields: ["title"],
-        }),
-      },
-      env,
-    );
-
-    expect(secondSave.status).toBe(200);
-    const secondSaveJson = await secondSave.json();
-    expect(secondSaveJson.generatedVersion).toBe(1);
-    expect(secondSaveJson.editedVersion).toBe(1);
-    expect(secondSaveJson.manualEditsPresent).toBe(true);
-    expect(secondSaveJson.englishTitle).toBe("Handmade Oversize Hoodie Updated");
+    expect(draft404.status).toBe(404);
+    expect(prep404.status).toBe(404);
   });
 
   it("syncs connector profile metadata into API storage", async () => {

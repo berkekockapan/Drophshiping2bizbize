@@ -6,6 +6,7 @@ import {
   stockStateSchema,
   variantSchema
 } from "../schemas/product";
+import { ownerKeySchema } from "./owners";
 
 export const addTrackedProductSchema = z.object({
   trendyolUrl: z.string().url(),
@@ -15,6 +16,7 @@ export type AddTrackedProductRequest = z.infer<typeof addTrackedProductSchema>;
 
 export const trackingListItemSchema = z.object({
   id: z.string().min(1),
+  ownerKey: ownerKeySchema,
   title: z.string().min(1),
   trendyolUrl: z.string().url(),
   status: productStatusSchema,
@@ -33,6 +35,7 @@ export type TrackingListResponse = z.infer<typeof trackingListResponseSchema>;
 
 export const productDetailResponseSchema = z.object({
   id: z.string().min(1),
+  ownerKey: ownerKeySchema,
   title: z.string().min(1),
   trendyolUrl: z.string().url(),
   status: productStatusSchema,
@@ -67,3 +70,19 @@ export const notificationListResponseSchema = z.object({
   items: z.array(notificationItemSchema)
 });
 export type NotificationListResponse = z.infer<typeof notificationListResponseSchema>;
+
+export const ownerScopedParamsSchema = z.object({
+  ownerKey: ownerKeySchema,
+  productId: z.string().min(1),
+});
+
+export const trashListItemSchema = trackingListItemSchema.extend({
+  deletedAt: z.number().int().nonnegative(),
+});
+export type TrashListItem = z.infer<typeof trashListItemSchema>;
+
+export const trashListResponseSchema = z.object({
+  items: z.array(trashListItemSchema),
+  total: z.number().int().nonnegative(),
+});
+export type TrashListResponse = z.infer<typeof trashListResponseSchema>;

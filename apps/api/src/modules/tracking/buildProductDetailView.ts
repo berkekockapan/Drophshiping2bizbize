@@ -1,3 +1,5 @@
+import type { OwnerKey } from "../../contracts/owners";
+
 import type { D1Database } from "../../config/bindings";
 import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
@@ -50,12 +52,12 @@ function resolveVariantTrendyolUrl(rawPayload: unknown, productUrl: string, fall
   return fallbackUrl ? normalizeTrendyolUrl(fallbackUrl, productUrl) ?? fallbackUrl : null;
 }
 
-export async function buildProductDetailView(db: D1Database, productId: string) {
+export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey, productId: string) {
   const productsRepo = createProductsRepo(db);
   const historyRepo = createHistoryRepo(db);
   const notificationsRepo = createNotificationsRepo(db);
   const refreshAuditRepo = createRefreshAuditRepo(db);
-  const detail = await productsRepo.getProductDetail(productId);
+  const detail = await productsRepo.getProductDetail(ownerKey, productId);
 
   if (!detail) {
     return null;
@@ -75,12 +77,20 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
   const contentHistory = (await refreshAuditRepo.listContentHistory(productId)) as unknown as ContentHistoryRow[];
   const priceHistory = (await historyRepo.listPriceHistory(productId)) as unknown as PriceHistoryRow[];
   const stockHistory = (await historyRepo.listStockHistory(productId)) as unknown as StockHistoryRow[];
+  const { userCategoryId, userCategoryName, ...product } = detail.product;
 
   return {
     product: {
-      ...detail.product,
+      ...product,
       attributes: safeParseJson(detail.product.attributesRaw),
       images: safeParseJson(detail.product.imagesRaw),
+      userCategory:
+        userCategoryId && userCategoryName
+          ? {
+              id: userCategoryId,
+              name: userCategoryName,
+            }
+          : null,
     },
     currentState: detail.currentState,
     variants,
@@ -93,6 +103,6 @@ export async function buildProductDetailView(db: D1Database, productId: string) 
       stockHistory,
       variants: detail.variants,
     }),
-    notifications: await notificationsRepo.listNotifications(productId),
+    notifications: await notificationsRepo.listNotifications(ownerKey, productId),
   };
 }

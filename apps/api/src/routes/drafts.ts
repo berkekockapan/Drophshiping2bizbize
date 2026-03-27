@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { ownerKeySchema, type OwnerKey } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
 import { createDraftsRepo, type DraftAttribute } from "../db/repositories/draftsRepo";
@@ -46,24 +47,37 @@ function ensureAttributes(input: unknown): DraftAttribute[] {
     .filter((item) => item.key.length > 0 && item.value.length > 0);
 }
 
-async function productExists(env: Env, productId: string) {
-  const product = await env.DB.prepare("select id from products where id = ? limit 1").bind(productId).first<{ id: string }>();
+async function productExists(env: Env, ownerKey: OwnerKey, productId: string) {
+  const product = await env.DB
+    .prepare("select id from products where id = ? and owner_key = ? and deleted_at is null limit 1")
+    .bind(productId, ownerKey)
+    .first<{ id: string }>();
   return Boolean(product);
 }
 
 export function createDraftsRouter() {
   const app = new Hono<{ Bindings: Env }>();
 
-  app.get("/:productId", async (c) => {
+  function parseOwnerKey(value: string | undefined) {
+    const parsed = ownerKeySchema.safeParse(value);
+    return parsed.success ? parsed.data : null;
+  }
+
+  app.get("/products/:productId/draft", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
     const productId = c.req.param("productId");
 
-    if (!(await productExists(c.env, productId))) {
-      return c.json({ error: "Product not found" }, 404);
+    if (!(await productExists(c.env, ownerKey, productId))) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     const draftsRepo = createDraftsRepo(c.env.DB);
     const draft = await draftsRepo.ensureForProduct(productId);
-    const detail = await buildProductDetailView(c.env.DB, productId);
+    const detail = await buildProductDetailView(c.env.DB, ownerKey, productId);
     const prompt = detail
       ? buildDraftPrompt({
           product: {
@@ -88,11 +102,16 @@ export function createDraftsRouter() {
     return c.json({ draft, prompt });
   });
 
-  app.patch("/:productId", async (c) => {
+  app.patch("/products/:productId/draft", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
     const productId = c.req.param("productId");
 
-    if (!(await productExists(c.env, productId))) {
-      return c.json({ error: "Product not found" }, 404);
+    if (!(await productExists(c.env, ownerKey, productId))) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     const body = await c.req.json<ManualDraftPatchPayload>().catch(() => null);
@@ -134,11 +153,16 @@ export function createDraftsRouter() {
     return c.json(updated);
   });
 
-  app.post("/:productId/generate", async (c) => {
+  app.post("/products/:productId/draft/generate", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
     const productId = c.req.param("productId");
 
-    if (!(await productExists(c.env, productId))) {
-      return c.json({ error: "Product not found" }, 404);
+    if (!(await productExists(c.env, ownerKey, productId))) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     const body = await c.req.json<GenerateDraftPayload>().catch(() => null);

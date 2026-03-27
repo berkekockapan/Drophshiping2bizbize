@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 
+import { BrowserSession } from "./browser/browserSession";
 import type { ConnectorConfig } from "./config";
 import { loadConfig } from "./config";
 import { ChatGptWebProvider } from "./providers/chatgptWebProvider";
@@ -56,6 +57,10 @@ function buildProvider(config: ConnectorConfig, store: ProfileStore, attemptStor
     ? new ChatGptWebProvider(store, {
         stateDir: config.stateDir,
         attempts: attemptStore,
+        browserSession: new BrowserSession(config.stateDir, {
+          channel: config.browserChannel,
+          fallbackChannels: config.browserFallbackChannels,
+        }),
       })
     : new MockProvider(store);
 }

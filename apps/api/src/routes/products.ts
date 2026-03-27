@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { ownerKeySchema, type OwnerKey } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
 import { buildEtsyPrepAnalysis } from "../modules/etsyPrep/buildEtsyPrepAnalysis";
@@ -14,8 +15,13 @@ import { buildProductDetailView } from "../modules/tracking/buildProductDetailVi
 export function createProductsRouter() {
   const app = new Hono<{ Bindings: Env }>();
 
-  async function loadEtsyPrepDetail(productId: string, env: Env) {
-    const detail = await buildEtsyPrepView(env.DB, productId);
+  function parseOwnerKey(value: string | undefined) {
+    const parsed = ownerKeySchema.safeParse(value);
+    return parsed.success ? parsed.data : null;
+  }
+
+  async function loadEtsyPrepDetail(ownerKey: OwnerKey, productId: string, env: Env) {
+    const detail = await buildEtsyPrepView(env.DB, ownerKey, productId);
     if (!detail) {
       return null;
     }
@@ -24,25 +30,35 @@ export function createProductsRouter() {
   }
 
   app.get("/:productId/etsy-prep", async (c) => {
-    const view = await buildEtsyPrepView(c.env.DB, c.req.param("productId"));
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const view = await buildEtsyPrepView(c.env.DB, ownerKey, c.req.param("productId"));
     if (!view) {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     return c.json(view);
   });
 
   app.put("/:productId/etsy-prep/save", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
     const body = await c.req.json().catch(() => undefined);
     if (body === undefined || body === null || typeof body !== "object") {
       return c.json({ error: "Invalid JSON payload" }, 400);
     }
 
     try {
-      const saved = await saveEtsyPrepDraft(c.env.DB, c.req.param("productId"), body, Date.now());
+      const saved = await saveEtsyPrepDraft(c.env.DB, ownerKey, c.req.param("productId"), body, Date.now());
 
       if (!saved) {
-        return c.json({ error: "Product not found" }, 404);
+        return c.json({ error: "Kayit bulunamadi" }, 404);
       }
 
       return c.json(saved);
@@ -56,55 +72,80 @@ export function createProductsRouter() {
   });
 
   app.post("/:productId/etsy-prep/analyze", async (c) => {
-    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await loadEtsyPrepDetail(ownerKey, c.req.param("productId"), c.env);
     if (!detail) {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     return buildEtsyPrepAnalysis(detail, { fetchImpl: fetch });
   });
 
   app.post("/:productId/etsy-prep/generate-title", async (c) => {
-    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await loadEtsyPrepDetail(ownerKey, c.req.param("productId"), c.env);
     if (!detail) {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     return buildEtsyPrepFieldPackageStream("title", detail, { fetchImpl: fetch });
   });
 
   app.post("/:productId/etsy-prep/generate-description", async (c) => {
-    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await loadEtsyPrepDetail(ownerKey, c.req.param("productId"), c.env);
     if (!detail) {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     return buildEtsyPrepFieldPackageStream("description", detail, { fetchImpl: fetch });
   });
 
   app.post("/:productId/etsy-prep/generate-tags", async (c) => {
-    const detail = await loadEtsyPrepDetail(c.req.param("productId"), c.env);
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await loadEtsyPrepDetail(ownerKey, c.req.param("productId"), c.env);
     if (!detail) {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     return buildEtsyPrepFieldPackageStream("tags", detail, { fetchImpl: fetch });
   });
 
   app.get("/:productId/images/download", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
     const url = c.req.query("url");
     if (!url) {
       return c.json({ error: "url is required" }, 400);
     }
 
-    const result = await downloadProductImageAsJpg(c.env.DB, c.req.param("productId"), url);
+    const result = await downloadProductImageAsJpg(c.env.DB, ownerKey, c.req.param("productId"), url);
 
     if (result.kind === "ok") {
       return result.response;
     }
 
     if (result.kind === "not-found") {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     if (result.kind === "invalid-image") {
@@ -115,9 +156,14 @@ export function createProductsRouter() {
   });
 
   app.get("/:productId", async (c) => {
-    const detail = await buildProductDetailView(c.env.DB, c.req.param("productId"));
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await buildProductDetailView(c.env.DB, ownerKey, c.req.param("productId"));
     if (!detail) {
-      return c.json({ error: "Product not found" }, 404);
+      return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
     return c.json(detail);

@@ -1,11 +1,19 @@
+import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
+
 export interface TrackingSummary {
   trackedCount: number;
   activeCount: number;
   reviewNeededCount: number;
 }
 
+export interface ProductCategory {
+  id: string;
+  name: string;
+}
+
 export interface TrackingItem {
   id: string;
+  ownerKey: OwnerKey;
   trendyolUrl?: string;
   title: string | null;
   brand: string | null;
@@ -18,6 +26,7 @@ export interface TrackingItem {
   inStockVariantCount: number | null;
   totalVariantCount: number | null;
   isFavorite: boolean;
+  userCategory?: ProductCategory | null;
   lastCheckedAt?: number | null;
 }
 
@@ -29,6 +38,7 @@ export interface TrackingViewResponse {
     parseStatus?: string | null;
     search?: string | null;
     favorite?: boolean;
+    categoryId?: string | null;
   };
 }
 
@@ -71,11 +81,13 @@ export interface ProductChangeTimelineItem {
 export interface ProductDetailResponse {
   product: {
     id: string;
+    ownerKey: OwnerKey;
     trendyolUrl: string;
     sourceProductId: string | null;
     title: string | null;
     brand: string | null;
     category: string | null;
+    userCategory?: ProductCategory | null;
     descriptionRaw: string | null;
     attributes: DetailAttribute[] | null;
     images: string[] | null;
@@ -130,11 +142,17 @@ export interface ProductDetailResponse {
 export interface CreateTrackedProductResponse {
   product: {
     id: string;
+    ownerKey: OwnerKey;
     trendyolUrl: string;
     sourceProductId: string | null;
     title: string;
     variantCount: number;
   };
+}
+
+export interface TrashListResponse {
+  items: TrackingItem[];
+  total: number;
 }
 
 export interface DraftAttribute {
@@ -322,6 +340,7 @@ export interface AppSettingsResponse {
 
 export interface ManualRefreshRunSummary {
   id: string;
+  ownerKey: OwnerKey;
   status: "PENDING" | "RUNNING" | "COMPLETED";
   totalCount: number;
   pendingCount: number;
@@ -434,19 +453,76 @@ async function assertConnectorOkResponse(response: Response): Promise<Response> 
   throw new Error(`Request failed (${response.status})`);
 }
 
-export async function fetchTrackingView(options: { favoriteOnly?: boolean } = {}): Promise<TrackingViewResponse> {
+export async function fetchTrackingView(
+  ownerKey: OwnerKey,
+  options: { favoriteOnly?: boolean; categoryId?: string | "uncategorized" | null } = {},
+): Promise<TrackingViewResponse> {
   const search = new URLSearchParams();
   if (options.favoriteOnly) {
     search.set("favorite", "true");
   }
+  if (options.categoryId) {
+    search.set("categoryId", options.categoryId);
+  }
 
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  const response = await fetchWithTimeout(`/tracking/products${suffix}`);
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products${suffix}`);
   return parseJson<TrackingViewResponse>(response);
 }
 
-export async function createTrackedProduct(trendyolUrl: string): Promise<CreateTrackedProductResponse> {
-  const response = await fetchWithTimeout("/tracking/products", {
+export async function fetchProductCategories(ownerKey: OwnerKey) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/categories`);
+  return parseJson<{ items: ProductCategory[] }>(response);
+}
+
+export async function createProductCategory(ownerKey: OwnerKey, name: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  return parseJson<{ category: ProductCategory }>(response);
+}
+
+export async function renameProductCategory(ownerKey: OwnerKey, categoryId: string, name: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/categories/${categoryId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  return parseJson<{ category: ProductCategory }>(response);
+}
+
+export async function deleteProductCategory(ownerKey: OwnerKey, categoryId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/categories/${categoryId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function setTrackedProductCategory(ownerKey: OwnerKey, productId: string, categoryId: string | null) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/category`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ categoryId }),
+  });
+
+  return parseJson<{ productId: string; userCategory: ProductCategory | null }>(response);
+}
+
+export async function createTrackedProduct(ownerKey: OwnerKey, trendyolUrl: string): Promise<CreateTrackedProductResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -457,13 +533,13 @@ export async function createTrackedProduct(trendyolUrl: string): Promise<CreateT
   return parseJson<CreateTrackedProductResponse>(response);
 }
 
-export async function fetchProductDetail(productId: string): Promise<ProductDetailResponse> {
-  const response = await fetchWithTimeout(`/products/${productId}`);
+export async function fetchProductDetail(ownerKey: OwnerKey, productId: string): Promise<ProductDetailResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}`);
   return parseJson<ProductDetailResponse>(response);
 }
 
-export async function setTrackedProductFavorite(productId: string, isFavorite: boolean) {
-  const response = await fetchWithTimeout(`/tracking/products/${productId}/favorite`, {
+export async function setTrackedProductFavorite(ownerKey: OwnerKey, productId: string, isFavorite: boolean) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/favorite`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -474,8 +550,8 @@ export async function setTrackedProductFavorite(productId: string, isFavorite: b
   return parseJson<{ productId: string; isFavorite: boolean }>(response);
 }
 
-export async function deleteTrackedProduct(productId: string) {
-  const response = await fetchWithTimeout(`/tracking/products/${productId}`, {
+export async function deleteTrackedProduct(ownerKey: OwnerKey, productId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}`, {
     method: "DELETE",
   });
 
@@ -484,29 +560,51 @@ export async function deleteTrackedProduct(productId: string) {
   }
 }
 
-export async function startManualRefreshRun() {
-  const response = await fetchWithTimeout("/tracking/products/refresh-runs", {
+export async function fetchTrashView(ownerKey: OwnerKey): Promise<TrashListResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/trash`);
+  return parseJson<TrashListResponse>(response);
+}
+
+export async function restoreTrackedProduct(ownerKey: OwnerKey, productId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/trash/products/${productId}/restore`, {
+    method: "POST",
+  });
+
+  return parseJson<{ ok: true }>(response);
+}
+
+export async function permanentlyDeleteTrackedProduct(ownerKey: OwnerKey, productId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/trash/products/${productId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function startManualRefreshRun(ownerKey: OwnerKey) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/refresh-runs`, {
     method: "POST",
   });
 
   return parseJson<{ run: ManualRefreshRunSummary }>(response);
 }
 
-export async function fetchActiveManualRefreshRun() {
-  const response = await fetchWithTimeout("/tracking/products/refresh-runs/active");
+export async function fetchActiveManualRefreshRun(ownerKey: OwnerKey) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/refresh-runs/active`);
   return parseJson<{ run: ManualRefreshRunSummary | null }>(response);
 }
 
-export async function fetchManualRefreshRun(runId: string) {
-  const response = await fetchWithTimeout(`/tracking/products/refresh-runs/${runId}`);
+export async function fetchManualRefreshRun(ownerKey: OwnerKey, runId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/refresh-runs/${runId}`);
   return parseJson<{ run: ManualRefreshRunSummary }>(response);
 }
 
-export async function retryFailedManualRefreshRun(runId: string) {
-  const response = await fetchWithTimeout(`/tracking/products/refresh-runs/${runId}/retry-failed`, {
+export async function retryFailedManualRefreshRun(ownerKey: OwnerKey, runId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/refresh-runs/${runId}/retry-failed`, {
     method: "POST",
   });
-
   return parseJson<{ run: ManualRefreshRunSummary }>(response);
 }
 
@@ -528,9 +626,9 @@ function getFilenameFromDisposition(contentDisposition: string | null, fallback:
   return fallback;
 }
 
-export async function downloadProductImage(productId: string, imageUrl: string) {
+export async function downloadProductImage(ownerKey: OwnerKey, productId: string, imageUrl: string) {
   const search = new URLSearchParams({ url: imageUrl });
-  const response = await fetchWithTimeout(`/products/${productId}/images/download?${search.toString()}`);
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/images/download?${search.toString()}`);
 
   if (!response.ok) {
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
@@ -548,41 +646,41 @@ export async function downloadProductImage(productId: string, imageUrl: string) 
   };
 }
 
-export async function fetchNotifications(productId?: string): Promise<{ items: NotificationItem[] }> {
+export async function fetchNotifications(ownerKey: OwnerKey, productId?: string): Promise<{ items: NotificationItem[] }> {
   const search = productId ? `?productId=${encodeURIComponent(productId)}` : "";
-  const response = await fetchWithTimeout(`/notifications${search}`);
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/notifications${search}`);
   return parseJson<{ items: NotificationItem[] }>(response);
 }
 
-export async function fetchDraft(productId: string): Promise<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }> {
-  const response = await fetchWithTimeout(`/drafts/${productId}`);
+export async function fetchDraft(ownerKey: OwnerKey, productId: string): Promise<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/draft`);
   return parseJson<{ draft: EtsyDraft; prompt: DraftPromptResponse | null }>(response);
 }
 
-export async function fetchEtsyPrepWorkspace(productId: string): Promise<EtsyPrepBootstrapResponse> {
-  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep`);
+export async function fetchEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string): Promise<EtsyPrepBootstrapResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep`);
   return parseJson<EtsyPrepBootstrapResponse>(response);
 }
 
-export async function streamEtsyPrepAnalysis(productId: string) {
-  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep/analyze`, {
+export async function streamEtsyPrepAnalysis(ownerKey: OwnerKey, productId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep/analyze`, {
     method: "POST",
   });
 
   return assertOkResponse(response);
 }
 
-export async function streamEtsyPrepFieldPackage(productId: string, field: EtsyPrepField) {
+export async function streamEtsyPrepFieldPackage(ownerKey: OwnerKey, productId: string, field: EtsyPrepField) {
   const path = field === "title" ? "generate-title" : field === "description" ? "generate-description" : "generate-tags";
-  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep/${path}`, {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep/${path}`, {
     method: "POST",
   });
 
   return assertOkResponse(response);
 }
 
-export async function saveEtsyPrepWorkspace(productId: string, payload: SaveEtsyPrepWorkspacePayload) {
-  const response = await fetchWithTimeout(`/products/${productId}/etsy-prep/save`, {
+export async function saveEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string, payload: SaveEtsyPrepWorkspacePayload) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep/save`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -594,12 +692,13 @@ export async function saveEtsyPrepWorkspace(productId: string, payload: SaveEtsy
 }
 
 export async function patchDraft(
+  ownerKey: OwnerKey,
   productId: string,
   payload: Partial<
     Pick<EtsyDraft, "englishTitle" | "shortDescription" | "longDescription" | "tags" | "materials" | "attributes" | "seoNotes" | "policyNotes">
   >,
 ) {
-  const response = await fetchWithTimeout(`/drafts/${productId}`, {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/draft`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -611,6 +710,7 @@ export async function patchDraft(
 }
 
 export async function saveGeneratedDraft(
+  ownerKey: OwnerKey,
   productId: string,
   payload: {
     overwrite?: boolean;
@@ -620,7 +720,7 @@ export async function saveGeneratedDraft(
     >;
   },
 ) {
-  const response = await fetchWithTimeout(`/drafts/${productId}/generate`, {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/draft/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

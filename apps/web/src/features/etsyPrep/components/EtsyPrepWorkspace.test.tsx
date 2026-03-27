@@ -186,7 +186,7 @@ describe("EtsyPrepWorkspace", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+    renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByText(/signals/i)).toBeInTheDocument();
     expect(await screen.findByText(/bağlantı durumu: wo\*\*\*@company.com/i)).toBeInTheDocument();
@@ -253,7 +253,7 @@ describe("EtsyPrepWorkspace", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+    renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
     expect((await screen.findAllByText(/openai bağlantısı gerekli/i)).length).toBeGreaterThan(0);
@@ -305,7 +305,7 @@ describe("EtsyPrepWorkspace", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    renderWithProviders(<EtsyPrepWorkspace productId="prod_1" onBack={() => undefined} />);
+    renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
     expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
     expect((await screen.findAllByText(/bağlantı yeniden doğrulanmalı/i)).length).toBeGreaterThan(0);

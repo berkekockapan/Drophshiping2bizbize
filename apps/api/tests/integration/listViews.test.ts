@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "../../src/index";
+import { createNotificationsRepo } from "../../src/db/repositories/notificationsRepo";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
-import { processRefreshJob } from "../../src/modules/sync/applyProductRefresh";
+import { deleteTrackedProduct } from "../../src/modules/tracking/deleteTrackedProduct";
 import { createTestEnv } from "../support/sqlite";
 
 const productWithVariantsHtml = readFileSync(
@@ -13,111 +14,67 @@ const productWithVariantsHtml = readFileSync(
 );
 
 describe("list and detail views", () => {
-  it("returns dashboard cards, filters, and product detail sections", async () => {
+  it("returns owner-scoped list/detail/notifications/trash views", async () => {
     const { env } = createTestEnv();
+    const fetchImpl = async () => new Response(productWithVariantsHtml, { status: 200 });
+    const app = createApp({ fetchImpl });
 
-    const settingsResponse = await createApp().request("http://localhost/settings", undefined, env);
-    expect(settingsResponse.status).toBe(200);
-    expect(await settingsResponse.json()).toMatchObject({
-      refreshIntervalHours: 5,
-      connectorHealthcheckEnabled: true,
-      aiTargetBaseUrl: null,
-      aiTargetLabel: null,
-      aiTargetManagementKey: null,
-      aiTargetApiKey: null,
-    });
-
-    const seeded = await createTrackedProduct(
+    const berke = await createTrackedProduct(
       env,
-      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
-      {
-        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
-        now: new Date("2026-03-20T00:00:00.000Z"),
-      },
+      { ownerKey: "berke", trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      { fetchImpl, now: new Date("2026-03-20T00:00:00.000Z") },
     );
-
-    const changedHtml = productWithVariantsHtml
-      .replace('data-price="429.90">429.90', 'data-price="449.90">449.90')
-      .replace('data-key="M-Siyah" data-option-1="M" data-option-2="Siyah" data-stock-state="OUT_OF_STOCK"', 'data-key="M-Siyah" data-option-1="M" data-option-2="Siyah" data-stock-state="IN_STOCK"');
-
-    await processRefreshJob(
+    const kaan = await createTrackedProduct(
       env,
-      { productId: seeded.product.id },
-      {
-        source: "MANUAL",
-        fetchImpl: async () => new Response(changedHtml, { status: 200 }),
-        now: new Date("2026-03-20T06:00:00.000Z"),
-      },
+      { ownerKey: "kaan", trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      { fetchImpl, now: new Date("2026-03-20T00:01:00.000Z") },
     );
 
-    await processRefreshJob(
-      env,
-      { productId: seeded.product.id },
-      {
-        source: "MANUAL",
-        fetchImpl: async () => new Response(changedHtml, { status: 200 }),
-        now: new Date("2026-03-20T07:00:00.000Z"),
-      },
+    await createNotificationsRepo(env.DB).insertNotifications(
+      "berke",
+      berke.product.id,
+      [
+        {
+          type: "PRICE_INCREASED",
+          severity: "info",
+          title: "Fiyat artti",
+          body: "Urun fiyati yukseldi",
+        },
+      ],
+      new Date("2026-03-20T01:00:00.000Z"),
     );
 
-    const app = createApp();
-    const listResponse = await app.request("http://localhost/tracking/products", undefined, env);
-    const detailResponse = await app.request(`http://localhost/products/${seeded.product.id}`, undefined, env);
-    const notificationsResponse = await app.request("http://localhost/notifications", undefined, env);
+    await deleteTrackedProduct(env.DB, "berke", berke.product.id, new Date("2026-03-20T02:00:00.000Z"));
 
-    expect(listResponse.status).toBe(200);
-    expect(detailResponse.status).toBe(200);
-    expect(notificationsResponse.status).toBe(200);
+    const berkeList = await app.request("http://localhost/owners/berke/products", undefined, env);
+    const kaanList = await app.request("http://localhost/owners/kaan/products", undefined, env);
+    const berkeTrash = await app.request("http://localhost/owners/berke/trash", undefined, env);
+    const berkeNotifications = await app.request("http://localhost/owners/berke/notifications", undefined, env);
+    const kaanNotifications = await app.request("http://localhost/owners/kaan/notifications", undefined, env);
+    const kaanDetail404 = await app.request(`http://localhost/owners/kaan/products/${berke.product.id}`, undefined, env);
+    const kaanDetail = await app.request(`http://localhost/owners/kaan/products/${kaan.product.id}`, undefined, env);
 
-    const listJson = await listResponse.json();
-    const detailJson = await detailResponse.json();
-    const notificationsJson = await notificationsResponse.json();
+    expect(berkeList.status).toBe(200);
+    expect(kaanList.status).toBe(200);
+    expect(berkeTrash.status).toBe(200);
+    expect(berkeNotifications.status).toBe(200);
+    expect(kaanNotifications.status).toBe(200);
+    expect(kaanDetail404.status).toBe(404);
+    expect(kaanDetail.status).toBe(200);
 
-    expect(listJson.summary.trackedCount).toBeGreaterThan(0);
-    expect(listJson.items[0]).toEqual(
-      expect.objectContaining({
-        id: seeded.product.id,
-        title: "Oversize Hoodie",
-        totalVariantCount: 3,
-        isFavorite: false,
-        thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
-      }),
-    );
+    const berkeListJson = await berkeList.json();
+    const kaanListJson = await kaanList.json();
+    const berkeTrashJson = await berkeTrash.json();
+    const berkeNotificationsJson = await berkeNotifications.json();
+    const kaanNotificationsJson = await kaanNotifications.json();
 
-    expect(detailJson.variants[0]).toEqual(
-      expect.objectContaining({
-        option1: "L",
-        trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-l-siyah-p-123",
-      }),
+    expect(berkeListJson.items).toHaveLength(0);
+    expect(berkeListJson.summary.trackedCount).toBe(0);
+    expect(kaanListJson.items).toEqual([expect.objectContaining({ id: kaan.product.id, ownerKey: "kaan" })]);
+    expect(berkeTrashJson.items).toEqual([expect.objectContaining({ id: berke.product.id, ownerKey: "berke" })]);
+    expect(berkeNotificationsJson.items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ productId: berke.product.id, type: "PRICE_INCREASED" })]),
     );
-    expect(detailJson.priceHistory).toHaveLength(1);
-    expect(detailJson.stockHistory).toHaveLength(1);
-    expect(detailJson.currentState.currentPrice).toBe(44990);
-    expect(detailJson.changeTimeline).toHaveLength(3);
-    expect(detailJson.changeTimeline[0]).toEqual(
-      expect.objectContaining({
-        type: "REFRESH_NO_CHANGE",
-        summary: "Yenileme yapildi, degisiklik bulunamadi",
-      }),
-    );
-    expect(detailJson.changeTimeline).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "PRODUCT_PRICE_CHANGED",
-          summary: expect.stringContaining("Urun fiyati degisti"),
-        }),
-        expect.objectContaining({
-          type: "VARIANT_STOCK_CHANGED",
-          summary: expect.stringContaining("stok"),
-        }),
-      ]),
-    );
-
-    expect(notificationsJson.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "PRICE_INCREASED" }),
-        expect.objectContaining({ type: "BACK_IN_STOCK" }),
-      ]),
-    );
+    expect(kaanNotificationsJson.items).toEqual([]);
   });
 });

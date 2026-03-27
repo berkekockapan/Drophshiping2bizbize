@@ -85,20 +85,20 @@ const envoyProductHtml = `
   </html>
 `;
 
-describe("POST /tracking/products", () => {
+describe("POST /owners/:ownerKey/products", () => {
   it("creates a tracked product and rejects a duplicate normalized URL", async () => {
     const { env, sqlite } = createTestEnv();
     const app = createApp({
       fetchImpl: async () => new Response(basicProductHtml, { status: 200 }),
     });
 
-    const first = await app.request("/tracking/products", {
+    const first = await app.request("http://localhost/owners/berke/products", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" }),
     }, env);
 
-    const second = await app.request("/tracking/products", {
+    const second = await app.request("http://localhost/owners/berke/products", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=999" }),
@@ -132,7 +132,7 @@ describe("POST /tracking/products", () => {
     });
 
     const response = await app.request(
-      "/tracking/products",
+      "http://localhost/owners/berke/products",
       {
         method: "POST",
         headers: { "content-type": "application/json" },

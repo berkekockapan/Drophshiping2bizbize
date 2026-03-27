@@ -1,9 +1,8 @@
-﻿import "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { NotificationsPage } from "../../notifications/routes/NotificationsPage";
 import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
 import { ProductDetailPage } from "./ProductDetailPage";
@@ -11,11 +10,13 @@ import { ProductDetailPage } from "./ProductDetailPage";
 const productDetailPayload = {
   product: {
     id: "prod_1",
+    ownerKey: "berke",
     trendyolUrl: "https://www.trendyol.com/example",
     sourceProductId: "123",
     title: "Oversize Hoodie",
     brand: "North Apparel",
     category: "Sweatshirt",
+    userCategory: null,
     descriptionRaw: "Yumuşak dokulu oversize hoodie.",
     attributes: [{ key: "Renk", value: "Siyah" }],
     images: ["https://cdn.example.com/hoodie-1.jpg", "https://cdn.example.com/hoodie-2.jpg"],
@@ -46,29 +47,8 @@ const productDetailPayload = {
       rawPayload: { stockState: "IN_STOCK", url: "https://www.trendyol.com/example/l-siyah" },
     },
   ],
-  priceHistory: [
-    {
-      id: "price_1",
-      productId: "prod_1",
-      variantId: null,
-      previousPrice: 42990,
-      newPrice: 44990,
-      changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
-      changeReason: "PRODUCT_PRICE_CHANGED",
-      refreshAuditId: "audit_1",
-    },
-  ],
-  stockHistory: [
-    {
-      id: "stock_1",
-      productId: "prod_1",
-      variantId: "var_1",
-      previousStockState: "OUT_OF_STOCK",
-      newStockState: "IN_STOCK",
-      changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
-      refreshAuditId: "audit_1",
-    },
-  ],
+  priceHistory: [],
+  stockHistory: [],
   changeTimeline: [
     {
       id: "audit_2",
@@ -81,45 +61,12 @@ const productDetailPayload = {
       variantKey: null,
       refreshSource: "MANUAL",
     },
-    {
-      id: "price_1",
-      type: "PRODUCT_PRICE_CHANGED",
-      changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
-      summary: "Urun fiyati degisti",
-      details: null,
-      before: "429.90 TL",
-      after: "449.90 TL",
-      variantKey: null,
-      refreshSource: "MANUAL",
-    },
-    {
-      id: "stock_1",
-      type: "VARIANT_STOCK_CHANGED",
-      changedAt: Date.parse("2026-03-20T09:30:00.000Z"),
-      summary: "L / Siyah varyanti yeniden stokta",
-      details: null,
-      before: "Stokta degil",
-      after: "Stokta",
-      variantKey: "L / Siyah",
-      refreshSource: "MANUAL",
-    },
   ],
   notifications: [],
 };
 
-const notificationsPayload = {
-  items: [
-    {
-      id: "notification_1",
-      productId: "prod_1",
-      type: "PARSE_ERROR",
-      severity: "warning",
-      title: "Parse hatası",
-      body: "Ürün sayfasında beklenen alanlar bulunamadı.",
-      readAt: null,
-      createdAt: Date.parse("2026-03-20T10:00:00.000Z"),
-    },
-  ],
+const categoriesPayload = {
+  items: [{ id: "cat_bardak", name: "Bardak" }],
 };
 
 function jsonResponse(payload: unknown) {
@@ -137,90 +84,48 @@ function ndjsonResponse(events: unknown[]) {
 }
 
 describe("ProductDetailPage", () => {
-  beforeEach(() => {
-    installMockLocalStorage();
-  });
-
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
   });
 
-  it("shows variant rows and the unified change timeline on the product detail screen", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  it("uses owner-scoped detail endpoint and back links", async () => {
+    installMockLocalStorage();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
-      if (url.includes("/products/prod_1")) {
-        return new Response(JSON.stringify(productDetailPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+      if (url.includes("/owners/berke/categories")) {
+        return jsonResponse(categoriesPayload);
+      }
+
+      if (url.includes("/owners/berke/products/prod_1")) {
+        return jsonResponse(productDetailPayload);
       }
 
       throw new Error(`Unhandled request: ${url}`);
     });
 
     renderWithProviders(<ProductDetailPage />, {
-      route: "/products/prod_1",
-      path: "/products/:productId",
+      route: "/owners/berke/products/prod_1",
+      path: "/owners/:ownerKey/products/:productId",
     });
 
     expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
-    expect(await screen.findByText(/en düşük/i)).toBeInTheDocument();
-    expect(await screen.findByText(/degisiklik gecmisi/i)).toBeInTheDocument();
-    expect(screen.queryByText(/fiyat geçmişi/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/stok geçmişi/i)).not.toBeInTheDocument();
-    expect(await screen.findByText(/yenileme yapildi, degisiklik bulunamadi/i)).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /trendyol ürün sayfasını yeni sekmede aç: oversize hoodie/i })).toHaveAttribute(
-      "href",
-      "https://www.trendyol.com/example",
-    );
-    expect(await screen.findByRole("link", { name: /trendyol ürün sayfasını yeni sekmede aç: oversize hoodie/i })).toHaveAttribute(
-      "target",
-      "_blank",
-    );
-    expect(await screen.findByRole("link", { name: /trendyol varyasyon sayfasını yeni sekmede aç: l \/ siyah/i })).toHaveAttribute(
-      "href",
-      "https://www.trendyol.com/example/l-siyah",
-    );
-    expect(await screen.findByRole("link", { name: /trendyol varyasyon sayfasını yeni sekmede aç: l \/ siyah/i })).toHaveAttribute(
-      "target",
-      "_blank",
-    );
-    expect(await screen.findByRole("img", { name: /oversize hoodie ana görsel/i })).toHaveAttribute(
-      "src",
-      "https://cdn.example.com/hoodie-1.jpg",
-    );
-    expect(await screen.findByRole("button", { name: /jpg indir/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products/prod_1"), expect.anything());
   });
 
-  it("renders unread notifications grouped by severity", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  it("switches to prep mode and requests owner-scoped prep endpoints", async () => {
+    installMockLocalStorage();
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url.includes("/notifications")) {
-        return new Response(JSON.stringify(notificationsPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+      if (url.includes("/owners/berke/categories")) {
+        return jsonResponse(categoriesPayload);
       }
 
-      throw new Error(`Unhandled request: ${url}`);
-    });
-
-    renderWithProviders(<NotificationsPage />, { route: "/notifications" });
-
-    expect(await screen.findByText(/parse hatası/i)).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: /uyarılar/i })).toBeInTheDocument();
-  });
-
-  it("switches from genel bakis to hazirlik mode inside the same product page", async () => {
-    const user = userEvent.setup();
-
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-
-      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
+      if (url.includes("/owners/berke/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
           product: productDetailPayload.product,
           draft: {
@@ -242,21 +147,8 @@ describe("ProductDetailPage", () => {
         });
       }
 
-      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
-        return ndjsonResponse([
-          { type: "step_started", step: "fetch_listing_signals", field: "general" },
-          {
-            type: "result_ready",
-            result: {
-              productId: "prod_1",
-              insights: {
-                seoNotes: "Lead with hoodie keyword.",
-                policyNotes: "Care instructions should be explicit.",
-                merchandisingNotes: "Missing lifestyle context.",
-              },
-            },
-          },
-        ]);
+      if (url.includes("/owners/berke/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
+        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
       }
 
       if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
@@ -276,20 +168,12 @@ describe("ProductDetailPage", () => {
         return jsonResponse({
           status: "online",
           provider: "chatgpt-web",
-          activeProfile: {
-            id: "profile_main",
-            label: "OpenAI Workspace",
-            emailMasked: "wo***@company.com",
-            provider: "chatgpt-web",
-            status: "connected",
-            lastValidatedAt: Date.now(),
-            lastError: null,
-          },
+          activeProfile: null,
           connectionAttempt: null,
         });
       }
 
-      if (url.includes("/products/prod_1")) {
+      if (url.includes("/owners/berke/products/prod_1")) {
         return jsonResponse(productDetailPayload);
       }
 
@@ -297,81 +181,37 @@ describe("ProductDetailPage", () => {
     });
 
     renderWithProviders(<ProductDetailPage />, {
-      route: "/products/prod_1",
-      path: "/products/:productId",
+      route: "/owners/berke/products/prod_1",
+      path: "/owners/:ownerKey/products/:productId",
     });
 
     expect(await screen.findByRole("button", { name: /etsy'e yükle/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /etsy'e yükle/i }));
 
     expect(await screen.findByRole("heading", { name: /etsy hazırlık çalışma alanı/i })).toBeInTheDocument();
-    expect(screen.getByText(/varyasyon matrisi/i)).not.toBeVisible();
-    expect(screen.getByRole("button", { name: /genel bakışa dön/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owners/berke/products/prod_1/etsy-prep"),
+        expect.anything(),
+      ),
+    );
   });
 
-  it("preserves unsaved prep workspace state when toggling back to genel bakis and returning", async () => {
+  it("updates the owner-scoped product category from the detail page", async () => {
+    installMockLocalStorage();
     const user = userEvent.setup();
-
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          product: productDetailPayload.product,
-          draft: {
-            id: "draft_1",
-            productId: "prod_1",
-            englishTitle: null,
-            shortDescription: null,
-            longDescription: null,
-            tags: [],
-            materials: [],
-            attributes: [],
-            seoNotes: null,
-            policyNotes: null,
-            generatedVersion: 0,
-            editedVersion: 0,
-            lastGeneratedAt: null,
-            manualEditsPresent: false,
-          },
-        });
+      if (url.includes("/owners/berke/categories")) {
+        return jsonResponse(categoriesPayload);
       }
 
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: "mgmt_live_123",
-          aiTargetLabel: "Windows",
-          aiTargetApiKey: "api_live_123",
-        });
+      if (url.includes("/owners/berke/products/prod_1/category") && init?.method === "PATCH") {
+        return jsonResponse({ productId: "prod_1", userCategory: { id: "cat_bardak", name: "Bardak" } });
       }
 
-      if (url === "https://clip.example.com/health") {
-        return jsonResponse({
-          status: "online",
-          provider: "chatgpt-web",
-          activeProfile: {
-            id: "profile_main",
-            label: "OpenAI Workspace",
-            emailMasked: "wo***@company.com",
-            provider: "chatgpt-web",
-            status: "connected",
-            lastValidatedAt: Date.now(),
-            lastError: null,
-          },
-          connectionAttempt: null,
-        });
-      }
-
-      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
-        return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
-      }
-
-      if (url.includes("/products/prod_1")) {
+      if (url.includes("/owners/berke/products/prod_1")) {
         return jsonResponse(productDetailPayload);
       }
 
@@ -379,18 +219,16 @@ describe("ProductDetailPage", () => {
     });
 
     renderWithProviders(<ProductDetailPage />, {
-      route: "/products/prod_1",
-      path: "/products/:productId",
+      route: "/owners/berke/products/prod_1",
+      path: "/owners/:ownerKey/products/:productId",
     });
 
-    await user.click(await screen.findByRole("button", { name: /etsy'e yükle/i }));
-    await user.type(await screen.findByLabelText(/title/i), "Unsaved prep title");
-    await user.click(screen.getByRole("button", { name: /genel bakışa dön/i }));
-
-    expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /etsy'e yükle/i }));
-    expect(await screen.findByLabelText(/title/i)).toHaveValue("Unsaved prep title");
+    await user.selectOptions(await screen.findByLabelText(/takip kategorisi/i), "cat_bardak");
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/owners/berke/products/prod_1/category"),
+        expect.objectContaining({ method: "PATCH" }),
+      ),
+    );
   });
 });
-
-

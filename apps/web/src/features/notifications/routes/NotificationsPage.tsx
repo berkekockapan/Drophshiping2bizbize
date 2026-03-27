@@ -1,13 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
 
 import { fetchNotifications } from "../../../app/api";
+import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { NotificationList } from "../components/NotificationList";
 
+function isOwnerKey(value: string | undefined): value is OwnerKey {
+  return ownerOptions.some((owner) => owner.key === value);
+}
+
 export function NotificationsPage() {
+  const { ownerKey: ownerKeyParam } = useParams<{ ownerKey: string }>();
+  const ownerKey = isOwnerKey(ownerKeyParam) ? ownerKeyParam : null;
+
   const notificationsQuery = useQuery({
-    queryKey: ["notifications"],
-    queryFn: () => fetchNotifications(),
+    queryKey: ["notifications", ownerKey],
+    enabled: Boolean(ownerKey),
+    queryFn: () => fetchNotifications(ownerKey as OwnerKey),
   });
+
+  if (!ownerKey) {
+    return <p className="text-sm text-rose-600">Geçersiz owner seçimi.</p>;
+  }
 
   return (
     <div className="space-y-6">

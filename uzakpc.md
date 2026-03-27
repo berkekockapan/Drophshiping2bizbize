@@ -85,6 +85,8 @@ Bu akista script su sirayi uygular:
 4. Sirali baslatir: once API hazir olur, sonra WEB hazir olur, en son ngrok acilir
 5. ngrok public URL'yi terminale yazar
 
+Not: restart scripti `bash.exe` yolunu otomatik bulur; API'yi PATH bagimsiz baslatir.
+
 ## Hızlı Sağlık Kontrolü
 
 - Local web: `http://127.0.0.1:5173`

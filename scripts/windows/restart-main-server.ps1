@@ -21,6 +21,33 @@ function Ensure-Command {
   }
 }
 
+function Resolve-BashExecutable {
+  $bashCommand = Get-Command bash -ErrorAction SilentlyContinue
+  if ($bashCommand -and (Test-Path -LiteralPath $bashCommand.Source)) {
+    return $bashCommand.Source
+  }
+
+  $candidateDirs = @(
+    "C:\Program Files\Git\bin",
+    "C:\Program Files\Git\usr\bin",
+    "$env:ProgramFiles\Git\bin",
+    "$env:ProgramFiles\Git\usr\bin",
+    "$env:ProgramW6432\Git\bin",
+    "$env:ProgramW6432\Git\usr\bin",
+    "$env:LOCALAPPDATA\Programs\Git\bin",
+    "$env:LOCALAPPDATA\Programs\Git\usr\bin"
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+  foreach ($dir in $candidateDirs) {
+    $candidate = Join-Path $dir "bash.exe"
+    if (Test-Path -LiteralPath $candidate) {
+      return $candidate
+    }
+  }
+
+  throw "bash.exe bulunamadi. Git for Windows kurulu olmali."
+}
+
 function Stop-StaleProcesses {
   Write-Log "Eski surecler kapatiliyor (node/ngrok/caddy)..."
   foreach ($processName in @("node", "ngrok", "caddy")) {
@@ -52,9 +79,12 @@ function Install-Dependencies {
 }
 
 function Start-ServiceWindows {
-  param([Parameter(Mandatory = $true)][string]$ResolvedRepoPath)
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [Parameter(Mandatory = $true)][string]$BashExecutable
+  )
 
-  $apiCmd = "title Dropship API && cd /d `"$ResolvedRepoPath`" && set PATH=%PATH%;C:\Program Files\Git\bin && pnpm.cmd dev:api"
+  $apiCmd = "title Dropship API && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @trendyol-etsy/api exec wrangler dev --port 8787"
   $webCmd = "title Dropship Web && cd /d `"$ResolvedRepoPath`" && pnpm.cmd dev:web"
   $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http 5173"
 
@@ -137,14 +167,16 @@ function Main {
     throw "Repo yolu bulunamadi: $RepoPath"
   }
 
+  $bashExecutable = Resolve-BashExecutable
   $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
   Set-Location -LiteralPath $resolvedRepoPath
 
   Write-Log "Repo: $resolvedRepoPath"
+  Write-Log "bash: $bashExecutable"
   Stop-StaleProcesses
   Sync-MainBranch
   Install-Dependencies
-  Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath
+  Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
 
   $head = (& git rev-parse --short HEAD).Trim()
   Write-Log "Tamamlandi. Aktif commit: $head"

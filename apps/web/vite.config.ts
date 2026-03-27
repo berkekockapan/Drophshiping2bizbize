@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+﻿import { defineConfig, loadEnv } from "vite";
 
 const apiProxyRoutes = [
   "/health",
@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
       jsx: "automatic",
     },
     server: {
+      allowedHosts: true,
       host: "127.0.0.1",
       proxy: Object.fromEntries(
         apiProxyRoutes.map((route) => [

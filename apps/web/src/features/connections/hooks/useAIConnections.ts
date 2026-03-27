@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ConnectionAttemptResponse, ConnectorProfile } from "../../../app/api";
 import {
@@ -135,6 +135,7 @@ function buildViewState({
 
 export function useAIConnections() {
   const queryClient = useQueryClient();
+  const authPopupRef = useRef<Window | null>(null);
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<Error | null>(null);
 
@@ -235,18 +236,45 @@ export function useAIConnections() {
           : null;
 
       if (authorizationUrl) {
-        const popup = window.open(authorizationUrl, "_blank", "noopener");
+        const popup = authPopupRef.current;
 
-        if (!popup) {
-          setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));
+        if (popup && !popup.closed) {
+          try {
+            popup.location.replace(authorizationUrl);
+            popup.focus();
+            setLaunchError(null);
+          } catch {
+            const launched = window.open(authorizationUrl, "_blank", "noopener");
+            if (!launched) {
+              setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));
+            } else {
+              setLaunchError(null);
+            }
+          }
         } else {
-          setLaunchError(null);
+          const launched = window.open(authorizationUrl, "_blank", "noopener");
+
+          if (!launched) {
+            setLaunchError(new Error("Giriş sekmesi açılamadı. Tarayıcı izinlerini kontrol edip tekrar deneyin."));
+          } else {
+            setLaunchError(null);
+          }
         }
       } else {
         setLaunchError(null);
       }
 
+      authPopupRef.current = null;
       await queryClient.invalidateQueries({ queryKey: effectiveHealthQueryKey });
+    },
+    onError: () => {
+      const popup = authPopupRef.current;
+
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+
+      authPopupRef.current = null;
     },
   });
 
@@ -299,6 +327,25 @@ export function useAIConnections() {
     saveTarget: (payload: { baseUrl: string }) => saveTargetMutation.mutate(payload),
     startConnection: () => {
       setLaunchError(null);
+
+      if (!shouldUseConnectorFallback) {
+        const popup = window.open("", "_blank", "noopener");
+
+        if (popup) {
+          try {
+            popup.opener = null;
+            popup.document.title = "OpenAI giriş sayfası açılıyor";
+            popup.document.body.innerHTML = "<p>OpenAI giriş sayfasına yönlendiriliyorsunuz...</p>";
+          } catch {
+            // Tarayıcı popup belgesine erişimi kısıtlarsa sadece yönlendirme adımına devam edilir.
+          }
+        }
+
+        authPopupRef.current = popup;
+      } else {
+        authPopupRef.current = null;
+      }
+
       startMutation.mutate();
     },
     reconnectProfile: (profileId: string) => reconnectMutation.mutate(profileId),

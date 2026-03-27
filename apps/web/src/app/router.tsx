@@ -1,4 +1,4 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+﻿import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AIConnectionsPage } from "../features/connections/routes/AIConnectionsPage";

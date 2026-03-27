@@ -1,4 +1,4 @@
-import "@testing-library/jest-dom/vitest";
+﻿import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -237,9 +237,26 @@ describe("AIConnectionsPage", () => {
     expect(screen.queryByRole("button", { name: "Bağlantıyı Kaldır" })).not.toBeInTheDocument();
   });
 
-  it("opens the authorization URL in a new tab when the connection starts", async () => {
+  it("opens the authorization URL in a synchronously opened popup", async () => {
     const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as WindowProxy);
+    const popupLocationReplace = vi.fn();
+    const popupFocus = vi.fn();
+
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({
+      closed: false,
+      focus: popupFocus,
+      close: vi.fn(),
+      document: {
+        title: "",
+        body: {
+          innerHTML: "",
+        },
+      },
+      location: {
+        replace: popupLocationReplace,
+      },
+      opener: window,
+    } as unknown as WindowProxy);
 
     mockConnectorFetches({
       health: {
@@ -256,7 +273,9 @@ describe("AIConnectionsPage", () => {
     await user.click(await screen.findByRole("button", { name: "OpenAI ile giriş yap" }));
 
     await waitFor(() => {
-      expect(openSpy).toHaveBeenCalledWith("https://auth.openai.test/oauth?attempt=attempt_1", "_blank", "noopener");
+      expect(openSpy).toHaveBeenCalledWith("", "_blank", "noopener");
+      expect(popupLocationReplace).toHaveBeenCalledWith("https://auth.openai.test/oauth?attempt=attempt_1");
+      expect(popupFocus).toHaveBeenCalled();
     });
 
     expect(await screen.findByText("OpenAI bağlantısı kuruluyor")).toBeInTheDocument();
@@ -264,7 +283,7 @@ describe("AIConnectionsPage", () => {
 
   it("shows a product error when the browser blocks the popup", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "open").mockReturnValueOnce(null);
+    vi.spyOn(window, "open").mockReturnValue(null);
 
     mockConnectorFetches({
       health: {

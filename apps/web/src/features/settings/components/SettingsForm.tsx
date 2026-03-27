@@ -1,17 +1,19 @@
-﻿import { useState } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 
 import type { AppSettingsResponse } from "../../../app/api";
 
 interface SettingsFormProps {
   initialValue: AppSettingsResponse;
   pending?: boolean;
+  footer?: ReactNode;
   onSubmit: (payload: {
     refreshIntervalHours: number;
     connectorHealthcheckEnabled: boolean;
   }) => void;
 }
 
-export function SettingsForm({ initialValue, pending = false, onSubmit }: SettingsFormProps) {
+export function SettingsForm({ initialValue, pending = false, footer, onSubmit }: SettingsFormProps) {
   const [refreshIntervalHours, setRefreshIntervalHours] = useState(initialValue.refreshIntervalHours);
   const [connectorHealthcheckEnabled, setConnectorHealthcheckEnabled] = useState(initialValue.connectorHealthcheckEnabled);
 
@@ -58,6 +60,8 @@ export function SettingsForm({ initialValue, pending = false, onSubmit }: Settin
           {pending ? "Kaydediliyor..." : "Kaydet"}
         </button>
       </div>
+
+      {footer ? <div className="mt-6">{footer}</div> : null}
     </form>
   );
 }

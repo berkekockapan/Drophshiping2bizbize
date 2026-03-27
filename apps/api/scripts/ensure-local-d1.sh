@@ -8,11 +8,11 @@ local_migrations_table="d1_local_migrations"
 cd "$api_dir"
 
 run_local_d1() {
-  pnpm exec wrangler d1 execute trendyol-etsy --local "$@"
+  pnpm exec wrangler d1 execute DB --local "$@"
 }
 
 run_local_d1_json() {
-  pnpm exec wrangler d1 execute trendyol-etsy --local --json "$@"
+  pnpm exec wrangler d1 execute DB --local --json "$@"
 }
 
 ensure_local_migration_table() {

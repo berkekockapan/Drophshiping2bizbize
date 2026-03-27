@@ -197,6 +197,7 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
+    expect(screen.getByText("Cloudflare deploy notu")).toBeInTheDocument();
     expect(await screen.findByText("OpenAI bağlantısı hazır")).toBeInTheDocument();
     expect(screen.getAllByText(/wo\*\*\*@company.com/i)).not.toHaveLength(0);
     expect(screen.queryByLabelText("Bağlantı Servisi URL")).not.toBeInTheDocument();

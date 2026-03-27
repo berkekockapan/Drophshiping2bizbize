@@ -353,12 +353,22 @@ export interface ManualRefreshRunSummary {
   sourceRunId: string | null;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+function toApiUrl(path: string) {
+  if (!API_BASE_URL || /^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 30_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(input, {
+    return await fetch(toApiUrl(input), {
       ...init,
       signal: controller.signal,
     });

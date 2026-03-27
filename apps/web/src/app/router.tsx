@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AIConnectionsPage } from "../features/connections/routes/AIConnectionsPage";
 import { SeoEditorPage } from "../features/drafts/routes/SeoEditorPage";
+import { ImageMetadataCleanerPage } from "../features/mediaMetadataCleaner/routes/ImageMetadataCleanerPage";
 import { NotificationsPage } from "../features/notifications/routes/NotificationsPage";
 import { ProductDetailPage } from "../features/product/routes/ProductDetailPage";
 import { SettingsPage } from "../features/settings/routes/SettingsPage";
@@ -28,6 +29,7 @@ export function AppRouter() {
             <Route path="/owners/:ownerKey/trash" element={<TrashPage />} />
             <Route path="/connections" element={<AIConnectionsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/image-metadata-cleaner" element={<ImageMetadataCleanerPage />} />
           </Routes>
         </AppShell>
       </BrowserRouter>

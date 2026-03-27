@@ -9,7 +9,9 @@
     "dev:api": "pnpm --filter @trendyol-etsy/api dev",
     "dev:web": "pnpm --filter @trendyol-etsy/web dev",
     "dev:connector": "pnpm --filter @trendyol-etsy/connector dev",
-    "test:e2e": "pnpm --filter @trendyol-etsy/web test:e2e"
+    "test:e2e": "pnpm --filter @trendyol-etsy/web test:e2e",
+    "cf:deploy:api": "pnpm --filter @trendyol-etsy/api run deploy",
+    "cf:build:web": "pnpm --filter @trendyol-etsy/web build"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

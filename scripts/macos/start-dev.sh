@@ -51,14 +51,14 @@ ensure_connector_env() {
 run_local_d1() {
   (
     cd "$api_dir" &&
-      pnpm exec wrangler d1 execute trendyol-etsy --local "$@"
+      pnpm exec wrangler d1 execute DB --local "$@"
   )
 }
 
 run_local_d1_json() {
   (
     cd "$api_dir" &&
-      pnpm exec wrangler d1 execute trendyol-etsy --local --json "$@"
+      pnpm exec wrangler d1 execute DB --local --json "$@"
   )
 }
 

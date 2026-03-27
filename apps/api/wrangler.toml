@@ -4,8 +4,9 @@ compatibility_date = "2026-03-20"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "trendyol-etsy"
-database_id = "local-trendyol-etsy-db"
+database_name = "trendyol-etsy-prod"
+database_id = "ab158d2b-3c16-4439-97b8-d9a9ce2ab2a6"
+migrations_dir = "drizzle"
 
 [[queues.producers]]
 binding = "REFRESH_QUEUE"
@@ -18,3 +19,20 @@ max_batch_timeout = 30
 
 [triggers]
 crons = ["0 * * * *"]
+
+[env.dev]
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "trendyol-etsy-dev"
+database_id = "4b69206d-a8c2-449e-a75f-648e60d6c9fc"
+migrations_dir = "drizzle"
+
+[[env.dev.queues.producers]]
+binding = "REFRESH_QUEUE"
+queue = "trendyol-refresh"
+
+[[env.dev.queues.consumers]]
+queue = "trendyol-refresh"
+max_batch_size = 25
+max_batch_timeout = 30

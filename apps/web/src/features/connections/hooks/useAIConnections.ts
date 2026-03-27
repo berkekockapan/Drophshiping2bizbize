@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchSettings, patchSettings } from "../../../app/api";
 import { clearAiTargetCache, readAiTargetCache, writeAiTargetCache } from "../lib/aiTargetStorage";
@@ -61,6 +61,7 @@ function getAttemptMessage(status: { status: "wait" | "ok" | "error"; error?: st
 
 export function useAIConnections() {
   const queryClient = useQueryClient();
+  const authPopupRef = useRef<Window | null>(null);
   const [activeState, setActiveState] = useState<string | null>(null);
   const [latestAuthStatus, setLatestAuthStatus] = useState<{ status: "wait" | "ok" | "error"; error?: string } | null>(null);
   const [activatingFileName, setActivatingFileName] = useState<string | null>(null);
@@ -148,7 +149,14 @@ export function useAIConnections() {
     mutationFn: async () => client!.getCodexAuthUrl(),
     onSuccess: async ({ authorizationUrl, state }) => {
       if (authorizationUrl) {
-        window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+        const popup = authPopupRef.current;
+
+        if (popup && !popup.closed) {
+          popup.location.replace(authorizationUrl);
+          popup.focus();
+        } else {
+          window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+        }
       }
 
       queryClient.setQueryData<CliProxyAuthFilesResponse>(authFilesQueryKey, {
@@ -157,6 +165,16 @@ export function useAIConnections() {
       setLatestAuthStatus({ status: "wait" });
       setActiveState(state);
       await queryClient.invalidateQueries({ queryKey: ["cli-proxy-auth-status", state] });
+      authPopupRef.current = null;
+    },
+    onError: () => {
+      const popup = authPopupRef.current;
+
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+
+      authPopupRef.current = null;
     },
   });
 
@@ -254,7 +272,22 @@ export function useAIConnections() {
     canStartConnection: Boolean(target?.baseUrl && target?.managementKey),
     saveTarget: (payload: { baseUrl: string; label: string; managementKey: string; apiKey: string }) =>
       saveTargetMutation.mutate(payload),
-    startConnection: () => startMutation.mutate(),
+    startConnection: () => {
+      const popup = window.open("", "_blank");
+
+      if (popup) {
+        try {
+          popup.opener = null;
+          popup.document.title = "OpenAI giriş sayfası açılıyor";
+          popup.document.body.innerHTML = "<p>OpenAI giriş sayfasına yönlendiriliyorsunuz...</p>";
+        } catch {
+          // Popup belge erişimi tarayıcı tarafından kısıtlanırsa sadece navigasyona devam et.
+        }
+      }
+
+      authPopupRef.current = popup;
+      startMutation.mutate();
+    },
     activateAuthFile: (fileName: string) => activateMutation.mutate(fileName),
     deleteAuthFile: (fileName: string) => deleteMutation.mutate(fileName),
   };

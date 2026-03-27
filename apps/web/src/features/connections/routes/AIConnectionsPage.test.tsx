@@ -21,7 +21,24 @@ describe("AIConnectionsPage", () => {
 
   it("loads target settings, starts OAuth polling, and supports auth-file actions", async () => {
     const user = userEvent.setup();
-    const windowOpenSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    const popupLocationReplace = vi.fn();
+    const popupFocus = vi.fn();
+    const popupWindow = {
+      closed: false,
+      focus: popupFocus,
+      close: vi.fn(),
+      document: {
+        title: "",
+        body: {
+          innerHTML: "",
+        },
+      },
+      location: {
+        replace: popupLocationReplace,
+      },
+      opener: window,
+    } as unknown as Window;
+    const windowOpenSpy = vi.spyOn(window, "open").mockReturnValue(popupWindow);
 
     let settings = {
       id: "default",
@@ -110,11 +127,9 @@ describe("AIConnectionsPage", () => {
 
     await user.click(screen.getByRole("button", { name: /openai ile bağlan/i }));
 
-    expect(windowOpenSpy).toHaveBeenCalledWith(
-      "https://auth.openai.com/oauth/authorize?client_id=test",
-      "_blank",
-      "noopener,noreferrer",
-    );
+    expect(windowOpenSpy).toHaveBeenCalledWith("", "_blank");
+    expect(popupLocationReplace).toHaveBeenCalledWith("https://auth.openai.com/oauth/authorize?client_id=test");
+    expect(popupFocus).toHaveBeenCalled();
     expect(await screen.findByText(/windows oturumunda giriş tamamlayın/i)).toBeInTheDocument();
     expect(await screen.findByText(/tarayıcıda giriş bekleniyor/i)).toBeInTheDocument();
     expect(await screen.findByText(/primary workspace aktif hesap olarak hazır/i, {}, { timeout: 2_500 })).toBeInTheDocument();

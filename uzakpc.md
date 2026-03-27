@@ -69,6 +69,22 @@ ngrok http 5173
 
 Beklenen: `Forwarding https://...`
 
+## Tek Tik Restart (Onerilen)
+
+`uzakpc` tarafinda tum temiz restart adimlarini tek komutla calistirmak icin:
+
+```bat
+scripts\windows\restart-main-server.bat
+```
+
+Bu akista script su sirayi uygular:
+
+1. Eski `node/ngrok/caddy` sureclerini kapatir
+2. `main` dalini `origin/main` ile zorla senkronlar
+3. `pnpm install` calistirir
+4. Sirali baslatir: once API hazir olur, sonra WEB hazir olur, en son ngrok acilir
+5. ngrok public URL'yi terminale yazar
+
 ## Hızlı Sağlık Kontrolü
 
 - Local web: `http://127.0.0.1:5173`
@@ -118,4 +134,3 @@ ngrok version
 - `uzakpc` için “güncel değil” şikayetinde ilk kontrol her zaman commit eşleşmesidir.
 - Kod güncel olsa bile eski süreçler açık kalırsa eski davranış görülebilir; bu yüzden süreç temizliği kritik.
 - Gerekirse ngrok authtoken döndür (rotate) ve yeniden `ngrok config add-authtoken ...` çalıştır.
-

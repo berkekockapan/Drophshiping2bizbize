@@ -19,6 +19,7 @@ export function AppRouter() {
         <AppShell>
           <Routes>
             <Route path="/" element={<TrackingCenterPage />} />
+            <Route path="/owners/:owner/products" element={<TrackingCenterPage />} />
             <Route path="/products/:productId" element={<ProductDetailPage />} />
             <Route path="/products/:productId/seo" element={<SeoEditorPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />

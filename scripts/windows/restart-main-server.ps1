@@ -1,6 +1,8 @@
 param(
   [string]$RepoPath = "C:\dropshiping-win",
-  [switch]$SkipInstall
+  [switch]$SkipInstall,
+  [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
+  [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,6 +50,49 @@ function Resolve-BashExecutable {
   throw "bash.exe bulunamadi. Git for Windows kurulu olmali."
 }
 
+function Get-DefaultCloudApiBaseUrl {
+  param([Parameter(Mandatory = $true)][string]$ResolvedRepoPath)
+
+  $wranglerToml = Join-Path $ResolvedRepoPath "apps\api\wrangler.toml"
+  if (-not (Test-Path -LiteralPath $wranglerToml)) {
+    return $null
+  }
+
+  $nameLine = Select-String -Path $wranglerToml -Pattern '^\s*name\s*=\s*"([^"]+)"\s*$' | Select-Object -First 1
+  if (-not $nameLine) {
+    return $null
+  }
+
+  $serviceName = $nameLine.Matches[0].Groups[1].Value.Trim()
+  if ([string]::IsNullOrWhiteSpace($serviceName)) {
+    return $null
+  }
+
+  return "https://$serviceName.workers.dev"
+}
+
+function Resolve-CloudApiBaseUrl {
+  param(
+    [string]$ProvidedCloudApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
+  )
+
+  $resolved = $ProvidedCloudApiBaseUrl
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $resolved = Get-DefaultCloudApiBaseUrl -ResolvedRepoPath $ResolvedRepoPath
+  }
+
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    throw "Cloud API URL bulunamadi. DROPSHIP_CLOUD_API_BASE_URL tanimlayin veya -CloudApiBaseUrl parametresi verin."
+  }
+
+  if (-not [System.Uri]::TryCreate($resolved, [System.UriKind]::Absolute, [ref]$null)) {
+    throw "Cloud API URL gecersiz: $resolved"
+  }
+
+  return $resolved.TrimEnd("/")
+}
+
 function Stop-StaleProcesses {
   Write-Log "Eski surecler kapatiliyor (node/ngrok/caddy)..."
   foreach ($processName in @("node", "ngrok", "caddy")) {
@@ -93,6 +138,29 @@ function Start-ServiceWindows {
   Wait-HttpEndpoint -Label "API" -Url "http://127.0.0.1:8787/health"
 
   Write-Log "WEB penceresi aciliyor..."
+  Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $webCmd | Out-Null
+  Wait-HttpEndpoint -Label "WEB" -Url "http://127.0.0.1:5173"
+
+  Write-Log "ngrok penceresi aciliyor..."
+  Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $ngrokCmd | Out-Null
+
+  $publicUrl = Wait-NgrokPublicUrl
+  Write-Log "ngrok public URL: $publicUrl"
+}
+
+function Start-ServiceWindowsCloud {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [Parameter(Mandatory = $true)][string]$ResolvedCloudApiBaseUrl
+  )
+
+  $webCmd = "title Dropship Web (Cloud API) && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd dev:web"
+  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http 5173"
+
+  Write-Log "Cloud API saglik kontrolu yapiliyor..."
+  Wait-HttpEndpoint -Label "Cloud API" -Url "$ResolvedCloudApiBaseUrl/health"
+
+  Write-Log "WEB penceresi aciliyor (VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl)..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $webCmd | Out-Null
   Wait-HttpEndpoint -Label "WEB" -Url "http://127.0.0.1:5173"
 
@@ -167,21 +235,33 @@ function Main {
     throw "Repo yolu bulunamadi: $RepoPath"
   }
 
-  $bashExecutable = Resolve-BashExecutable
   $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
   Set-Location -LiteralPath $resolvedRepoPath
 
   Write-Log "Repo: $resolvedRepoPath"
-  Write-Log "bash: $bashExecutable"
+  Write-Log "Calisma modu: $Mode"
   Stop-StaleProcesses
   Sync-MainBranch
   Install-Dependencies
-  Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
+
+  if ($Mode -eq "Local") {
+    $bashExecutable = Resolve-BashExecutable
+    Write-Log "bash: $bashExecutable"
+    Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
+  } else {
+    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl -ResolvedRepoPath $resolvedRepoPath
+    Write-Log "Cloud API: $resolvedCloudApiBaseUrl"
+    Start-ServiceWindowsCloud -ResolvedRepoPath $resolvedRepoPath -ResolvedCloudApiBaseUrl $resolvedCloudApiBaseUrl
+  }
 
   $head = (& git rev-parse --short HEAD).Trim()
   Write-Log "Tamamlandi. Aktif commit: $head"
   Write-Log "Web local: http://127.0.0.1:5173"
-  Write-Log "API health: http://127.0.0.1:8787/health"
+  if ($Mode -eq "Local") {
+    Write-Log "API health: http://127.0.0.1:8787/health"
+  } else {
+    Write-Log "API health (cloud): $resolvedCloudApiBaseUrl/health"
+  }
   Write-Log "ngrok penceresindeki Forwarding https://... linkini kullan."
 }
 

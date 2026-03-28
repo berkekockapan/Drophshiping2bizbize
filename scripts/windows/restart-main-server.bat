@@ -22,6 +22,6 @@ if not "%EXIT_CODE%"=="0" (
 
 echo.
 echo [OK] Restart command completed.
-echo API, WEB ve ngrok ayri pencerelerde acilmis olmali.
+echo Secilen moda gore gerekli pencereler (WEB/ngrok ve gerekirse API) acilmis olmali.
 pause
 

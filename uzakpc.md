@@ -77,13 +77,23 @@ Beklenen: `Forwarding https://...`
 scripts\windows\restart-main-server.bat
 ```
 
+### Cloud mode notu (yeni varsayilan)
+
+- `restart-main-server.ps1` artik varsayilan olarak `Mode=Cloud` calisir.
+- Bu modda lokal API (`wrangler dev`) acilmaz; web, `VITE_API_BASE_URL` ile dogrudan cloud Worker'a baglanir.
+- URL kaynagi:
+  1. Once `DROPSHIP_CLOUD_API_BASE_URL` ortam degiskeni,
+  2. Yoksa `apps/api/wrangler.toml` icindeki `name` alanindan turetilen `https://<name>.workers.dev`.
+- Cloud URL yanlis/erisilemezse script hata verip durur (sessizce local moda dusmez).
+
 Bu akista script su sirayi uygular:
 
 1. Eski `node/ngrok/caddy` sureclerini kapatir
 2. `main` dalini `origin/main` ile zorla senkronlar
 3. `pnpm install` calistirir
-4. Sirali baslatir: once API hazir olur, sonra WEB hazir olur, en son ngrok acilir
-5. ngrok public URL'yi terminale yazar
+4. `Mode=Cloud` ise: once Cloud API health kontrolu yapar, sonra WEB, en son ngrok acar
+5. `Mode=Local` ise: once API, sonra WEB, en son ngrok acar
+6. ngrok public URL'yi terminale yazar
 
 Not: restart scripti `bash.exe` yolunu otomatik bulur; API'yi PATH bagimsiz baslatir.
 

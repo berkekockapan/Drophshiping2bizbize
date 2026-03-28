@@ -133,4 +133,69 @@ describe("app api", () => {
       disclaimer: "Planlama amacli GTIP tahminidir; nihai beyan karari degildir.",
     });
   });
+
+  it("posts to the owner-scoped prompt-pack endpoint", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          rulebookVersion: "etsy-prompt-pack-v1",
+          generatedAt: 1774742400000,
+          productSnapshot: {
+            productId: "prod_1",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            attributeCount: 2,
+            variantCount: 1,
+            imageCount: 1,
+          },
+          listingPromptPack: {
+            prompt: "Return ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          imagePromptPack: {
+            mainPrompt: "Use the reference image.",
+            variations: ["a", "b", "c", "d", "e", "f", "g"],
+            guardrailSummary: ["Urun formunu degistirme"],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const { fetchEtsyPromptPack } = await import("./api");
+    const result = await fetchEtsyPromptPack("berke", "prod_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.imagePromptPack.variations).toHaveLength(7);
+  });
+
+  it("posts to generate-listing-pack and returns the parsed result", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          provider: "openai-oauth",
+          rulebookVersion: "etsy-prompt-pack-v1",
+          result: {
+            title: "Handmade Oversize Hoodie",
+            description: "Soft cotton hoodie for everyday wear.",
+            tags: "oversize hoodie, streetwear gift",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const { generateEtsyListingPack } = await import("./api");
+    const result = await generateEtsyListingPack("berke", "prod_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/products/prod_1/etsy-prep/generate-listing-pack",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.result.tags).toBe("oversize hoodie, streetwear gift");
+  });
 });

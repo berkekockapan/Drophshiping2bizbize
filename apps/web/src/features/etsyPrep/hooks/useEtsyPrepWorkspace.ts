@@ -2,8 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  ConnectorRequestError,
   fetchSettings,
+  fetchConnectorHealth,
+  fetchEtsyPromptPack,
   fetchEtsyPrepWorkspace,
+  generateEtsyListingPack,
   saveEtsyPrepWorkspace,
   streamEtsyPrepAnalysis,
   streamEtsyPrepFieldPackage,
@@ -53,6 +57,12 @@ interface FieldGenerationState {
   provider: string | null;
 }
 
+interface ListingPackState {
+  isGenerating: boolean;
+  error: string | null;
+  provider: string | null;
+}
+
 const emptyFormState: WorkspaceFormState = {
   title: "",
   description: "",
@@ -90,6 +100,14 @@ function isConnectorOfflineError(error: unknown) {
 }
 
 function mapConnectorStateError(error: unknown) {
+  if (error instanceof ConnectorRequestError && error.code === "PROFILE_NEEDS_REAUTH") {
+    return "Bağlantı yeniden doğrulanmalı";
+  }
+
+  if (error instanceof ConnectorRequestError && error.code === "NO_ACTIVE_PROFILE") {
+    return "OpenAI bağlantısı gerekli";
+  }
+
   if (error instanceof ConnectorApiRequestError && error.code === "PROFILE_NEEDS_REAUTH") {
     return "Bağlantı yeniden doğrulanmalı";
   }
@@ -106,6 +124,16 @@ function mapConnectorStateError(error: unknown) {
 }
 
 function mapGenerateFieldError(error: unknown) {
+  if (error instanceof ConnectorRequestError) {
+    if (error.code === "PROFILE_NEEDS_REAUTH") {
+      return "Bağlantı yeniden doğrulanmalı";
+    }
+
+    if (error.code === "NO_ACTIVE_PROFILE") {
+      return "OpenAI bağlantısı gerekli";
+    }
+  }
+
   if (error instanceof ConnectorApiRequestError) {
     if (error.code === "PROFILE_NEEDS_REAUTH") {
       return "Bağlantı yeniden doğrulanmalı";
@@ -114,6 +142,18 @@ function mapGenerateFieldError(error: unknown) {
     if (error.code === "NO_ACTIVE_PROFILE") {
       return "OpenAI bağlantısı gerekli";
     }
+  }
+
+  if (isConnectorOfflineError(error)) {
+    return "Yerel bağlantı servisi hazır değil";
+  }
+
+  return getErrorMessage(error);
+}
+
+function mapListingPackError(error: unknown) {
+  if (error instanceof ConnectorRequestError) {
+    return error.message;
   }
 
   if (isConnectorOfflineError(error)) {
@@ -298,13 +338,19 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
     queryFn: fetchSettings,
   });
 
+  const promptPackQuery = useQuery({
+    queryKey: ["etsy-prep-prompt-pack", ownerKey, productId],
+    enabled: Boolean(productId),
+    queryFn: () => fetchEtsyPromptPack(ownerKey, productId),
+  });
+
   const cachedTarget = readAiTargetCache();
   const target = useMemo(() => resolveConnectorTarget(settingsQuery.data, cachedTarget), [cachedTarget, settingsQuery.data]);
   const connectorClient = useMemo(() => createConnectorApiClient({ baseUrl: target.baseUrl }), [target.baseUrl]);
 
-  const connectorHealthQuery = useQuery({
-    queryKey: ["connector-health", target.baseUrl],
-    queryFn: () => connectorClient.getHealth(),
+  const aiHealthQuery = useQuery({
+    queryKey: ["ai-profiles-health"],
+    queryFn: fetchConnectorHealth,
     retry: false,
   });
 
@@ -317,6 +363,12 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [researchSummary, setResearchSummary] = useState<ResearchSummaryState | null>(null);
   const [riskNotes, setRiskNotes] = useState("");
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [listingPackState, setListingPackState] = useState<ListingPackState>({
+    isGenerating: false,
+    error: null,
+    provider: null,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -388,6 +440,12 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
     setRiskNotes(nextWorkspaceState.riskNotes);
     setAnalysisStatus("idle");
     setAnalysisError(null);
+    setCopyMessage(null);
+    setListingPackState({
+      isGenerating: false,
+      error: null,
+      provider: null,
+    });
     resetFieldStates();
     setSaveError(null);
     setSaveMessage(null);
@@ -473,6 +531,49 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
     analysisStartedRef.current = productId;
     void runAnalysis();
   }, [bootstrapQuery.data, ownerKey, productId]);
+
+  async function copyTextToClipboard(value: string, successMessage: string) {
+    await navigator.clipboard.writeText(value);
+    setCopyMessage(successMessage);
+  }
+
+  async function generateListingPack() {
+    if (!productId) {
+      return;
+    }
+
+    setListingPackState((current) => ({
+      isGenerating: true,
+      error: null,
+      provider: current.provider,
+    }));
+    setSaveMessage(null);
+    setSaveError(null);
+
+    try {
+      const generated = await generateEtsyListingPack(ownerKey, productId);
+
+      setForm((current) => ({
+        ...current,
+        title: generated.result.title,
+        description: generated.result.description,
+        tags: generated.result.tags,
+      }));
+      setGeneratedFields((current) => [...new Set([...current, "title", "description", "tags"])]);
+      setEditedFields((current) => current.filter((field) => !["title", "description", "tags"].includes(field)));
+      setListingPackState({
+        isGenerating: false,
+        error: null,
+        provider: generated.provider,
+      });
+    } catch (error) {
+      setListingPackState({
+        isGenerating: false,
+        error: mapListingPackError(error),
+        provider: null,
+      });
+    }
+  }
 
   async function generateField(field: EtsyPrepField) {
     if (!productId) {
@@ -604,14 +705,17 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
     }
   }
 
-  const activeProfile = connectorHealthQuery.data?.activeProfile ?? null;
-  const connectionAttempt = connectorHealthQuery.data?.connectionAttempt ?? null;
-  const connectorStateError = connectorHealthQuery.error;
+  const activeProfile = aiHealthQuery.data?.activeProfile ?? null;
+  const connectionAttempt = aiHealthQuery.data?.connectionAttempt ?? null;
+  const connectorStateError = aiHealthQuery.error;
   const generationBlockedReason = getGenerationBlockedReason(activeProfile, connectionAttempt, connectorStateError);
   const canGenerate = !generationBlockedReason;
 
   return {
     product: bootstrapQuery.data?.product ?? null,
+    promptPack: promptPackQuery.data ?? null,
+    isPromptPackLoading: promptPackQuery.isLoading,
+    promptPackError: promptPackQuery.error ? getErrorMessage(promptPackQuery.error) : null,
     connectorBadgeLabel: getConnectionStatusLabel(activeProfile, connectionAttempt, connectorStateError),
     form,
     liveSteps,
@@ -627,8 +731,29 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
     isSaving,
     saveError,
     saveMessage,
+    copyMessage,
+    listingPackState,
+    canGenerateListingPack: !generationBlockedReason,
     canGenerate,
     generationBlockedReason,
+    copyListingPrompt: () =>
+      promptPackQuery.data
+        ? copyTextToClipboard(promptPackQuery.data.listingPromptPack.prompt, "Listing prompt kopyalandi")
+        : Promise.resolve(),
+    copyImageMainPrompt: () =>
+      promptPackQuery.data
+        ? copyTextToClipboard(promptPackQuery.data.imagePromptPack.mainPrompt, "Ana gorsel promptu kopyalandi")
+        : Promise.resolve(),
+    copyImageVariations: () =>
+      promptPackQuery.data
+        ? copyTextToClipboard(
+            promptPackQuery.data.imagePromptPack.variations
+              .map((variation, index) => `${index + 1}. ${variation}`)
+              .join("\n"),
+            "Gorsel varyasyonlari kopyalandi",
+          )
+        : Promise.resolve(),
+    generateListingPack,
     updateTitle: (value: string) => handleEditablePrepFieldChange("title", value),
     updateDescription: (value: string) => handleEditablePrepFieldChange("description", value),
     updateTags: (value: string) => handleEditablePrepFieldChange("tags", value),

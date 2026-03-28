@@ -1,3 +1,5 @@
+import type { EtsyPromptPackResponse, GenerateListingPackResponse } from "@trendyol-etsy/shared";
+
 import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
 import type { EtsyCostCalculatorStorage } from "../features/etsyCostCalculator/lib/types";
 
@@ -844,6 +846,25 @@ export async function fetchDraft(ownerKey: OwnerKey, productId: string): Promise
 export async function fetchEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string): Promise<EtsyPrepBootstrapResponse> {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep`);
   return parseJson<EtsyPrepBootstrapResponse>(response);
+}
+
+export async function fetchEtsyPromptPack(ownerKey: OwnerKey, productId: string): Promise<EtsyPromptPackResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep/prompt-pack`, {
+    method: "POST",
+  });
+
+  return parseJson<EtsyPromptPackResponse>(response);
+}
+
+export async function generateEtsyListingPack(
+  ownerKey: OwnerKey,
+  productId: string,
+): Promise<GenerateListingPackResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-prep/generate-listing-pack`, {
+    method: "POST",
+  });
+
+  return parseConnectorJson<GenerateListingPackResponse>(response);
 }
 
 export async function streamEtsyPrepAnalysis(ownerKey: OwnerKey, productId: string) {

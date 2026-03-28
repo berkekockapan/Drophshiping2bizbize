@@ -374,10 +374,12 @@ async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 3
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("İstek zaman aşımına uğradı. Lütfen tekrar deneyin.");
+      throw new Error("Istek zaman asimina ugradi. Lutfen tekrar deneyin.");
     }
 
-    throw error;
+    throw new Error(
+      "Merkezi bulut verisine erisilemedi. Internet baglantisini ve canli API ayarlarini kontrol edip tekrar deneyin.",
+    );
   } finally {
     clearTimeout(timeout);
   }

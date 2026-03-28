@@ -6,6 +6,7 @@ export function createQueryClient() {
       queries: {
         retry: false,
         staleTime: 30_000,
+        // Canli senkron sayfalari kendi refetch ayarlarini override eder.
       },
       mutations: {
         retry: false,

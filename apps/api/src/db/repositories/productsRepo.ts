@@ -2,6 +2,7 @@ import type { OwnerKey } from "../../contracts/owners";
 
 import type { D1Database } from "../../config/bindings";
 import type { ParsedProduct, ParsedVariant } from "../../modules/scraping/parseTrendyolProduct";
+import { runWithWriteRetry } from "../runWithWriteRetry";
 import { productCurrentState, products, productVariants } from "../schema";
 
 function withOptionalOwnerClause(base: string, ownerKey?: OwnerKey) {
@@ -319,24 +320,26 @@ export function createProductsRepo(db: D1Database) {
       }));
     },
     async setFavorite(ownerKey: OwnerKey, productId: string, isFavorite: boolean, now: Date) {
-      const existing = await db
-        .prepare("select id from products where id = ? and owner_key = ? and deleted_at is null limit 1")
-        .bind(productId, ownerKey)
-        .first<{ id: string }>();
+      return runWithWriteRetry(async () => {
+        const existing = await db
+          .prepare("select id from products where id = ? and owner_key = ? and deleted_at is null limit 1")
+          .bind(productId, ownerKey)
+          .first<{ id: string }>();
 
-      if (!existing) {
-        return null;
-      }
+        if (!existing) {
+          return null;
+        }
 
-      await db
-        .prepare("update products set is_favorite = ?, updated_at = ? where id = ?")
-        .bind(isFavorite ? 1 : 0, now.getTime(), productId)
-        .run();
+        await db
+          .prepare("update products set is_favorite = ?, updated_at = ? where id = ?")
+          .bind(isFavorite ? 1 : 0, now.getTime(), productId)
+          .run();
 
-      return {
-        productId,
-        isFavorite,
-      };
+        return {
+          productId,
+          isFavorite,
+        };
+      });
     },
     async getProductDetail(ownerKey: OwnerKey, productId: string) {
       const product = await db
@@ -424,55 +427,57 @@ export function createProductsRepo(db: D1Database) {
       };
     },
     async setUserCategory(ownerKey: OwnerKey, productId: string, categoryId: string | null, now: Date) {
-      const product = await db
-        .prepare(
-          `select id
-           from products
-           where id = ?
-             and owner_key = ?
-             and deleted_at is null
-           limit 1`,
-        )
-        .bind(productId, ownerKey)
-        .first<{ id: string }>();
-
-      if (!product) {
-        return null;
-      }
-
-      let category: { id: string; name: string } | null = null;
-      if (categoryId !== null) {
-        category = await db
+      return runWithWriteRetry(async () => {
+        const product = await db
           .prepare(
-            `select id, name
-             from product_categories
-             where owner_key = ?
-               and id = ?
+            `select id
+             from products
+             where id = ?
+               and owner_key = ?
+               and deleted_at is null
              limit 1`,
           )
-          .bind(ownerKey, categoryId)
-          .first<{ id: string; name: string }>();
+          .bind(productId, ownerKey)
+          .first<{ id: string }>();
 
-        if (!category) {
+        if (!product) {
           return null;
         }
-      }
 
-      await db
-        .prepare(
-          `update products
-           set user_category_id = ?, updated_at = ?
-           where id = ?
-             and owner_key = ?
-             and deleted_at is null`,
-        )
-        .bind(categoryId, now.getTime(), productId, ownerKey)
-        .run();
+        let category: { id: string; name: string } | null = null;
+        if (categoryId !== null) {
+          category = await db
+            .prepare(
+              `select id, name
+               from product_categories
+               where owner_key = ?
+                 and id = ?
+               limit 1`,
+            )
+            .bind(ownerKey, categoryId)
+            .first<{ id: string; name: string }>();
 
-      return {
-        productId,
-        userCategory: category,
-      };
+          if (!category) {
+            return null;
+          }
+        }
+
+        await db
+          .prepare(
+            `update products
+             set user_category_id = ?, updated_at = ?
+             where id = ?
+               and owner_key = ?
+               and deleted_at is null`,
+          )
+          .bind(categoryId, now.getTime(), productId, ownerKey)
+          .run();
+
+        return {
+          productId,
+          userCategory: category,
+        };
+      });
     },
     async updateProductSnapshot(
       productId: string,
@@ -489,96 +494,102 @@ export function createProductsRepo(db: D1Database) {
       now: Date,
       ownerKey?: OwnerKey,
     ) {
-      if (ownerKey) {
-        await db
-          .prepare(
-            `update products
-             set title = ?, brand = ?, category = ?, description_raw = ?, attributes_raw = ?, images_raw = ?,
-                 parse_status = ?, last_checked_at = ?, updated_at = ?
-             where id = ? and owner_key = ? and deleted_at is null`,
-          )
-          .bind(
-            parsed.title,
-            parsed.brand,
-            parsed.category,
-            parsed.descriptionRaw,
-            JSON.stringify(parsed.attributes),
-            JSON.stringify(parsed.images),
-            "OK",
-            now.getTime(),
-            now.getTime(),
-            productId,
-            ownerKey,
-          )
-          .run();
-      } else {
-        await db
-          .prepare(
-            `update products
-             set title = ?, brand = ?, category = ?, description_raw = ?, attributes_raw = ?, images_raw = ?,
-                 parse_status = ?, last_checked_at = ?, updated_at = ?
-             where id = ? and deleted_at is null`,
-          )
-          .bind(
-            parsed.title,
-            parsed.brand,
-            parsed.category,
-            parsed.descriptionRaw,
-            JSON.stringify(parsed.attributes),
-            JSON.stringify(parsed.images),
-            "OK",
-            now.getTime(),
-            now.getTime(),
-            productId,
-          )
-          .run();
-      }
+      await runWithWriteRetry(async () => {
+        const productStatement = ownerKey
+          ? db
+              .prepare(
+                `update products
+                 set title = ?, brand = ?, category = ?, description_raw = ?, attributes_raw = ?, images_raw = ?,
+                     parse_status = ?, last_checked_at = ?, updated_at = ?
+                 where id = ? and owner_key = ? and deleted_at is null`,
+              )
+              .bind(
+                parsed.title,
+                parsed.brand,
+                parsed.category,
+                parsed.descriptionRaw,
+                JSON.stringify(parsed.attributes),
+                JSON.stringify(parsed.images),
+                "OK",
+                now.getTime(),
+                now.getTime(),
+                productId,
+                ownerKey,
+              )
+          : db
+              .prepare(
+                `update products
+                 set title = ?, brand = ?, category = ?, description_raw = ?, attributes_raw = ?, images_raw = ?,
+                     parse_status = ?, last_checked_at = ?, updated_at = ?
+                 where id = ? and deleted_at is null`,
+              )
+              .bind(
+                parsed.title,
+                parsed.brand,
+                parsed.category,
+                parsed.descriptionRaw,
+                JSON.stringify(parsed.attributes),
+                JSON.stringify(parsed.images),
+                "OK",
+                now.getTime(),
+                now.getTime(),
+                productId,
+              );
 
-      await db
-        .prepare(
-          `update product_current_state
-           set current_price = ?, min_price = ?, max_price = ?, in_stock_variant_count = ?, total_variant_count = ?,
-               last_change_at = ?, last_checked_at = ?
-           where product_id = ?`,
-        )
-        .bind(
-          currentState.currentPrice,
-          currentState.minPrice,
-          currentState.maxPrice,
-          currentState.inStockVariantCount,
-          currentState.totalVariantCount,
-          currentState.lastChangeAt,
-          currentState.lastCheckedAt,
-          productId,
-        )
-        .run();
+        const currentStateStatement = db
+          .prepare(
+            `update product_current_state
+             set current_price = ?, min_price = ?, max_price = ?, in_stock_variant_count = ?, total_variant_count = ?,
+                 last_change_at = ?, last_checked_at = ?
+             where product_id = ?`,
+          )
+          .bind(
+            currentState.currentPrice,
+            currentState.minPrice,
+            currentState.maxPrice,
+            currentState.inStockVariantCount,
+            currentState.totalVariantCount,
+            currentState.lastChangeAt,
+            currentState.lastCheckedAt,
+            productId,
+          );
+
+        const statements = [productStatement, currentStateStatement];
+
+        for (const statement of statements) {
+          await statement.run();
+        }
+      });
     },
     async upsertVariants(productId: string, variants: ParsedVariant[], now: Date) {
       for (const variant of variants) {
-        const existing = await db
-          .prepare("select id from product_variants where product_id = ? and variant_key = ? limit 1")
-          .bind(productId, variant.variantKey)
-          .first<{ id: string }>();
+        await runWithWriteRetry(async () => {
+          const existing = await db
+            .prepare("select id from product_variants where product_id = ? and variant_key = ? limit 1")
+            .bind(productId, variant.variantKey)
+            .first<{ id: string }>();
 
-        if (existing) {
-          await db
-            .prepare(
-              `update product_variants
-               set option_1 = ?, option_2 = ?, option_3 = ?, current_stock_state = ?, current_price = ?, last_seen_at = ?, raw_payload = ?
-               where id = ?`,
-            )
-            .bind(
-              variant.option1,
-              variant.option2,
-              variant.option3,
-              variant.stockState,
-              variant.price,
-              now.getTime(),
-              JSON.stringify(variant.rawPayload),
-              existing.id,
-            )
-            .run();
-        } else {
+          if (existing) {
+            await db
+              .prepare(
+                `update product_variants
+                 set option_1 = ?, option_2 = ?, option_3 = ?, current_stock_state = ?, current_price = ?, last_seen_at = ?, raw_payload = ?
+                 where id = ?`,
+              )
+              .bind(
+                variant.option1,
+                variant.option2,
+                variant.option3,
+                variant.stockState,
+                variant.price,
+                now.getTime(),
+                JSON.stringify(variant.rawPayload),
+                existing.id,
+              )
+              .run();
+            return;
+          }
+
           await db
             .prepare(
               `insert into product_variants (
@@ -601,30 +612,32 @@ export function createProductsRepo(db: D1Database) {
               productId,
             )
             .run();
-        }
+        });
       }
     },
     async markParseFailure(productId: string, parseStatus: string, now: Date, ownerKey?: OwnerKey) {
-      if (ownerKey) {
+      await runWithWriteRetry(async () => {
+        if (ownerKey) {
+          await db
+            .prepare(
+              `update products
+               set parse_status = ?, last_checked_at = ?, updated_at = ?
+               where id = ? and owner_key = ? and deleted_at is null`,
+            )
+            .bind(parseStatus, now.getTime(), now.getTime(), productId, ownerKey)
+            .run();
+          return;
+        }
+
         await db
           .prepare(
             `update products
              set parse_status = ?, last_checked_at = ?, updated_at = ?
-             where id = ? and owner_key = ? and deleted_at is null`,
+             where id = ? and deleted_at is null`,
           )
-          .bind(parseStatus, now.getTime(), now.getTime(), productId, ownerKey)
+          .bind(parseStatus, now.getTime(), now.getTime(), productId)
           .run();
-        return;
-      }
-
-      await db
-        .prepare(
-          `update products
-           set parse_status = ?, last_checked_at = ?, updated_at = ?
-           where id = ? and deleted_at is null`,
-        )
-        .bind(parseStatus, now.getTime(), now.getTime(), productId)
-        .run();
+      });
     },
   };
 }

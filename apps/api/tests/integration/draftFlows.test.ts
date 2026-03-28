@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { createApp } from "../../src/index";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
+import { createFlakyD1 } from "../support/flakyD1";
 import { createTestEnv } from "../support/sqlite";
 
 const productWithVariantsHtml = readFileSync(
@@ -12,6 +13,37 @@ const productWithVariantsHtml = readFileSync(
 );
 
 describe("draft flows", () => {
+  it("retries transient draft writes and still returns the saved draft", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { ownerKey: "berke", trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-20T00:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+    const flakyEnv = { ...env, DB: createFlakyD1(env.DB, ["insert into etsy_drafts", "update etsy_drafts"]) };
+
+    const response = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/draft`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ englishTitle: "Recovered title", shortDescription: "Recovered short" }),
+      },
+      flakyEnv,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      englishTitle: "Recovered title",
+      shortDescription: "Recovered short",
+    });
+  });
+
   it("persists manual edits and protects fields from silent overwrite in owner scope", async () => {
     const { env } = createTestEnv();
     const seeded = await createTrackedProduct(

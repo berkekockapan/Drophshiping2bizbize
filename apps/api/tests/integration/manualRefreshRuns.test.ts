@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/index";
 import { createManualRefreshRunsRepo } from "../../src/db/repositories/manualRefreshRunsRepo";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
+import { createFlakyD1 } from "../support/flakyD1";
 import { createTestEnv } from "../support/sqlite";
 
 const basicProductHtml = readFileSync(new URL("../fixtures/trendyol/basic-product.html", import.meta.url), "utf8");
@@ -23,6 +24,40 @@ function createExecutionContext(promises: Array<Promise<unknown>>): Parameters<R
 }
 
 describe("manual refresh runs", () => {
+  it("retries a transient manual refresh run creation write", async () => {
+    const { env, sqlite } = createTestEnv();
+    const fetchImpl = async () => new Response(basicProductHtml, { status: 200 });
+    const app = createApp({ fetchImpl });
+
+    await createTrackedProduct(
+      env,
+      { ownerKey: "berke", trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      { fetchImpl, now: new Date("2026-03-20T00:00:00.000Z") },
+    );
+
+    const flakyEnv = { ...env, DB: createFlakyD1(env.DB, ["insert into manual_refresh_runs"]) };
+    const waitUntilPromises: Array<Promise<unknown>> = [];
+    const response = await app.fetch(
+      new Request("http://localhost/owners/berke/products/refresh-runs", { method: "POST" }),
+      flakyEnv,
+      createExecutionContext(waitUntilPromises),
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({
+      run: expect.objectContaining({
+        ownerKey: "berke",
+        totalCount: 1,
+        status: "RUNNING",
+      }),
+    });
+
+    await Promise.all(waitUntilPromises);
+    expect(
+      sqlite.prepare("select count(*) as count from manual_refresh_runs where owner_key = ?").get("berke"),
+    ).toEqual({ count: 1 });
+  });
+
   it("starts/retries only inside selected owner scope", async () => {
     const { env, sqlite } = createTestEnv();
     let failSecondBerkeProduct = true;

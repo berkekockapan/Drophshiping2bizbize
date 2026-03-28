@@ -1,5 +1,6 @@
 import { aiProfiles, etsyDrafts } from "../schema";
 import type { D1Database } from "../../config/bindings";
+import { runWithWriteRetry } from "../runWithWriteRetry";
 
 export interface DraftAttribute {
   key: string;
@@ -122,26 +123,28 @@ export function createDraftsRepo(db: D1Database) {
   }
 
   async function ensureForProduct(productId: string) {
-    const existing = await getByProductId(productId);
-    if (existing) {
-      return existing;
-    }
+    return runWithWriteRetry(async () => {
+      const existing = await getByProductId(productId);
+      if (existing) {
+        return existing;
+      }
 
-    await db
-      .prepare(
-        `insert into etsy_drafts (
-            id, product_id, generated_version, edited_version, manual_edits_present
-          ) values (?, ?, ?, ?, ?)`,
-      )
-      .bind(crypto.randomUUID(), productId, 0, 0, 0)
-      .run();
+      await db
+        .prepare(
+          `insert into etsy_drafts (
+              id, product_id, generated_version, edited_version, manual_edits_present
+            ) values (?, ?, ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), productId, 0, 0, 0)
+        .run();
 
-    const created = await getByProductId(productId);
-    if (!created) {
-      throw new Error("Unable to create draft");
-    }
+      const created = await getByProductId(productId);
+      if (!created) {
+        throw new Error("Unable to create draft");
+      }
 
-    return created;
+      return created;
+    });
   }
 
   return {
@@ -161,48 +164,50 @@ export function createDraftsRepo(db: D1Database) {
         >
       >,
     ) {
-      const existing = await ensureForProduct(productId);
-      const nextEnglishTitle = hasOwnKey(patch, "englishTitle") ? (patch.englishTitle ?? null) : existing.englishTitle;
-      const nextShortDescription = hasOwnKey(patch, "shortDescription")
-        ? (patch.shortDescription ?? null)
-        : existing.shortDescription;
-      const nextLongDescription = hasOwnKey(patch, "longDescription")
-        ? (patch.longDescription ?? null)
-        : existing.longDescription;
-      const nextTags = hasOwnKey(patch, "tags") ? (patch.tags ?? []) : existing.tags;
-      const nextMaterials = hasOwnKey(patch, "materials") ? (patch.materials ?? []) : existing.materials;
-      const nextAttributes = hasOwnKey(patch, "attributes") ? (patch.attributes ?? []) : existing.attributes;
-      const nextSeoNotes = hasOwnKey(patch, "seoNotes") ? (patch.seoNotes ?? null) : existing.seoNotes;
-      const nextPolicyNotes = hasOwnKey(patch, "policyNotes") ? (patch.policyNotes ?? null) : existing.policyNotes;
+      return runWithWriteRetry(async () => {
+        const existing = await ensureForProduct(productId);
+        const nextEnglishTitle = hasOwnKey(patch, "englishTitle") ? (patch.englishTitle ?? null) : existing.englishTitle;
+        const nextShortDescription = hasOwnKey(patch, "shortDescription")
+          ? (patch.shortDescription ?? null)
+          : existing.shortDescription;
+        const nextLongDescription = hasOwnKey(patch, "longDescription")
+          ? (patch.longDescription ?? null)
+          : existing.longDescription;
+        const nextTags = hasOwnKey(patch, "tags") ? (patch.tags ?? []) : existing.tags;
+        const nextMaterials = hasOwnKey(patch, "materials") ? (patch.materials ?? []) : existing.materials;
+        const nextAttributes = hasOwnKey(patch, "attributes") ? (patch.attributes ?? []) : existing.attributes;
+        const nextSeoNotes = hasOwnKey(patch, "seoNotes") ? (patch.seoNotes ?? null) : existing.seoNotes;
+        const nextPolicyNotes = hasOwnKey(patch, "policyNotes") ? (patch.policyNotes ?? null) : existing.policyNotes;
 
-      await db
-        .prepare(
-          `update etsy_drafts
-           set english_title = ?, short_description = ?, long_description = ?, tags_json = ?, materials_json = ?,
-               attributes_json = ?, seo_notes = ?, policy_notes = ?, edited_version = ?, manual_edits_present = ?
-           where product_id = ?`,
-        )
-        .bind(
-          nextEnglishTitle,
-          nextShortDescription,
-          nextLongDescription,
-          JSON.stringify(nextTags),
-          JSON.stringify(nextMaterials),
-          JSON.stringify(nextAttributes),
-          nextSeoNotes,
-          nextPolicyNotes,
-          existing.editedVersion + 1,
-          1,
-          productId,
-        )
-        .run();
+        await db
+          .prepare(
+            `update etsy_drafts
+             set english_title = ?, short_description = ?, long_description = ?, tags_json = ?, materials_json = ?,
+                 attributes_json = ?, seo_notes = ?, policy_notes = ?, edited_version = ?, manual_edits_present = ?
+             where product_id = ?`,
+          )
+          .bind(
+            nextEnglishTitle,
+            nextShortDescription,
+            nextLongDescription,
+            JSON.stringify(nextTags),
+            JSON.stringify(nextMaterials),
+            JSON.stringify(nextAttributes),
+            nextSeoNotes,
+            nextPolicyNotes,
+            existing.editedVersion + 1,
+            1,
+            productId,
+          )
+          .run();
 
-      const updated = await getByProductId(productId);
-      if (!updated) {
-        throw new Error("Unable to update draft edits");
-      }
+        const updated = await getByProductId(productId);
+        if (!updated) {
+          throw new Error("Unable to update draft edits");
+        }
 
-      return updated;
+        return updated;
+      });
     },
     async saveGenerated(
       productId: string,
@@ -212,40 +217,42 @@ export function createDraftsRepo(db: D1Database) {
       > & { overwrite: boolean },
       options: { currentGeneratedVersion?: number; generatedAt: number },
     ) {
-      const existing = await ensureForProduct(productId);
-      const nextGeneratedVersion = (options.currentGeneratedVersion ?? existing.generatedVersion) + 1;
-      const manualEditsPresent = draft.overwrite ? 0 : existing.manualEditsPresent ? 1 : 0;
+      return runWithWriteRetry(async () => {
+        const existing = await ensureForProduct(productId);
+        const nextGeneratedVersion = (options.currentGeneratedVersion ?? existing.generatedVersion) + 1;
+        const manualEditsPresent = draft.overwrite ? 0 : existing.manualEditsPresent ? 1 : 0;
 
-      await db
-        .prepare(
-          `update etsy_drafts
-           set english_title = ?, short_description = ?, long_description = ?, tags_json = ?, materials_json = ?,
-               attributes_json = ?, seo_notes = ?, policy_notes = ?, generated_version = ?, last_generated_at = ?,
-               manual_edits_present = ?
-           where product_id = ?`,
-        )
-        .bind(
-          draft.englishTitle,
-          draft.shortDescription,
-          draft.longDescription,
-          JSON.stringify(draft.tags),
-          JSON.stringify(draft.materials),
-          JSON.stringify(draft.attributes),
-          draft.seoNotes,
-          draft.policyNotes,
-          nextGeneratedVersion,
-          options.generatedAt,
-          manualEditsPresent,
-          productId,
-        )
-        .run();
+        await db
+          .prepare(
+            `update etsy_drafts
+             set english_title = ?, short_description = ?, long_description = ?, tags_json = ?, materials_json = ?,
+                 attributes_json = ?, seo_notes = ?, policy_notes = ?, generated_version = ?, last_generated_at = ?,
+                 manual_edits_present = ?
+             where product_id = ?`,
+          )
+          .bind(
+            draft.englishTitle,
+            draft.shortDescription,
+            draft.longDescription,
+            JSON.stringify(draft.tags),
+            JSON.stringify(draft.materials),
+            JSON.stringify(draft.attributes),
+            draft.seoNotes,
+            draft.policyNotes,
+            nextGeneratedVersion,
+            options.generatedAt,
+            manualEditsPresent,
+            productId,
+          )
+          .run();
 
-      const updated = await getByProductId(productId);
-      if (!updated) {
-        throw new Error("Unable to save generated draft");
-      }
+        const updated = await getByProductId(productId);
+        if (!updated) {
+          throw new Error("Unable to save generated draft");
+        }
 
-      return updated;
+        return updated;
+      });
     },
     async savePrepDraft(
       productId: string,
@@ -260,37 +267,39 @@ export function createDraftsRepo(db: D1Database) {
         savedAt: number;
       },
     ) {
-      const existing = await ensureForProduct(productId);
-      const generatedChanged = input.generatedFields.length > 0;
-      const manualEdited = input.editedFields.length > 0;
+      return runWithWriteRetry(async () => {
+        const existing = await ensureForProduct(productId);
+        const generatedChanged = input.generatedFields.length > 0;
+        const manualEdited = input.editedFields.length > 0;
 
-      await db
-        .prepare(
-          `update etsy_drafts
-           set english_title = ?, long_description = ?, tags_json = ?, seo_notes = ?, policy_notes = ?,
-               generated_version = ?, edited_version = ?, last_generated_at = ?, manual_edits_present = ?
-           where product_id = ?`,
-        )
-        .bind(
-          input.englishTitle,
-          input.longDescription,
-          JSON.stringify(input.tags),
-          input.seoNotes,
-          input.policyNotes,
-          generatedChanged ? existing.generatedVersion + 1 : existing.generatedVersion,
-          manualEdited ? existing.editedVersion + 1 : existing.editedVersion,
-          generatedChanged ? input.savedAt : existing.lastGeneratedAt,
-          manualEdited ? 1 : existing.manualEditsPresent ? 1 : 0,
-          productId,
-        )
-        .run();
+        await db
+          .prepare(
+            `update etsy_drafts
+             set english_title = ?, long_description = ?, tags_json = ?, seo_notes = ?, policy_notes = ?,
+                 generated_version = ?, edited_version = ?, last_generated_at = ?, manual_edits_present = ?
+             where product_id = ?`,
+          )
+          .bind(
+            input.englishTitle,
+            input.longDescription,
+            JSON.stringify(input.tags),
+            input.seoNotes,
+            input.policyNotes,
+            generatedChanged ? existing.generatedVersion + 1 : existing.generatedVersion,
+            manualEdited ? existing.editedVersion + 1 : existing.editedVersion,
+            generatedChanged ? input.savedAt : existing.lastGeneratedAt,
+            manualEdited ? 1 : existing.manualEditsPresent ? 1 : 0,
+            productId,
+          )
+          .run();
 
-      const updated = await getByProductId(productId);
-      if (!updated) {
-        throw new Error("Unable to save prep draft");
-      }
+        const updated = await getByProductId(productId);
+        if (!updated) {
+          throw new Error("Unable to save prep draft");
+        }
 
-      return updated;
+        return updated;
+      });
     },
   };
 }

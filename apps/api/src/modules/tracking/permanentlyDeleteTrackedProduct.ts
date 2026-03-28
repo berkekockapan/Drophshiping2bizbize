@@ -1,6 +1,7 @@
 import type { OwnerKey } from "../../contracts/owners";
 
 import type { D1Database } from "../../config/bindings";
+import { runWithWriteRetry } from "../../db/runWithWriteRetry";
 
 const deleteStatements = [
   ["product_variants", "product_id"],
@@ -15,28 +16,30 @@ const deleteStatements = [
 ] as const;
 
 export async function permanentlyDeleteTrackedProduct(db: D1Database, ownerKey: OwnerKey, productId: string) {
-  const existing = await db
-    .prepare("select id from products where id = ? and owner_key = ? and deleted_at is not null limit 1")
-    .bind(productId, ownerKey)
-    .first<{ id: string }>();
+  return runWithWriteRetry(async () => {
+    const existing = await db
+      .prepare("select id from products where id = ? and owner_key = ? and deleted_at is not null limit 1")
+      .bind(productId, ownerKey)
+      .first<{ id: string }>();
 
-  if (!existing) {
-    return false;
-  }
+    if (!existing) {
+      return false;
+    }
 
-  const statements = [
-    ...deleteStatements.map(([table, column]) => db.prepare(`delete from ${table} where ${column} = ?`).bind(productId)),
-    db.prepare("delete from products where id = ?").bind(productId),
-  ];
+    const statements = [
+      ...deleteStatements.map(([table, column]) => db.prepare(`delete from ${table} where ${column} = ?`).bind(productId)),
+      db.prepare("delete from products where id = ?").bind(productId),
+    ];
 
-  if (db.batch) {
-    await db.batch(statements);
+    if (db.batch) {
+      await db.batch(statements);
+      return true;
+    }
+
+    for (const statement of statements) {
+      await statement.run();
+    }
+
     return true;
-  }
-
-  for (const statement of statements) {
-    await statement.run();
-  }
-
-  return true;
+  });
 }

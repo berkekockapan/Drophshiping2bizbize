@@ -11,6 +11,7 @@ import {
 } from "../../src/modules/tracking/createTrackedProduct";
 import { permanentlyDeleteTrackedProduct } from "../../src/modules/tracking/permanentlyDeleteTrackedProduct";
 import { restoreTrackedProduct } from "../../src/modules/tracking/restoreTrackedProduct";
+import { createFlakyD1 } from "../support/flakyD1";
 import { createTestEnv, InMemoryRefreshQueue } from "../support/sqlite";
 
 const productWithVariantsHtml = readFileSync(
@@ -176,10 +177,45 @@ describe("tracking actions", () => {
     await restoreTrackedProduct(env.DB, "berke", berke.product.id, new Date("2026-03-27T09:05:00.000Z"));
     expect(await productsRepo.listTrackingCards("berke")).toHaveLength(1);
 
-    await deleteTrackedProduct(env.DB, "berke", berke.product.id, new Date("2026-03-27T09:06:00.000Z"));
-    await permanentlyDeleteTrackedProduct(env.DB, "berke", berke.product.id);
+    const flakyDeleteDb = createFlakyD1(env.DB, ["update products set deleted_at = ?"]);
+    await deleteTrackedProduct(flakyDeleteDb, "berke", berke.product.id, new Date("2026-03-27T09:06:00.000Z"));
+
+    const flakyRestoreDb = createFlakyD1(env.DB, ["update products set deleted_at = null"]);
+    await restoreTrackedProduct(flakyRestoreDb, "berke", berke.product.id, new Date("2026-03-27T09:07:00.000Z"));
+
+    const flakySecondDeleteDb = createFlakyD1(env.DB, ["update products set deleted_at = ?"]);
+    await deleteTrackedProduct(flakySecondDeleteDb, "berke", berke.product.id, new Date("2026-03-27T09:08:00.000Z"));
+
+    const flakyHardDeleteDb = createFlakyD1(env.DB, ["delete from product_variants"]);
+    await permanentlyDeleteTrackedProduct(flakyHardDeleteDb, "berke", berke.product.id);
 
     expect(await productsRepo.getProductDetail("berke", berke.product.id)).toBeNull();
     expect(await productsRepo.getProductDetail("kaan", kaan.product.id)).not.toBeNull();
+  });
+
+  it("retries transient product creation writes before returning the new product", async () => {
+    const { env } = createTestEnv();
+    const fetchImpl = async () => new Response(productWithVariantsHtml, { status: 200 });
+    const app = createApp({ fetchImpl });
+    const flakyEnv = { ...env, DB: createFlakyD1(env.DB, ["insert into products"]) };
+
+    const response = await app.request(
+      "http://localhost/owners/berke/products",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" }),
+      },
+      flakyEnv,
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      product: expect.objectContaining({
+        ownerKey: "berke",
+        title: "Oversize Hoodie",
+      }),
+    });
+    expect(await createProductsRepo(env.DB).listTrackingCards("berke")).toHaveLength(1);
   });
 });

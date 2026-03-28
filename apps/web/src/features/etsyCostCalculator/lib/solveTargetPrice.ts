@@ -41,5 +41,10 @@ export function solveTargetPrice(draft: CalculatorDraft) {
     }
   }
 
-  return round2(high / 100);
+  let candidate = high;
+  while (!reachesTarget(draft, candidate / 100) && candidate < 10_000_000) {
+    candidate += 1;
+  }
+
+  return candidate >= 10_000_000 ? null : round2(candidate / 100);
 }

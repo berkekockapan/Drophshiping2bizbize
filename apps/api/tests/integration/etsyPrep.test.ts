@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../../src/index";
+import * as openAiOAuthModule from "../../src/modules/ai/openAiOAuth";
 import { buildEtsyPrepAnalysis } from "../../src/modules/etsyPrep/buildEtsyPrepAnalysis";
 import { buildEtsyPrepView } from "../../src/modules/etsyPrep/buildEtsyPrepView";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
@@ -46,6 +47,10 @@ function expectKeywordAnglesToContainToken(keywordAngles: string[], token: strin
   const pattern = new RegExp(escapeRegExp(token.normalize("NFC")), "iu");
   expect(keywordAngles.some((angle) => pattern.test(String(angle).normalize("NFC")))).toBe(true);
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("etsy prep", () => {
   it("returns Etsy prep bootstrap data and persists saved workspace fields", async () => {
@@ -313,6 +318,164 @@ describe("etsy prep", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("returns listing and image prompt packs together", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+    const response = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/prompt-pack`,
+      { method: "POST" },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        rulebookVersion: "etsy-prompt-pack-v1",
+        listingPromptPack: expect.objectContaining({
+          prompt: expect.stringContaining("Non-Negotiable Rules"),
+          outputContract: {
+            type: "json",
+            fields: ["title", "description", "tags"],
+          },
+        }),
+        imagePromptPack: expect.objectContaining({
+          mainPrompt: expect.stringContaining("reference image"),
+          variations: expect.any(Array),
+        }),
+      }),
+    );
+  });
+
+  it("generate-listing-pack reuses the listing prompt and returns parsed JSON", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    vi.spyOn(openAiOAuthModule, "resolveActiveOpenAiCredential").mockResolvedValue({
+      profile: {
+        id: "profile_main",
+        label: "OpenAI Workspace",
+        emailMasked: "wo***@company.com",
+        provider: "openai-oauth",
+        isActive: true,
+        status: "connected",
+        lastSeenAt: null,
+        lastValidatedAt: null,
+        lastError: null,
+        connectorStatusSnapshot: null,
+        updatedAt: Date.now(),
+      },
+      accessToken: "token_test",
+      apiKey: null,
+      selectedWorkspaceProjectId: null,
+    });
+
+    let requestBody = "";
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  title: "Handmade Oversize Hoodie",
+                  description: "Soft cotton hoodie for everyday wear.",
+                  tags: "oversize hoodie, streetwear gift, black hoodie",
+                }),
+              },
+            },
+          ],
+          model: "gpt-5-mini",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    });
+
+    const app = createApp();
+    const promptPackResponse = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/prompt-pack`,
+      { method: "POST" },
+      env,
+    );
+    const promptPack = await promptPackResponse.json();
+
+    const response = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-listing-pack`,
+      { method: "POST" },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(requestBody)).toEqual(
+      expect.objectContaining({
+        messages: [
+          expect.objectContaining({
+            role: "user",
+            content: promptPack.listingPromptPack.prompt,
+          }),
+        ],
+      }),
+    );
+    expect((await response.json()).result).toEqual({
+      title: "Handmade Oversize Hoodie",
+      description: "Soft cotton hoodie for everyday wear.",
+      tags: "oversize hoodie, streetwear gift, black hoodie",
+    });
+  });
+
+  it("keeps prompt-pack available when automatic generation has no active AI profile", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    const app = createApp();
+    const promptResponse = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/prompt-pack`,
+      { method: "POST" },
+      env,
+    );
+    expect(promptResponse.status).toBe(200);
+
+    const generateResponse = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-listing-pack`,
+      { method: "POST" },
+      env,
+    );
+    expect(generateResponse.status).toBe(409);
+    expect(await generateResponse.json()).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: "NO_ACTIVE_PROFILE",
+        }),
+      }),
+    );
   });
 
   it("keeps Turkish keyword angles intact in tag packages", async () => {

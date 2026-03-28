@@ -2,9 +2,12 @@ import { Hono } from "hono";
 import { ownerKeySchema, type OwnerKey } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
+import { OpenAiAuthError } from "../modules/ai/openAiOAuth";
 import { buildEtsyPrepAnalysis } from "../modules/etsyPrep/buildEtsyPrepAnalysis";
 import { buildEtsyPrepFieldPackageStream } from "../modules/etsyPrep/buildEtsyPrepFieldPackage";
 import { buildEtsyPrepView } from "../modules/etsyPrep/buildEtsyPrepView";
+import { buildEtsyPromptPackResponse } from "../modules/etsyPrep/prompts/buildEtsyPromptPackResponse";
+import { generateListingPackWithOpenAi } from "../modules/etsyPrep/prompts/generateListingPackWithOpenAi";
 import {
   InvalidEtsyPrepDraftPayloadError,
   saveEtsyPrepDraft,
@@ -18,6 +21,15 @@ import { buildProductDetailView } from "../modules/tracking/buildProductDetailVi
 
 export function createProductsRouter() {
   const app = new Hono<{ Bindings: Env }>();
+
+  function toOpenAiErrorResponse(error: OpenAiAuthError) {
+    return {
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    };
+  }
 
   function parseOwnerKey(value: string | undefined) {
     const parsed = ownerKeySchema.safeParse(value);
@@ -87,6 +99,45 @@ export function createProductsRouter() {
     }
 
     return buildEtsyPrepAnalysis(detail, { fetchImpl: fetch });
+  });
+
+  app.post("/:productId/etsy-prep/prompt-pack", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await loadEtsyPrepDetail(ownerKey, c.req.param("productId"), c.env);
+    if (!detail) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    return c.json(buildEtsyPromptPackResponse(detail));
+  });
+
+  app.post("/:productId/etsy-prep/generate-listing-pack", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await loadEtsyPrepDetail(ownerKey, c.req.param("productId"), c.env);
+    if (!detail) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    try {
+      return c.json(await generateListingPackWithOpenAi(c.env.DB, c.env, detail));
+    } catch (error) {
+      if (error instanceof OpenAiAuthError) {
+        return c.json(
+          toOpenAiErrorResponse(error),
+          error.statusCode as 400 | 401 | 403 | 404 | 409 | 422 | 500 | 502 | 503,
+        );
+      }
+
+      throw error;
+    }
   });
 
   app.post("/:productId/etsy-prep/generate-title", async (c) => {

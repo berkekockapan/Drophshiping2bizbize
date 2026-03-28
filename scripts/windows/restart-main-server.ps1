@@ -101,11 +101,17 @@ function Resolve-CloudApiBaseUrl {
 function Stop-StaleProcesses {
   Write-Log "Eski surecler kapatiliyor (node/ngrok/caddy)..."
   foreach ($processName in @("node", "ngrok", "caddy")) {
+    $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
+    if (-not $running) {
+      Write-Log "Acilan kayit bulunamadi (normal): $processName.exe"
+      continue
+    }
+
     & taskkill /IM "$processName.exe" /F /T *> $null
     if ($LASTEXITCODE -eq 0) {
       Write-Log "Kapatildi: $processName.exe"
     } else {
-      Write-Log "Acilan kayit bulunamadi (normal): $processName.exe"
+      Write-Log "Kapatma denemesi basarisiz oldu (exit=$LASTEXITCODE): $processName.exe"
     }
   }
 }

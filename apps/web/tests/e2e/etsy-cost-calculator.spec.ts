@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("loads defaults, saves a preset, and resets fee overrides", async ({ page }) => {
+test("loads quick mode, saves a preset, opens advanced settings, and switches analysis", async ({ page }) => {
   const settings = {
     id: "default",
     refreshIntervalHours: 5,
@@ -47,32 +47,40 @@ test("loads defaults, saves a preset, and resets fee overrides", async ({ page }
   await page.getByRole("link", { name: /etsy maliyet hesaplayici/i }).click();
   await expect(page).toHaveURL(/\/etsy-cost-calculator$/);
   await expect(page.getByRole("heading", { name: /etsy maliyet hesaplayici/i })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /hedef kar icin satis fiyati bul/i })).toHaveAttribute("aria-selected", "true");
 
-  await page.getByRole("spinbutton", { name: /liste fiyati/i }).fill("50");
-  await page.getByRole("spinbutton", { name: /urun maliyeti/i }).fill("20");
-  await page.getByRole("spinbutton", { name: /gercek kargo maliyeti/i }).fill("5");
-  await page.getByLabel(/hedef kar modu/i).selectOption("net_profit_usd");
-  await page.getByRole("spinbutton", { name: /hedef kar degeri/i }).fill("20");
-  await expect(page.getByText(/kampanyali minimum guvenli fiyat/i)).toBeVisible();
+  await page.getByLabel(/^Urun maliyeti$/i).fill("18");
+  await page.getByLabel(/^Gercek kargo$/i).fill("5");
+  await page.getByLabel(/hedef kar degeri/i).fill("10");
 
-  await page.getByLabel(/preset adi/i).fill("ABD basic");
+  await expect(page.getByText(/onerilen satis fiyati/i)).toBeVisible();
+  await expect(page.getByText(/basa bas fiyat/i)).toBeVisible();
+
+  await page.getByLabel(/opsiyonel satis fiyati/i).fill("39");
+  await expect(page.getByText(/girilen fiyat kiyasi/i)).toBeVisible();
+
+  await page.getByRole("button", { name: /^preset$/i }).click();
+  await expect(page.getByRole("region", { name: /preset araci/i })).toBeVisible();
+  await page.getByLabel(/preset adi/i).fill("ABD hizli");
   await page.getByRole("button", { name: /preset kaydet/i }).click();
+
   await expect
     .poll(
       () =>
         Boolean(
           settings.etsyCostCalculator &&
             Array.isArray((settings.etsyCostCalculator as { presets?: Array<{ name: string }> }).presets) &&
-            (settings.etsyCostCalculator as { presets?: Array<{ name: string }> }).presets?.some((preset) => preset.name === "ABD basic"),
+            (settings.etsyCostCalculator as { presets?: Array<{ name: string }> }).presets?.some((preset) => preset.name === "ABD hizli"),
         ),
       { timeout: 5_000 },
-  )
-  .toBe(true);
-  await page.reload();
-  await expect(page.locator("option", { hasText: /abd basic/i })).toHaveCount(1);
+    )
+    .toBe(true);
 
-  await page.getByRole("button", { name: /gelismis fee ayarlari/i }).click();
-  await page.getByLabel(/transaction fee/i).fill("7");
-  await page.getByRole("button", { name: /varsayilan ayarlara don/i }).click();
-  await expect(page.getByLabel(/transaction fee/i)).toHaveValue("6.5");
+  await page.getByRole("button", { name: /gelismis ayarlar/i }).click();
+  await expect(page.getByRole("dialog", { name: /gelismis ayarlar/i })).toBeVisible();
+  await page.getByRole("button", { name: /gelismis ayarlari kapat/i }).click();
+
+  await page.getByRole("tab", { name: /mevcut fiyati analiz et/i }).click();
+  await expect(page.getByRole("tab", { name: /mevcut fiyati analiz et/i })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText(/onerilen guvenli fiyat/i)).toBeVisible();
 });

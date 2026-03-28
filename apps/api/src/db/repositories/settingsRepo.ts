@@ -11,6 +11,7 @@ export interface AppSettingsRecord {
   aiTargetManagementKey: string | null;
   aiTargetLabel: string | null;
   aiTargetApiKey: string | null;
+  etsyCostCalculatorJson: string | null;
 }
 
 export interface SaveSettingsInput {
@@ -21,6 +22,7 @@ export interface SaveSettingsInput {
   aiTargetManagementKey?: string | null;
   aiTargetLabel?: string | null;
   aiTargetApiKey?: string | null;
+  etsyCostCalculator?: Record<string, unknown> | null;
 }
 
 const DEFAULT_SETTINGS_ID = "default";
@@ -39,7 +41,8 @@ export function createSettingsRepo(db: D1Database) {
                   ai_target_base_url as aiTargetBaseUrl,
                   ai_target_management_key as aiTargetManagementKey,
                   ai_target_label as aiTargetLabel,
-                  ai_target_api_key as aiTargetApiKey
+                  ai_target_api_key as aiTargetApiKey,
+                  etsy_cost_calculator_json as etsyCostCalculatorJson
            from app_settings
            where id = ?
            limit 1`,
@@ -57,6 +60,7 @@ export function createSettingsRepo(db: D1Database) {
           aiTargetManagementKey: record.aiTargetManagementKey,
           aiTargetLabel: record.aiTargetLabel,
           aiTargetApiKey: record.aiTargetApiKey,
+          etsyCostCalculator: record.etsyCostCalculatorJson ? JSON.parse(record.etsyCostCalculatorJson) : null,
         };
       }
 
@@ -69,6 +73,7 @@ export function createSettingsRepo(db: D1Database) {
         aiTargetManagementKey: null,
         aiTargetLabel: null,
         aiTargetApiKey: null,
+        etsyCostCalculator: null,
       };
     },
     async saveSettings(input: SaveSettingsInput) {
@@ -92,9 +97,11 @@ export function createSettingsRepo(db: D1Database) {
             : {}),
           ...(typeof input.aiTargetLabel !== "undefined" ? { aiTargetLabel: input.aiTargetLabel } : {}),
           ...(typeof input.aiTargetApiKey !== "undefined" ? { aiTargetApiKey: input.aiTargetApiKey } : {}),
+          ...(typeof input.etsyCostCalculator !== "undefined" ? { etsyCostCalculator: input.etsyCostCalculator } : {}),
         };
 
         const promptPreferencesJson = merged.promptPreferences ? JSON.stringify(merged.promptPreferences) : null;
+        const etsyCostCalculatorJson = merged.etsyCostCalculator ? JSON.stringify(merged.etsyCostCalculator) : null;
 
         if (existing) {
           await db
@@ -102,6 +109,7 @@ export function createSettingsRepo(db: D1Database) {
               `update app_settings
                set refresh_interval_hours = ?, prompt_preferences_json = ?, connector_healthcheck_enabled = ?,
                    ai_target_base_url = ?, ai_target_management_key = ?, ai_target_label = ?, ai_target_api_key = ?,
+                   etsy_cost_calculator_json = ?,
                    updated_at = ?
                where id = ?`,
             )
@@ -113,6 +121,7 @@ export function createSettingsRepo(db: D1Database) {
               merged.aiTargetManagementKey,
               merged.aiTargetLabel,
               merged.aiTargetApiKey,
+              etsyCostCalculatorJson,
               Date.now(),
               DEFAULT_SETTINGS_ID,
             )
@@ -123,8 +132,9 @@ export function createSettingsRepo(db: D1Database) {
               `insert into app_settings (
                 id, refresh_interval_hours, prompt_preferences_json, connector_healthcheck_enabled,
                 ai_target_base_url, ai_target_management_key, ai_target_label, ai_target_api_key,
+                etsy_cost_calculator_json,
                 created_at, updated_at
-              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             )
             .bind(
               DEFAULT_SETTINGS_ID,
@@ -135,6 +145,7 @@ export function createSettingsRepo(db: D1Database) {
               merged.aiTargetManagementKey,
               merged.aiTargetLabel,
               merged.aiTargetApiKey,
+              etsyCostCalculatorJson,
               Date.now(),
               Date.now(),
             )

@@ -11,6 +11,7 @@ interface SettingsPayload {
   aiTargetManagementKey?: unknown;
   aiTargetLabel?: unknown;
   aiTargetApiKey?: unknown;
+  etsyCostCalculator?: unknown;
 }
 
 function normalizeOptionalString(value: unknown) {
@@ -83,6 +84,14 @@ export function createSettingsRouter() {
       return c.json({ error: "aiTargetApiKey must be a string or null" }, 400);
     }
 
+    if (
+      typeof body.etsyCostCalculator !== "undefined" &&
+      body.etsyCostCalculator !== null &&
+      !isRecord(body.etsyCostCalculator)
+    ) {
+      return c.json({ error: "etsyCostCalculator must be an object or null" }, 400);
+    }
+
     const settings = await createSettingsRepo(c.env.DB).saveSettings({
       refreshIntervalHours: typeof body.refreshIntervalHours === "number" ? body.refreshIntervalHours : undefined,
       promptPreferences:
@@ -95,6 +104,10 @@ export function createSettingsRouter() {
       aiTargetManagementKey: normalizeOptionalString(body.aiTargetManagementKey),
       aiTargetLabel: normalizeOptionalString(body.aiTargetLabel),
       aiTargetApiKey: normalizeOptionalString(body.aiTargetApiKey),
+      etsyCostCalculator:
+        typeof body.etsyCostCalculator === "undefined"
+          ? undefined
+          : (body.etsyCostCalculator as Record<string, unknown> | null),
     });
 
     return c.json(settings);

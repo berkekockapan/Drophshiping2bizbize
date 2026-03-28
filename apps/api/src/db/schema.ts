@@ -278,6 +278,7 @@ export const appSettings = sqliteTable("app_settings", {
   aiTargetManagementKey: text("ai_target_management_key"),
   aiTargetLabel: text("ai_target_label"),
   aiTargetApiKey: text("ai_target_api_key"),
+  etsyCostCalculatorJson: text("etsy_cost_calculator_json"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });

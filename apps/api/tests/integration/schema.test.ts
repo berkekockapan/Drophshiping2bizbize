@@ -89,6 +89,7 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "ai_target_management_key" }),
         expect.objectContaining({ name: "ai_target_label" }),
         expect.objectContaining({ name: "ai_target_api_key" }),
+        expect.objectContaining({ name: "etsy_cost_calculator_json" }),
       ]),
     );
   });

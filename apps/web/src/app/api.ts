@@ -1,4 +1,5 @@
 import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
+import type { EtsyCostCalculatorStorage } from "../features/etsyCostCalculator/lib/types";
 
 export interface TrackingSummary {
   trackedCount: number;
@@ -336,6 +337,7 @@ export interface AppSettingsResponse {
   aiTargetManagementKey: string | null;
   aiTargetLabel: string | null;
   aiTargetApiKey: string | null;
+  etsyCostCalculator: EtsyCostCalculatorStorage | null;
 }
 
 export interface ManualRefreshRunSummary {
@@ -896,6 +898,7 @@ export async function patchSettings(payload: {
   aiTargetManagementKey?: string | null;
   aiTargetLabel?: string | null;
   aiTargetApiKey?: string | null;
+  etsyCostCalculator?: EtsyCostCalculatorStorage | null;
 }) {
   const response = await fetchWithTimeout("/settings", {
     method: "PATCH",

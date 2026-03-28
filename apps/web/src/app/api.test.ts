@@ -38,4 +38,45 @@ describe("app api", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/owners/berke/products", expect.anything());
   });
+
+  it("forwards etsyCostCalculator in patchSettings payload", async () => {
+    const storage = {
+      version: 1,
+      profileVersion: "etsy-tr-2026-03-28",
+      draft: { usdTryRate: 40, salePriceUsd: 55 },
+      presets: [],
+      updatedAt: 1,
+    };
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: null,
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
+          etsyCostCalculator: storage,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    const { patchSettings } = await import("./api");
+    await patchSettings({ etsyCostCalculator: storage as never });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/settings",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ etsyCostCalculator: storage }),
+      }),
+    );
+  });
 });

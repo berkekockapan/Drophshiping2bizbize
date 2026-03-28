@@ -163,7 +163,7 @@ function Deploy-CloudApi {
     }
 
     Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
-    & pnpm.cmd --filter @trendyol-etsy/api deploy
+    & pnpm.cmd --filter @trendyol-etsy/api run deploy
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."
     }

@@ -198,6 +198,33 @@ export interface ProductDetailResponse {
   tariffAnalysis: ProductTariffAnalysisSummary;
 }
 
+const DEFAULT_TARIFF_DISCLAIMER = "Planlama amacli GTIP tahminidir; nihai beyan karari degildir.";
+
+function normalizeTariffAnalysis(
+  value: ProductTariffAnalysisSummary | null | undefined,
+): ProductTariffAnalysisSummary {
+  if (!value) {
+    return {
+      selection: null,
+      latestRun: null,
+      recommendations: [],
+      manualSearchEnabled: true,
+      disclaimer: DEFAULT_TARIFF_DISCLAIMER,
+    };
+  }
+
+  return {
+    selection: value.selection ?? null,
+    latestRun: value.latestRun ?? null,
+    recommendations: Array.isArray(value.recommendations) ? value.recommendations : [],
+    manualSearchEnabled: typeof value.manualSearchEnabled === "boolean" ? value.manualSearchEnabled : true,
+    disclaimer:
+      typeof value.disclaimer === "string" && value.disclaimer.trim().length > 0
+        ? value.disclaimer
+        : DEFAULT_TARIFF_DISCLAIMER,
+  };
+}
+
 export interface CreateTrackedProductResponse {
   product: {
     id: string;
@@ -639,7 +666,12 @@ export async function createTrackedProduct(ownerKey: OwnerKey, trendyolUrl: stri
 
 export async function fetchProductDetail(ownerKey: OwnerKey, productId: string): Promise<ProductDetailResponse> {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}`);
-  return parseJson<ProductDetailResponse>(response);
+  const payload = await parseJson<ProductDetailResponse & { tariffAnalysis?: ProductTariffAnalysisSummary | null }>(response);
+
+  return {
+    ...payload,
+    tariffAnalysis: normalizeTariffAnalysis(payload.tariffAnalysis),
+  };
 }
 
 export async function runProductTariffAnalysis(ownerKey: OwnerKey, productId: string) {

@@ -79,4 +79,58 @@ describe("app api", () => {
       }),
     );
   });
+
+  it("normalizes missing tariffAnalysis in product detail response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          product: {
+            id: "prod_1",
+            ownerKey: "berke",
+            trendyolUrl: "https://www.trendyol.com/p/test",
+            sourceProductId: null,
+            title: "Test urun",
+            brand: "Test marka",
+            category: "Giyim",
+            userCategory: null,
+            descriptionRaw: null,
+            attributes: [],
+            images: [],
+            status: "ACTIVE",
+            parseStatus: "PARSED",
+            lastCheckedAt: null,
+          },
+          currentState: {
+            currentPrice: null,
+            minPrice: null,
+            maxPrice: null,
+            inStockVariantCount: 0,
+            totalVariantCount: 0,
+            lastChangeAt: null,
+            lastCheckedAt: null,
+          },
+          variants: [],
+          priceHistory: [],
+          stockHistory: [],
+          changeTimeline: [],
+          notifications: [],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    const { fetchProductDetail } = await import("./api");
+    const detail = await fetchProductDetail("berke", "prod_1");
+
+    expect(detail.tariffAnalysis).toEqual({
+      selection: null,
+      latestRun: null,
+      recommendations: [],
+      manualSearchEnabled: true,
+      disclaimer: "Planlama amacli GTIP tahminidir; nihai beyan karari degildir.",
+    });
+  });
 });

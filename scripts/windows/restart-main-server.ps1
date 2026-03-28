@@ -101,10 +101,10 @@ function Resolve-CloudApiBaseUrl {
 function Stop-StaleProcesses {
   Write-Log "Eski surecler kapatiliyor (node/ngrok/caddy)..."
   foreach ($processName in @("node", "ngrok", "caddy")) {
-    try {
-      & taskkill /IM "$processName.exe" /F /T | Out-Null
+    & taskkill /IM "$processName.exe" /F /T *> $null
+    if ($LASTEXITCODE -eq 0) {
       Write-Log "Kapatildi: $processName.exe"
-    } catch {
+    } else {
       Write-Log "Acilan kayit bulunamadi (normal): $processName.exe"
     }
   }
@@ -138,7 +138,17 @@ function Deploy-CloudApi {
     return
   }
 
-  Write-Log "Cloud D1 migrationlari uygulanıyor (trendyol-etsy-prod)..."
+  $cloudflareToken = $env:CLOUDFLARE_API_TOKEN
+  if ([string]::IsNullOrWhiteSpace($cloudflareToken)) {
+    $cloudflareToken = $env:CF_API_TOKEN
+  }
+
+  if ([string]::IsNullOrWhiteSpace($cloudflareToken)) {
+    Write-Log "CLOUDFLARE_API_TOKEN/CF_API_TOKEN tanimli degil; Cloud migration + deploy atlandi. Mevcut Worker surumu kullanilacak."
+    return
+  }
+
+  Write-Log "Cloud D1 migrationlari uygulaniyor (trendyol-etsy-prod)..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
     & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-prod --remote
@@ -155,7 +165,6 @@ function Deploy-CloudApi {
     Pop-Location
   }
 }
-
 function Start-ServiceWindows {
   param(
     [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,

@@ -15,6 +15,7 @@ Bu dosya, projeyi uzaktan yayinladigimiz Windows makineyi (`uzakpc`) unutmamak i
 
 - `restart-main-server.ps1` varsayilan olarak `Mode=Cloud` calisir.
 - `Mode=Cloud` akisi varsayilan olarak once Cloud D1 migrationlarini uygular, sonra `pnpm --filter @trendyol-etsy/api deploy` ile Cloud API'yi guncel committen deploy eder.
+- Otomatik migration/deploy icin `CLOUDFLARE_API_TOKEN` (veya `CF_API_TOKEN`) tanimli olmalidir; token yoksa script migration/deploy adimini loglayip atlar ve mevcut Worker surumuyle devam eder.
 - Deploy adimini atlamak gerekirse `-SkipCloudDeploy` parametresi kullanilabilir.
 - Bu modda script once Cloud API health kontrolu yapar.
 - Sonra `VITE_API_BASE_URL` ile `pnpm.cmd --filter @trendyol-etsy/web build` alir.
@@ -104,6 +105,7 @@ Bu akista script su sirayi uygular:
 2. `main` dalini `origin/main` ile zorla senkronlar
 3. `pnpm install` calistirir
 4. `Mode=Cloud` ise: once Cloud D1 migration + Cloud API deploy + health kontrolu yapar, sonra WEB preview, en son ngrok acar
+   - Token yoksa migration/deploy adimi atlanir.
 5. `Mode=Local` ise: once API, sonra WEB, en son ngrok acar
 6. ngrok public URL'yi terminale yazar
 

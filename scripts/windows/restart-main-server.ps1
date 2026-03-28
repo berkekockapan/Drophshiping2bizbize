@@ -1,6 +1,7 @@
 param(
   [string]$RepoPath = "C:\dropshiping-win",
   [switch]$SkipInstall,
+  [switch]$SkipCloudDeploy,
   [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
   [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL
 )
@@ -125,6 +126,28 @@ function Install-Dependencies {
 
   Write-Log "Bagimliliklar yukleniyor (pnpm install)..."
   & pnpm.cmd install
+}
+
+function Deploy-CloudApi {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
+  )
+
+  if ($SkipCloudDeploy) {
+    Write-Log "SkipCloudDeploy aktif, Cloud API deploy atlandi."
+    return
+  }
+
+  Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
+  Push-Location -LiteralPath $ResolvedRepoPath
+  try {
+    & pnpm.cmd --filter @trendyol-etsy/api deploy
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."
+    }
+  } finally {
+    Pop-Location
+  }
 }
 
 function Start-ServiceWindows {
@@ -292,6 +315,7 @@ function Main {
     Write-Log "bash: $bashExecutable"
     Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
   } else {
+    Deploy-CloudApi -ResolvedRepoPath $resolvedRepoPath
     $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl -ResolvedRepoPath $resolvedRepoPath
     Write-Log "Cloud API: $resolvedCloudApiBaseUrl"
     Start-ServiceWindowsCloud -ResolvedRepoPath $resolvedRepoPath -ResolvedCloudApiBaseUrl $resolvedCloudApiBaseUrl

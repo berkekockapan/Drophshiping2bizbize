@@ -6,6 +6,7 @@ import { buildProductDetailView } from "../tracking/buildProductDetailView";
 
 export interface EtsyPrepView {
   product: NonNullable<Awaited<ReturnType<typeof buildProductDetailView>>>["product"];
+  variants: NonNullable<Awaited<ReturnType<typeof buildProductDetailView>>>["variants"];
   draft: EtsyDraftRecord;
 }
 
@@ -20,6 +21,7 @@ export async function buildEtsyPrepView(db: D1Database, ownerKey: OwnerKey, prod
 
   return {
     product: detail.product,
+    variants: detail.variants,
     draft,
   };
 }

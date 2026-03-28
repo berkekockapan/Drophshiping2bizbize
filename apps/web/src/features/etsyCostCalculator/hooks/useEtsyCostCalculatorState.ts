@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { calculateScenario } from "../lib/calculateScenario";
 import { createDefaultCalculatorStorage } from "../lib/defaults";
+import { formatBreakdown } from "../lib/formatBreakdown";
 import { solveTargetPrice } from "../lib/solveTargetPrice";
 import { validateDraft } from "../lib/validation";
 import type { CalculatorDraft, EtsyCostCalculatorStorage } from "../lib/types";
@@ -197,6 +198,7 @@ export function useEtsyCostCalculatorState({
     }),
     [snapshot, storage.draft],
   );
+  const formattedBreakdown = useMemo(() => formatBreakdown(result.breakdown), [result.breakdown]);
 
   return {
     draft: storage.draft,

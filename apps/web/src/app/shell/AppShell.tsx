@@ -1,8 +1,13 @@
-import type { PropsWithChildren } from "react";
+﻿import type { PropsWithChildren } from "react";
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
-import { getDefaultOwnerKey, ownerOptions, readOwnerKeyFromPath, writeLastOwnerKey } from "../../features/shared/lib/ownerRouteState";
+import {
+  getDefaultOwnerKey,
+  ownerOptions,
+  readOwnerKeyFromPath,
+  writeLastOwnerKey,
+} from "../../features/shared/lib/ownerRouteState";
 
 function linkClassName(isActive: boolean) {
   return `rounded-2xl px-4 py-3 text-sm transition ${
@@ -37,14 +42,14 @@ export function AppShell({ children }: PropsWithChildren) {
                 Ürünler / {owner.label}
               </NavLink>
             ))}
-            <NavLink
-              to={`/owners/${activeOwner}/notifications`}
-              className={({ isActive }) => linkClassName(isActive)}
-            >
+            <NavLink to={`/owners/${activeOwner}/notifications`} className={({ isActive }) => linkClassName(isActive)}>
               Bildirimler
             </NavLink>
             <NavLink to={`/owners/${activeOwner}/trash`} className={({ isActive }) => linkClassName(isActive)}>
               Çöp Kutusu
+            </NavLink>
+            <NavLink to="/etsy-cost-calculator" className={({ isActive }) => linkClassName(isActive)}>
+              Etsy Maliyet Hesaplayici
             </NavLink>
             <NavLink to="/connections" className={({ isActive }) => linkClassName(isActive)}>
               AI Bağlantıları

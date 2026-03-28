@@ -138,9 +138,15 @@ function Deploy-CloudApi {
     return
   }
 
-  Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
+  Write-Log "Cloud D1 migrationlari uygulanıyor (trendyol-etsy-prod)..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
+    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-prod --remote
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cloud D1 migration uygulamasi basarisiz oldu (exit code: $LASTEXITCODE)."
+    }
+
+    Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
     & pnpm.cmd --filter @trendyol-etsy/api deploy
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."

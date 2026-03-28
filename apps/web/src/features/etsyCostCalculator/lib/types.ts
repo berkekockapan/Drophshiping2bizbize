@@ -94,6 +94,38 @@ export interface ScenarioResult extends ScenarioSnapshot {
   targetSafeListPriceUsd: number | null;
 }
 
+export type CalculatorQuickTab = "target_price" | "analyze_price";
+
+export interface FormattedBreakdownRow extends BreakdownRow {
+  badgeLabel: string;
+  formattedUsd: string;
+  formattedTry: string;
+}
+
+export interface BreakdownGroup {
+  key: "etsy_fees" | "user_costs" | "summary";
+  label: string;
+  rows: Array<
+    FormattedBreakdownRow | {
+      key: string;
+      label: string;
+      formattedUsd: string;
+      formattedTry: string;
+      badgeLabel: string;
+      note?: string;
+    }
+  >;
+}
+
+export interface QuickModeViewModel {
+  recommendedSalePriceUsd: number | null;
+  breakEvenPriceUsd: number | null;
+  targetSafeListPriceUsd: number | null;
+  recommendedScenario: ScenarioSnapshot | null;
+  enteredPriceScenario: ScenarioSnapshot | null;
+  hasEnteredSalePrice: boolean;
+}
+
 export interface EtsyCostCalculatorPreset {
   id: string;
   name: string;

@@ -87,4 +87,31 @@ describe("useEtsyCostCalculatorState", () => {
 
     expect(result.current.presets).toEqual([]);
   });
+
+  it("exposes quick-mode outputs and grouped breakdowns", () => {
+    const onPersist = vi.fn().mockResolvedValue(undefined);
+    const initialStorage = createDefaultCalculatorStorage();
+    initialStorage.draft = {
+      ...initialStorage.draft,
+      usdTryRate: 40,
+      salePriceUsd: 39,
+      productCost: { amount: 18, currency: "USD" },
+      actualShippingCost: { amount: 5, currency: "USD" },
+      targetProfitMode: "net_profit_usd",
+      targetProfitValue: 10,
+    };
+
+    const { result } = renderHook(() =>
+      useEtsyCostCalculatorState({
+        initialStorage,
+        onPersist,
+        autosaveDelayMs: 0,
+      }),
+    );
+
+    expect(result.current.quickMode.recommendedSalePriceUsd).not.toBeNull();
+    expect(result.current.quickMode.recommendedScenario?.netProfitUsd).toBeGreaterThanOrEqual(10);
+    expect(result.current.recommendedBreakdownGroups[0]?.label).toMatch(/etsy fee/i);
+    expect(result.current.analysisBreakdownGroups[2]?.rows.map((row) => row.label)).toContain("Net kar");
+  });
 });

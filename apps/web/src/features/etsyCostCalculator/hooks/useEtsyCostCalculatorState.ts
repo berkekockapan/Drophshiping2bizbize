@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculateScenario } from "../lib/calculateScenario";
 import { createDefaultCalculatorStorage } from "../lib/defaults";
 import { formatBreakdown } from "../lib/formatBreakdown";
+import { buildQuickModeViewModel } from "../lib/buildQuickModeViewModel";
+import { groupBreakdownRows } from "../lib/groupBreakdownRows";
 import { solveTargetPrice } from "../lib/solveTargetPrice";
 import { validateDraft } from "../lib/validation";
 import type { CalculatorDraft, EtsyCostCalculatorStorage } from "../lib/types";
@@ -186,6 +188,15 @@ export function useEtsyCostCalculatorState({
 
   const validationErrors = useMemo(() => validateDraft(storage.draft), [storage.draft]);
   const snapshot = useMemo(() => calculateScenario(storage.draft), [storage.draft]);
+  const quickMode = useMemo(() => buildQuickModeViewModel(storage.draft), [storage.draft]);
+  const recommendedBreakdownGroups = useMemo(
+    () => groupBreakdownRows(quickMode.recommendedScenario ?? snapshot),
+    [quickMode.recommendedScenario, snapshot],
+  );
+  const analysisBreakdownGroups = useMemo(
+    () => groupBreakdownRows(quickMode.enteredPriceScenario ?? snapshot),
+    [quickMode.enteredPriceScenario, snapshot],
+  );
   const result = useMemo(
     () => ({
       ...snapshot,
@@ -209,6 +220,9 @@ export function useEtsyCostCalculatorState({
     saveErrorMessage,
     validationErrors,
     result,
+    quickMode,
+    recommendedBreakdownGroups,
+    analysisBreakdownGroups,
     formattedBreakdown,
     updateDraft,
     resetFeeProfileOverrides,

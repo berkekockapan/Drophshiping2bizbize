@@ -1,5 +1,7 @@
 import { GenerationFieldRow } from "./GenerationFieldRow";
+import { ImagePromptPackCard } from "./ImagePromptPackCard";
 import { InsightBlocks } from "./InsightBlocks";
+import { ListingPromptPackCard } from "./ListingPromptPackCard";
 import { LiveAnalysisPanel } from "./LiveAnalysisPanel";
 import { PrepModeHeader } from "./PrepModeHeader";
 import { useEtsyPrepWorkspace } from "../hooks/useEtsyPrepWorkspace";
@@ -45,49 +47,71 @@ export function EtsyPrepWorkspace({ ownerKey, productId, onBack }: EtsyPrepWorks
             onRetry={workspace.retryAnalysis}
           />
 
+          {workspace.isPromptPackLoading ? (
+            <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">Prompt pack yukleniyor...</p>
+            </section>
+          ) : null}
+
+          {workspace.promptPackError ? (
+            <section className="rounded-[28px] border border-rose-200 bg-rose-50 p-5 shadow-sm">
+              <p className="text-sm text-rose-700">{workspace.promptPackError}</p>
+            </section>
+          ) : null}
+
+          {workspace.promptPack?.listingPromptPack && workspace.promptPack?.imagePromptPack ? (
+            <>
+              <ListingPromptPackCard
+                prompt={workspace.promptPack.listingPromptPack.prompt}
+                rulebookVersion={workspace.promptPack.rulebookVersion}
+                onCopy={workspace.copyListingPrompt}
+                onGenerate={workspace.generateListingPack}
+                copyMessage={workspace.copyMessage}
+                error={workspace.listingPackState.error}
+                provider={workspace.listingPackState.provider}
+                isGenerating={workspace.listingPackState.isGenerating}
+                generateDisabled={!workspace.canGenerateListingPack || workspace.isSaving}
+              />
+              <ImagePromptPackCard
+                mainPrompt={workspace.promptPack.imagePromptPack.mainPrompt}
+                variations={workspace.promptPack.imagePromptPack.variations}
+                guardrailSummary={workspace.promptPack.imagePromptPack.guardrailSummary}
+                onCopyMain={workspace.copyImageMainPrompt}
+                onCopyVariations={workspace.copyImageVariations}
+              />
+            </>
+          ) : null}
+
           <section className="space-y-4 rounded-[28px] border border-slate-200 bg-slate-50/70 p-5 shadow-sm">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Alan Üretimi</p>
-              <h3 className="mt-2 text-xl font-semibold text-slate-900">Title, description ve tags</h3>
+              <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Alan Editoru</p>
+              <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                Title, description ve tags uzerinde son duzeltmeler
+              </h3>
             </div>
 
             <GenerationFieldRow
               label="Title"
               value={workspace.form.title}
               onChange={workspace.updateTitle}
-              onGenerate={workspace.generateTitle}
-              generateLabel="Title Üret"
-              isGenerating={workspace.fieldStates.title.isGenerating}
-              disabled={workspace.isSaving || !workspace.canGenerate}
-              helperText={workspace.fieldStates.title.helper}
-              error={workspace.fieldStates.title.error}
-              placeholder="Etsy için başlık üretin"
+              disabled={workspace.isSaving}
+              placeholder="Etsy icin baslik"
             />
 
             <GenerationFieldRow
               label="Description"
               value={workspace.form.description}
               onChange={workspace.updateDescription}
-              onGenerate={workspace.generateDescription}
-              generateLabel="Description Üret"
-              isGenerating={workspace.fieldStates.description.isGenerating}
-              disabled={workspace.isSaving || !workspace.canGenerate}
-              helperText={workspace.fieldStates.description.helper}
-              error={workspace.fieldStates.description.error}
+              disabled={workspace.isSaving}
               multiline
-              placeholder="Detaylı Etsy açıklaması"
+              placeholder="Detayli Etsy aciklamasi"
             />
 
             <GenerationFieldRow
               label="Tags"
               value={workspace.form.tags}
               onChange={workspace.updateTags}
-              onGenerate={workspace.generateTags}
-              generateLabel="Tags Üret"
-              isGenerating={workspace.fieldStates.tags.isGenerating}
-              disabled={workspace.isSaving || !workspace.canGenerate}
-              helperText={workspace.fieldStates.tags.helper}
-              error={workspace.fieldStates.tags.error}
+              disabled={workspace.isSaving}
               multiline
               placeholder="comma, separated, tags"
             />

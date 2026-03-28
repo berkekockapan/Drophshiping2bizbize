@@ -1,4 +1,4 @@
-﻿import "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +30,7 @@ function createBootstrapPayload() {
       title: "Oversize Hoodie",
       brand: "North Apparel",
       category: "Sweatshirt",
-      descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+      descriptionRaw: "Yumusak dokulu oversize hoodie.",
       attributes: [{ key: "Renk", value: "Siyah" }],
       images: ["https://cdn.example.com/hoodie-1.jpg"],
       status: "ACTIVE",
@@ -66,49 +66,55 @@ describe("EtsyPrepWorkspace", () => {
     vi.restoreAllMocks();
   });
 
-  it(
-    "streams analysis steps, uses the local connector generate-field endpoint, persists risk notes, and resets generation metadata after save",
-    async () => {
+  it("copies the listing prompt and fills title, description, tags with one AI action", async () => {
     const user = userEvent.setup();
-    const savePayloads: Array<{
-      englishTitle: string | null;
-      longDescription: string | null;
-      tags: string[];
-      seoNotes: string | null;
-      policyNotes: string | null;
-      generatedFields: string[];
-      editedFields: string[];
-    }> = [];
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: clipboardWrite },
+      configurable: true,
+    });
 
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
       if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
         return jsonResponse(createBootstrapPayload());
       }
 
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
+      if (url.includes("/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
         return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: null,
-          aiTargetLabel: null,
-          aiTargetApiKey: null,
+          rulebookVersion: "etsy-prompt-pack-v1",
+          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+          productSnapshot: {
+            productId: "prod_1",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            attributeCount: 2,
+            variantCount: 1,
+            imageCount: 1,
+          },
+          listingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          imagePromptPack: {
+            mainPrompt: "Use the reference image as truth.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
+            guardrailSummary: ["Urun formunu degistirme"],
+          },
         });
       }
 
-      if (url === "https://clip.example.com/health") {
+      if (url.endsWith("/ai-profiles/health")) {
         return jsonResponse({
           status: "online",
-          provider: "chatgpt-web",
+          provider: "openai-oauth",
           activeProfile: {
             id: "profile_main",
             label: "OpenAI Workspace",
             emailMasked: "wo***@company.com",
-            provider: "chatgpt-web",
+            provider: "openai-oauth",
             status: "connected",
             lastValidatedAt: Date.now(),
             lastError: null,
@@ -117,136 +123,15 @@ describe("EtsyPrepWorkspace", () => {
         });
       }
 
-      if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
-        return ndjsonResponse([
-          { type: "step_started", step: "fetch_listing_signals", field: "general" },
-          {
-            type: "step_completed",
-            step: "fetch_listing_signals",
-            field: "general",
-            signals: { keywordAngles: ["hoodie", "oversize", "streetwear"] },
+      if (url.includes("/products/prod_1/etsy-prep/generate-listing-pack") && init?.method === "POST") {
+        return jsonResponse({
+          provider: "openai-oauth",
+          rulebookVersion: "etsy-prompt-pack-v1",
+          result: {
+            title: "Handmade Oversize Hoodie",
+            description: "Soft cotton hoodie for everyday wear.",
+            tags: "oversize hoodie, streetwear gift",
           },
-          {
-            type: "result_ready",
-            result: {
-              productId: "prod_1",
-              insights: {
-                seoNotes: "Lead with hoodie keyword.",
-                policyNotes: "Care instructions should be explicit.",
-                merchandisingNotes: "Missing lifestyle context.",
-              },
-            },
-          },
-        ]);
-      }
-
-      if (url.includes("/products/prod_1/etsy-prep/generate-title") && init?.method === "POST") {
-        return ndjsonResponse([
-          { type: "step_started", step: "build_prompt_package", field: "title" },
-          { type: "prompt_ready", field: "title", prompt: "Return ONLY valid JSON", context: { productId: "prod_1" } },
-        ]);
-      }
-
-      if (url === "https://clip.example.com/generate-field" && init?.method === "POST") {
-        return jsonResponse({
-          field: "title",
-          value: "Handmade Oversize Hoodie",
-          provider: "chatgpt-web",
-        });
-      }
-
-      if (url.includes("/products/prod_1/etsy-prep/save") && init?.method === "PUT") {
-        const payload = JSON.parse(String(init.body)) as {
-          englishTitle: string | null;
-          longDescription: string | null;
-          tags: string[];
-          seoNotes: string | null;
-          policyNotes: string | null;
-          generatedFields: string[];
-          editedFields: string[];
-        };
-        savePayloads.push(payload);
-
-        return jsonResponse({
-          id: "draft_1",
-          productId: "prod_1",
-          englishTitle: payload.englishTitle,
-          shortDescription: null,
-          longDescription: payload.longDescription,
-          tags: payload.tags,
-          materials: [],
-          attributes: [],
-          seoNotes: payload.seoNotes,
-          policyNotes: payload.policyNotes,
-          generatedVersion: 1,
-          editedVersion: 0,
-          lastGeneratedAt: Date.parse("2026-03-24T09:00:00.000Z"),
-          manualEditsPresent: false,
-        });
-      }
-
-      throw new Error(`Unhandled request: ${url}`);
-    });
-
-    renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
-
-    expect(await screen.findByText(/signals/i)).toBeInTheDocument();
-    expect(await screen.findByText(/bağlantı durumu: wo\*\*\*@company.com/i)).toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: /title üret/i }));
-    expect(await screen.findByLabelText(/title/i)).toHaveValue("Handmade Oversize Hoodie");
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://clip.example.com/generate-field",
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(screen.getByText(/Lead with hoodie keyword\./i)).toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: /seo notları/i })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /kaydet/i }));
-    expect(await screen.findByText(/^Kaydedildi$/i)).toBeInTheDocument();
-
-    expect(savePayloads).toHaveLength(1);
-    expect(savePayloads[0]?.englishTitle).toBe("Handmade Oversize Hoodie");
-    expect(savePayloads[0]?.generatedFields).toContain("title");
-    expect(savePayloads[0]?.policyNotes).toContain("Care instructions should be explicit.");
-    expect(savePayloads[0]?.policyNotes).toContain("Missing lifestyle context.");
-
-    await user.clear(screen.getByLabelText(/title/i));
-    await user.type(screen.getByLabelText(/title/i), "Handmade Oversize Hoodie Updated");
-    await user.click(screen.getByRole("button", { name: /kaydet/i }));
-
-    expect(await screen.findByText(/^Kaydedildi$/i)).toBeInTheDocument();
-    expect(savePayloads).toHaveLength(2);
-    expect(savePayloads[1]?.generatedFields).toEqual([]);
-    },
-    15_000,
-  );
-
-  it("blocks field generation with a product-language message when no active connector profile exists", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-
-      if (url.includes("/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
-        return jsonResponse(createBootstrapPayload());
-      }
-
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: null,
-          aiTargetLabel: null,
-          aiTargetApiKey: null,
-        });
-      }
-
-      if (url === "https://clip.example.com/health") {
-        return jsonResponse({
-          status: "online",
-          provider: "chatgpt-web",
-          activeProfile: null,
-          connectionAttempt: null,
         });
       }
 
@@ -254,17 +139,41 @@ describe("EtsyPrepWorkspace", () => {
         return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
       }
 
+      if (url.endsWith("/settings")) {
+        return jsonResponse({
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: null,
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
+        });
+      }
+
       throw new Error(`Unhandled request: ${url}`);
     });
 
     renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
-    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect((await screen.findAllByText(/openai bağlantısı gerekli/i)).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: /^promptu kopyala$/i }));
+    expect(clipboardWrite).toHaveBeenCalledWith(expect.stringContaining("Non-Negotiable Rules"));
+
+    await user.click(screen.getByRole("button", { name: /ai ile uret/i }));
+    expect(await screen.findByLabelText(/title/i)).toHaveValue("Handmade Oversize Hoodie");
+    expect(screen.getByLabelText(/description/i)).toHaveValue("Soft cotton hoodie for everyday wear.");
+    expect(screen.getByLabelText(/tags/i)).toHaveValue("oversize hoodie, streetwear gift");
   });
 
-  it("blocks generation when the connector profile needs reauth", async () => {
+  it("keeps copy actions available when automatic generation fails", async () => {
+    const user = userEvent.setup();
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: clipboardWrite },
+      configurable: true,
+    });
+
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
@@ -272,38 +181,75 @@ describe("EtsyPrepWorkspace", () => {
         return jsonResponse(createBootstrapPayload());
       }
 
-      if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
+      if (url.includes("/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
         return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: null,
-          aiTargetLabel: null,
-          aiTargetApiKey: null,
+          rulebookVersion: "etsy-prompt-pack-v1",
+          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+          productSnapshot: {
+            productId: "prod_1",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            attributeCount: 2,
+            variantCount: 1,
+            imageCount: 1,
+          },
+          listingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          imagePromptPack: {
+            mainPrompt: "Use the reference image as truth.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
+            guardrailSummary: ["Urun formunu degistirme"],
+          },
         });
       }
 
-      if (url === "https://clip.example.com/health") {
+      if (url.endsWith("/ai-profiles/health")) {
         return jsonResponse({
           status: "online",
-          provider: "chatgpt-web",
+          provider: "openai-oauth",
           activeProfile: {
             id: "profile_main",
             label: "OpenAI Workspace",
             emailMasked: "wo***@company.com",
-            provider: "chatgpt-web",
-            status: "needs_reauth",
+            provider: "openai-oauth",
+            status: "connected",
             lastValidatedAt: Date.now(),
-            lastError: "Session expired",
+            lastError: null,
           },
           connectionAttempt: null,
         });
       }
 
+      if (url.includes("/products/prod_1/etsy-prep/generate-listing-pack") && init?.method === "POST") {
+        return jsonResponse(
+          {
+            error: {
+              code: "NO_ACTIVE_PROFILE",
+              message: "Aktif OpenAI hesabi bulunamadi.",
+            },
+          },
+          409,
+        );
+      }
+
       if (url.includes("/products/prod_1/etsy-prep/analyze") && init?.method === "POST") {
         return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
+      }
+
+      if (url.endsWith("/settings")) {
+        return jsonResponse({
+          id: "default",
+          refreshIntervalHours: 5,
+          promptPreferences: null,
+          connectorHealthcheckEnabled: true,
+          aiTargetBaseUrl: null,
+          aiTargetManagementKey: null,
+          aiTargetLabel: null,
+          aiTargetApiKey: null,
+        });
       }
 
       throw new Error(`Unhandled request: ${url}`);
@@ -311,9 +257,11 @@ describe("EtsyPrepWorkspace", () => {
 
     renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
-    expect(await screen.findByRole("link", { name: /ai bağlantıları/i })).toHaveAttribute("href", "/connections");
-    expect((await screen.findAllByText(/bağlantı yeniden doğrulanmalı/i)).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /title üret/i })).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: /^promptu kopyala$/i }));
+    expect(clipboardWrite).toHaveBeenCalledWith(expect.stringContaining("Non-Negotiable Rules"));
+
+    await user.click(screen.getByRole("button", { name: /ai ile uret/i }));
+    expect(await screen.findByText(/aktif openai hesabi bulunamadi/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^promptu kopyala$/i })).toBeEnabled();
   });
 });
-

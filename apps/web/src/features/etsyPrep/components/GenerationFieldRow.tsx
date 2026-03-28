@@ -2,9 +2,9 @@ interface GenerationFieldRowProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  onGenerate: () => void;
-  generateLabel: string;
-  isGenerating: boolean;
+  onGenerate?: () => void;
+  generateLabel?: string;
+  isGenerating?: boolean;
   disabled?: boolean;
   helperText?: string | null;
   error?: string | null;
@@ -18,7 +18,7 @@ export function GenerationFieldRow({
   onChange,
   onGenerate,
   generateLabel,
-  isGenerating,
+  isGenerating = false,
   disabled = false,
   helperText,
   error,
@@ -36,14 +36,16 @@ export function GenerationFieldRow({
           {helperText ? <p className="mt-1 text-xs text-slate-500">{helperText}</p> : null}
           {error ? <p className="mt-1 text-xs text-rose-600">{error}</p> : null}
         </div>
-        <button
-          type="button"
-          className="rounded-2xl bg-[#F1641E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95518] disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={disabled || isGenerating}
-          onClick={onGenerate}
-        >
-          {isGenerating ? "Üretiliyor..." : generateLabel}
-        </button>
+        {onGenerate && generateLabel ? (
+          <button
+            type="button"
+            className="rounded-2xl bg-[#F1641E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95518] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disabled || isGenerating}
+            onClick={onGenerate}
+          >
+            {isGenerating ? "Uretiliyor..." : generateLabel}
+          </button>
+        ) : null}
       </div>
 
       <div className="mt-4">

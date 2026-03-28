@@ -248,6 +248,40 @@ describe("ProductDetailPage", () => {
         return ndjsonResponse([{ type: "step_started", step: "fetch_listing_signals", field: "general" }]);
       }
 
+      if (url.includes("/owners/berke/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
+        return jsonResponse({
+          rulebookVersion: "etsy-prompt-pack-v1",
+          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+          productSnapshot: {
+            productId: "prod_1",
+            title: "Oversize Hoodie",
+            brand: "North Apparel",
+            category: "Sweatshirt",
+            attributeCount: 1,
+            variantCount: 0,
+            imageCount: 1,
+          },
+          listingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          imagePromptPack: {
+            mainPrompt: "Use the reference image as truth.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
+            guardrailSummary: ["Urun formunu degistirme"],
+          },
+        });
+      }
+
+      if (url.endsWith("/ai-profiles/health")) {
+        return jsonResponse({
+          status: "online",
+          provider: "openai-oauth",
+          activeProfile: null,
+          connectionAttempt: null,
+        });
+      }
+
       if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
           id: "default",

@@ -37,7 +37,7 @@ describe("formatBreakdown", () => {
 
     expect(rows.map((row) => row.badgeLabel)).toEqual([
       "Resmi varsayilan",
-      "Override",
+      "Ozellestirilmis",
       "Kullanici girdisi",
       "Kosullu kalem",
     ]);

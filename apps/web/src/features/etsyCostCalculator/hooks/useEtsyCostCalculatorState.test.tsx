@@ -111,7 +111,7 @@ describe("useEtsyCostCalculatorState", () => {
 
     expect(result.current.quickMode.recommendedSalePriceUsd).not.toBeNull();
     expect(result.current.quickMode.recommendedScenario?.netProfitUsd).toBeGreaterThanOrEqual(10);
-    expect(result.current.recommendedBreakdownGroups[0]?.label).toMatch(/etsy fee/i);
+    expect(result.current.recommendedBreakdownGroups[0]?.label).toMatch(/etsy ucret/i);
     expect(result.current.analysisBreakdownGroups[2]?.rows.map((row) => row.label)).toContain("Net kar");
   });
 });

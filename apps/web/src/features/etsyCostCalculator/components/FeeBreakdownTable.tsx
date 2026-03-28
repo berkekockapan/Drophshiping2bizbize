@@ -12,7 +12,7 @@ type LegacyRow = {
 function renderLegacyTable(rows: LegacyRow[]) {
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">Fee breakdown</p>
+      <p className="text-sm font-semibold text-slate-900">Ucret dokumu</p>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-left text-sm text-slate-700">
           <thead className="text-xs uppercase tracking-[0.2em] text-slate-400">
@@ -47,7 +47,7 @@ function renderLegacyTable(rows: LegacyRow[]) {
 function renderGroupedBreakdown(groups: BreakdownGroup[]) {
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">Fee breakdown</p>
+      <p className="text-sm font-semibold text-slate-900">Ucret dokumu</p>
       <div className="mt-4 space-y-4">
         {groups.map((group) => (
           <section key={group.key} className="rounded-2xl border border-slate-100 p-4">

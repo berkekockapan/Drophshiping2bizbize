@@ -42,7 +42,7 @@ export function groupBreakdownRows(snapshot: ScenarioSnapshot): BreakdownGroup[]
   return [
     {
       key: "etsy_fees",
-      label: "Etsy fee'leri",
+      label: "Etsy ucretleri",
       rows: etsyFeeRows,
     },
     {

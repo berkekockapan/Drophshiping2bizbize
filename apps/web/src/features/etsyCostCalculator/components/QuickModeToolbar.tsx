@@ -18,7 +18,7 @@ export function QuickModeToolbar({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-900">Hizli mod</p>
-          <p className="mt-1 text-sm text-slate-600">Hedef fiyat bul veya mevcut fiyatı analiz et.</p>
+          <p className="mt-1 text-sm text-slate-600">Hedef fiyat bul veya mevcut fiyati analiz et.</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -57,7 +57,7 @@ export function QuickModeToolbar({
           className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
           onClick={onOpenPresets}
         >
-          Preset
+          Hazir ayarlar
         </button>
         <button
           type="button"

@@ -25,7 +25,7 @@ function LegacyResultsPanel({ result }: { result: ScenarioResult }) {
 
       <div className="mt-4 space-y-2 text-sm text-slate-700">
         <p>Net marj: %{result.netMarginPercent.toFixed(2)}</p>
-        <p>Toplam Etsy fee: {formatUsd(result.totalEtsyFeesUsd)}</p>
+        <p>Toplam Etsy ucreti: {formatUsd(result.totalEtsyFeesUsd)}</p>
         <p>Toplam operasyonel gider: {formatUsd(result.totalOperationalCostsUsd)}</p>
         <p>Basa bas fiyat: {formatUsd(result.breakEvenPriceUsd)}</p>
         <p>Kampanyali minimum guvenli fiyat: {formatUsd(result.targetSafeListPriceUsd)}</p>

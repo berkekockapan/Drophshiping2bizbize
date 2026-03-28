@@ -21,9 +21,9 @@ it("opens advanced fee controls, emits overrides, and exposes reset", async () =
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: /gelismis fee ayarlari/i }));
-  await user.clear(screen.getByLabelText(/transaction fee/i));
-  await user.type(screen.getByLabelText(/transaction fee/i), "7");
+  await user.click(screen.getByRole("button", { name: /gelismis ucret ayarlari/i }));
+  await user.clear(screen.getByLabelText(/^islem ucreti$/i));
+  await user.type(screen.getByLabelText(/^islem ucreti$/i), "7");
   await user.click(screen.getByRole("button", { name: /varsayilan ayarlara don/i }));
 
   expect(onChange).toHaveBeenCalled();

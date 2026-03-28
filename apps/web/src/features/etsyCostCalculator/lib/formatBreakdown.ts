@@ -13,7 +13,7 @@ const tryFormatter = new Intl.NumberFormat("tr-TR", {
 
 const SOURCE_LABELS = {
   official_default: "Resmi varsayilan",
-  official_override: "Override",
+  official_override: "Ozellestirilmis",
   user_input: "Kullanici girdisi",
   conditional: "Kosullu kalem",
 } as const;

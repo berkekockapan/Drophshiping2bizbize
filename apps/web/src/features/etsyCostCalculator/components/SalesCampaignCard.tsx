@@ -85,7 +85,7 @@ export function SalesCampaignCard({
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm text-slate-700">
-          Buyer-paid extras (USD)
+          Musteriden alinan ek bedeller (USD)
           <input
             type="number"
             min={0}
@@ -96,7 +96,7 @@ export function SalesCampaignCard({
           />
         </label>
         <label className="grid gap-2 text-sm text-slate-700">
-          Buyer tax collected by Etsy (USD)
+          Etsy tarafindan tahsil edilen musteri vergisi (USD)
           <input
             type="number"
             min={0}

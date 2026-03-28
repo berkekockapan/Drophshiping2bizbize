@@ -23,12 +23,12 @@ it("switches tabs and exposes preset and advanced actions", async () => {
   );
 
   await user.click(screen.getByRole("tab", { name: /mevcut fiyati analiz et/i }));
-  await user.click(screen.getByRole("button", { name: /preset/i }));
+  await user.click(screen.getByRole("button", { name: /hazir ayarlar/i }));
   await user.click(screen.getByRole("button", { name: /gelismis ayarlar/i }));
 
   expect(onTabChange).toHaveBeenCalledWith("analyze_price");
   expect(onOpenPresets).toHaveBeenCalled();
   expect(onOpenAdvanced).toHaveBeenCalled();
   expect(screen.getByRole("tablist")).toBeInTheDocument();
-  expect(screen.getByText(/hazir/i)).toBeInTheDocument();
+  expect(screen.getByText(/^hazir$/i)).toBeInTheDocument();
 });

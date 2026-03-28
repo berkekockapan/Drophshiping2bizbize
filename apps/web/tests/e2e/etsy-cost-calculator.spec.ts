@@ -59,10 +59,10 @@ test("loads quick mode, saves a preset, opens advanced settings, and switches an
   await page.getByLabel(/opsiyonel satis fiyati/i).fill("39");
   await expect(page.getByText(/girilen fiyat kiyasi/i)).toBeVisible();
 
-  await page.getByRole("button", { name: /^preset$/i }).click();
-  await expect(page.getByRole("region", { name: /preset araci/i })).toBeVisible();
-  await page.getByLabel(/preset adi/i).fill("ABD hizli");
-  await page.getByRole("button", { name: /preset kaydet/i }).click();
+  await page.getByRole("button", { name: /hazir ayarlar/i }).click();
+  await expect(page.getByRole("region", { name: /hazir ayar araci/i })).toBeVisible();
+  await page.getByLabel(/hazir ayar adi/i).fill("ABD hizli");
+  await page.getByRole("button", { name: /hazir ayari kaydet/i }).click();
 
   await expect
     .poll(

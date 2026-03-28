@@ -127,19 +127,19 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
   if (draft.feeProfileOverrides) {
     warnings.push({
       key: "fee_profile_override",
-      message: "Resmi fee profili override edildigi icin sonuc varsayilan Etsy TR profilinden sapabilir.",
+      message: "Resmi ucret profili ozellestirildigi icin sonuc varsayilan Etsy TR profilinden sapabilir.",
     });
   }
   if (draft.includeDepositFee) {
     warnings.push({
       key: "deposit_fee",
-      message: "Deposit fee payout-bazli kosullu bir kalemdir; senaryo dahil etse de gercek hayatta her sipariste olusmayabilir.",
+      message: "Odeme aktarim ucreti aktarim bazli kosullu bir kalemdir; senaryo dahil etse de gercek hayatta her sipariste olusmayabilir.",
     });
   }
   if (draft.currencyConversionEnabled === false) {
     warnings.push({
       key: "currency_conversion",
-      message: "Currency conversion kapali. Payment currency farkliysa gercek fee daha yuksek olabilir.",
+      message: "Para donusumu kapali. Odeme para birimi farkliysa gercek ucret daha yuksek olabilir.",
     });
   }
   if (round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
@@ -149,36 +149,36 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
   const breakdown: BreakdownRow[] = [
     {
       key: "listing_related_fee",
-      label: "Listing-related fee",
+      label: "Listeleme ucreti",
       amountUsd: listingRelatedFeeUsd,
       amountTry: toTry(listingRelatedFeeUsd, draft.usdTryRate),
       sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.listingRelatedFeeUsd),
-      note: "Varsayilan per-order listing varsayimi.",
+      note: "Varsayilan siparis basi listeleme varsayimi.",
     },
     {
       key: "transaction_fee",
-      label: "Transaction fee",
+      label: "Islem ucreti",
       amountUsd: transactionFeeUsd,
       amountTry: toTry(transactionFeeUsd, draft.usdTryRate),
       sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.transactionFeeRate),
     },
     {
       key: "processing_fee",
-      label: "Payment processing fee",
+      label: "Odeme isleme ucreti",
       amountUsd: processingFeeUsd,
       amountTry: toTry(processingFeeUsd, draft.usdTryRate),
       sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.processingFeeRate),
     },
     {
       key: "regulatory_operating_fee",
-      label: "Regulatory operating fee",
+      label: "Yasal isletim ucreti",
       amountUsd: regulatoryFeeUsd,
       amountTry: toTry(regulatoryFeeUsd, draft.usdTryRate),
       sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.regulatoryFeeRate),
     },
     {
       key: "currency_conversion_fee",
-      label: "Currency conversion fee",
+      label: "Para donusum ucreti",
       amountUsd: currencyConversionFeeUsd,
       amountTry: toTry(currencyConversionFeeUsd, draft.usdTryRate),
       sourceType: draft.currencyConversionEnabled
@@ -187,7 +187,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     },
     {
       key: "offsite_ads_fee",
-      label: "Offsite Ads fee",
+      label: "Site disi reklam ucreti",
       amountUsd: offsiteAdsFeeUsd,
       amountTry: toTry(offsiteAdsFeeUsd, draft.usdTryRate),
       sourceType:
@@ -195,18 +195,18 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     },
     {
       key: "seller_fee_vat",
-      label: "VAT on seller fees",
+      label: "Satici ucretleri KDV'si",
       amountUsd: sellerFeeVatUsd,
       amountTry: toTry(sellerFeeVatUsd, draft.usdTryRate),
       sourceType: draft.vatMode === "vat_id_provided" ? "conditional" : sourceTypeForOfficial(draft.feeProfileOverrides?.vatRate),
     },
     {
       key: "deposit_fee",
-      label: "Deposit fee",
+      label: "Odeme aktarim ucreti",
       amountUsd: depositFeeUsd,
       amountTry: depositFeeTry,
       sourceType: "conditional",
-      note: "Payout-bazli kosullu fee.",
+      note: "Aktarim bazli kosullu ucret.",
     },
     {
       key: "product_cost",

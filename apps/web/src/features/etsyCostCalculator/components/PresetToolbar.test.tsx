@@ -27,8 +27,8 @@ it("routes save, load, update and delete actions through explicit controls", asy
     />,
   );
 
-  expect(screen.getByRole("region", { name: /preset araci/i })).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: /preset kaydet/i }));
+  expect(screen.getByRole("region", { name: /hazir ayar araci/i })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: /hazir ayari kaydet/i }));
   await user.selectOptions(screen.getByRole("combobox"), "preset_1");
   await user.click(screen.getByRole("button", { name: /guncelle/i }));
   await user.click(screen.getByRole("button", { name: /sil/i }));

@@ -11,15 +11,15 @@ it("renders grouped breakdown labels, source badges, and notes", () => {
       groups={[
         {
           key: "etsy_fees",
-          label: "Etsy fee'leri",
+          label: "Etsy ucretleri",
           rows: [
             {
               key: "listing_related_fee",
-              label: "Listing-related fee",
+              label: "Listeleme ucreti",
               formattedUsd: "$0.20",
               formattedTry: "8,00 ₺",
               badgeLabel: "Resmi varsayilan",
-              note: "Varsayilan per-order listing varsayimi.",
+              note: "Varsayilan siparis basi listeleme varsayimi.",
             },
           ],
         },
@@ -29,11 +29,11 @@ it("renders grouped breakdown labels, source badges, and notes", () => {
           rows: [
             {
               key: "deposit_fee",
-              label: "Deposit fee",
+              label: "Odeme aktarim ucreti",
               formattedUsd: "$1.05",
               formattedTry: "42,00 ₺",
               badgeLabel: "Kosullu kalem",
-              note: "Payout-bazli kosullu fee.",
+              note: "Aktarim bazli kosullu ucret.",
             },
           ],
         },
@@ -42,8 +42,8 @@ it("renders grouped breakdown labels, source badges, and notes", () => {
     />,
   );
 
-  expect(screen.getByText(/etsy fee'leri/i)).toBeInTheDocument();
+  expect(screen.getByText(/etsy ucretleri/i)).toBeInTheDocument();
   expect(screen.getByText(/resmi varsayilan/i)).toBeInTheDocument();
   expect(screen.getByText(/kosullu kalem/i)).toBeInTheDocument();
-  expect(screen.getByText(/payout-bazli kosullu fee/i)).toBeInTheDocument();
+  expect(screen.getByText(/aktarim bazli kosullu ucret/i)).toBeInTheDocument();
 });

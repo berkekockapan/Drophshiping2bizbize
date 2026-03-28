@@ -41,8 +41,8 @@ describe("EtsyCostCalculatorPage", () => {
 
     expect(await screen.findByRole("tab", { name: /hedef kar icin satis fiyati bul/i })).toHaveAttribute("aria-selected", "true");
 
-    await user.click(screen.getByRole("button", { name: /preset/i }));
-    expect(screen.getByText(/preset araci/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /hazir ayarlar/i }));
+    expect(screen.getByText(/hazir ayar araci/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /gelismis ayarlar/i }));
     expect(screen.getByRole("dialog", { name: /gelismis ayarlar/i })).toBeInTheDocument();

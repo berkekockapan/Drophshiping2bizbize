@@ -107,11 +107,11 @@ function Stop-StaleProcesses {
       continue
     }
 
-    & taskkill /IM "$processName.exe" /F /T *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $taskkillResult = Start-Process -FilePath "taskkill.exe" -ArgumentList "/IM", "$processName.exe", "/F", "/T" -NoNewWindow -Wait -PassThru
+    if ($taskkillResult.ExitCode -eq 0) {
       Write-Log "Kapatildi: $processName.exe"
     } else {
-      Write-Log "Kapatma denemesi basarisiz oldu (exit=$LASTEXITCODE): $processName.exe"
+      Write-Log "Kapatma denemesi basarisiz oldu (exit=$($taskkillResult.ExitCode)): $processName.exe"
     }
   }
 }

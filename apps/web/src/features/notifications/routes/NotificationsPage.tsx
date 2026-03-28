@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
 import { fetchNotifications } from "../../../app/api";
+import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
+import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 import { NotificationList } from "../components/NotificationList";
 
 function isOwnerKey(value: string | undefined): value is OwnerKey {
@@ -17,6 +19,7 @@ export function NotificationsPage() {
     queryKey: ["notifications", ownerKey],
     enabled: Boolean(ownerKey),
     queryFn: () => fetchNotifications(ownerKey as OwnerKey),
+    ...liveSyncQueryOptions,
   });
 
   if (!ownerKey) {
@@ -33,8 +36,17 @@ export function NotificationsPage() {
         </p>
       </section>
 
+      <LiveSyncStatus
+        hasData={Boolean(notificationsQuery.data)}
+        isFetching={notificationsQuery.isFetching}
+        hasBackgroundError={Boolean(notificationsQuery.data && notificationsQuery.failureCount > 0)}
+        updatedAt={notificationsQuery.dataUpdatedAt}
+      />
+
       {notificationsQuery.isLoading ? <p className="text-sm text-slate-500">Bildirimler yükleniyor...</p> : null}
-      {notificationsQuery.isError ? <p className="text-sm text-rose-600">Bildirimler yüklenemedi.</p> : null}
+      {notificationsQuery.isError && !notificationsQuery.data ? (
+        <p className="text-sm text-rose-600">Bildirimler yüklenemedi.</p>
+      ) : null}
 
       {notificationsQuery.data ? <NotificationList items={notificationsQuery.data.items} /> : null}
     </div>

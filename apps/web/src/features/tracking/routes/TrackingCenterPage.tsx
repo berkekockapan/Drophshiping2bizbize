@@ -13,7 +13,9 @@ import {
   setTrackedProductFavorite,
   type TrackingItem,
 } from "../../../app/api";
+import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
+import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 import { StatCard } from "../../shared/components/StatCard";
 import { CategoryManagerDialog } from "../components/CategoryManagerDialog";
 import { AddLinkForm } from "../components/AddLinkForm";
@@ -38,6 +40,7 @@ export function TrackingCenterPage() {
     queryKey: ["product-categories", ownerKey],
     enabled: Boolean(ownerKey),
     queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
+    ...liveSyncQueryOptions,
   });
 
   const trackingQuery = useQuery({
@@ -48,6 +51,7 @@ export function TrackingCenterPage() {
         favoriteOnly: view === "favorites",
         categoryId: selectedCategoryId,
       }),
+    ...liveSyncQueryOptions,
   });
   const trackingErrorMessage =
     trackingQuery.error instanceof Error ? trackingQuery.error.message : "Ürünler yüklenemedi.";
@@ -200,8 +204,15 @@ export function TrackingCenterPage() {
         <BulkRefreshControl ownerKey={ownerKey} />
       </div>
 
+      <LiveSyncStatus
+        hasData={Boolean(trackingQuery.data)}
+        isFetching={trackingQuery.isFetching}
+        hasBackgroundError={Boolean(trackingQuery.data && trackingQuery.failureCount > 0)}
+        updatedAt={trackingQuery.dataUpdatedAt}
+      />
+
       {trackingQuery.isLoading ? <p className="text-sm text-slate-500">Ürünler yükleniyor...</p> : null}
-      {trackingQuery.isError ? <p className="text-sm text-rose-600">{trackingErrorMessage}</p> : null}
+      {trackingQuery.isError && !trackingQuery.data ? <p className="text-sm text-rose-600">{trackingErrorMessage}</p> : null}
       {actionErrorMessage ? <p className="text-sm text-rose-600">{actionErrorMessage}</p> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">

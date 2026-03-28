@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { fetchProductCategories, fetchProductDetail, setTrackedProductCategory } from "../../../app/api";
 import { EtsyPrepWorkspace } from "../../etsyPrep/components/EtsyPrepWorkspace";
+import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
+import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 import { ChangeTimeline } from "../components/ChangeTimeline";
 import { ProductSummary } from "../components/ProductSummary";
 import { VariantTable } from "../components/VariantTable";
@@ -19,17 +21,31 @@ export function ProductDetailPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"overview" | "prep">("overview");
   const [hasOpenedPrep, setHasOpenedPrep] = useState(false);
+  const detailHasLoadedRef = useRef(false);
+  const [hasBackgroundRefreshError, setHasBackgroundRefreshError] = useState(false);
 
   const categoriesQuery = useQuery({
     queryKey: ["product-categories", ownerKey],
     enabled: Boolean(ownerKey),
     queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
+    ...liveSyncQueryOptions,
   });
 
   const detailQuery = useQuery({
     queryKey: ["product-detail", ownerKey, productId],
     enabled: Boolean(ownerKey && productId),
-    queryFn: () => fetchProductDetail(ownerKey as OwnerKey, productId as string),
+    queryFn: async () => {
+      try {
+        return await fetchProductDetail(ownerKey as OwnerKey, productId as string);
+      } catch (error) {
+        if (detailHasLoadedRef.current) {
+          setHasBackgroundRefreshError(true);
+        }
+
+        throw error;
+      }
+    },
+    ...liveSyncQueryOptions,
   });
 
   const categoryMutation = useMutation({
@@ -46,6 +62,15 @@ export function ProductDetailPage() {
     setHasOpenedPrep(false);
   }, [ownerKey, productId]);
 
+  useEffect(() => {
+    if (!detailQuery.data) {
+      return;
+    }
+
+    detailHasLoadedRef.current = true;
+    setHasBackgroundRefreshError(false);
+  }, [detailQuery.dataUpdatedAt, detailQuery.data]);
+
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Owner bulunamadı.</p>;
   }
@@ -61,8 +86,15 @@ export function ProductDetailPage() {
 
   return (
     <div className="space-y-6">
+      <LiveSyncStatus
+        hasData={Boolean(detailQuery.data)}
+        isFetching={detailQuery.isFetching}
+        hasBackgroundError={hasBackgroundRefreshError}
+        updatedAt={detailQuery.dataUpdatedAt}
+      />
+
       {detailQuery.isLoading ? <p className="text-sm text-slate-500">Ürün detayı yükleniyor...</p> : null}
-      {detailQuery.isError ? <p className="text-sm text-rose-600">Ürün detayı yüklenemedi.</p> : null}
+      {detailQuery.isError && !detailQuery.data ? <p className="text-sm text-rose-600">Ürün detayı yüklenemedi.</p> : null}
 
       {detailQuery.data ? (
         <>

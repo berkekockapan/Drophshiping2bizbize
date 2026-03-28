@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 import { TrackingCenterPage } from "./TrackingCenterPage";
 import { renderWithProviders } from "../../../test/test-utils";
@@ -57,6 +58,7 @@ const categoriesPayload = {
 
 describe("TrackingCenterPage", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -181,6 +183,55 @@ describe("TrackingCenterPage", () => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products?favorite=true"), expect.anything()),
     );
     expect(await screen.findByText(/favorite hoodie/i)).toBeInTheDocument();
+  });
+
+  it("re-fetches the owner list every live-sync interval", async () => {
+    vi.useFakeTimers();
+    let productCalls = 0;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/owners/berke/products")) {
+        productCalls += 1;
+        return new Response(JSON.stringify(trackingPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<TrackingCenterPage />, {
+      route: "/owners/berke/products",
+      path: "/owners/:ownerKey/products",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText(/oversize hoodie/i)).toBeInTheDocument();
+    expect(productCalls).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(productCalls).toBeGreaterThanOrEqual(2);
   });
 
   it("loads owner-scoped categories, forwards categoryId to the list request, and opens the manager modal", async () => {

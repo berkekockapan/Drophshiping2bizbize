@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
@@ -86,6 +87,7 @@ function ndjsonResponse(events: unknown[]) {
 describe("ProductDetailPage", () => {
   afterEach(() => {
     localStorage.clear();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -113,6 +115,53 @@ describe("ProductDetailPage", () => {
     expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products/prod_1"), expect.anything());
+  });
+
+  it("keeps the last successful detail on screen and shows a sync warning after a failed refresh", async () => {
+    vi.useFakeTimers();
+    let shouldFail = false;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/owners/berke/categories")) {
+        return jsonResponse(categoriesPayload);
+      }
+
+      if (url.includes("/owners/berke/products/prod_1")) {
+        if (shouldFail) {
+          return new Response(JSON.stringify({ error: "network lost" }), {
+            status: 502,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        return jsonResponse(productDetailPayload);
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithProviders(<ProductDetailPage />, {
+      route: "/owners/berke/products/prod_1",
+      path: "/owners/:ownerKey/products/:productId",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByRole("heading", { name: /oversize hoodie/i })).toBeInTheDocument();
+
+    shouldFail = true;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText(/son yenileme basarisiz/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /oversize hoodie/i })).toBeInTheDocument();
   });
 
   it("switches to prep mode and requests owner-scoped prep endpoints", async () => {

@@ -1,12 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
-import {
-  fetchTrashView,
-  permanentlyDeleteTrackedProduct,
-  restoreTrackedProduct,
-} from "../../../app/api";
+import { fetchTrashView, permanentlyDeleteTrackedProduct, restoreTrackedProduct } from "../../../app/api";
+import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
+import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 
 function isOwnerKey(value: string | undefined): value is OwnerKey {
   return ownerOptions.some((owner) => owner.key === value);
@@ -21,6 +19,7 @@ export function TrashPage() {
     queryKey: ["tracking-trash", ownerKey],
     enabled: Boolean(ownerKey),
     queryFn: () => fetchTrashView(ownerKey as OwnerKey),
+    ...liveSyncQueryOptions,
   });
 
   const restoreMutation = useMutation({
@@ -51,8 +50,15 @@ export function TrashPage() {
         <h1 className="mt-3 text-3xl font-semibold text-slate-900">Silinen ürünler</h1>
       </section>
 
+      <LiveSyncStatus
+        hasData={Boolean(trashQuery.data)}
+        isFetching={trashQuery.isFetching}
+        hasBackgroundError={Boolean(trashQuery.data && trashQuery.failureCount > 0)}
+        updatedAt={trashQuery.dataUpdatedAt}
+      />
+
       {trashQuery.isLoading ? <p className="text-sm text-slate-500">Çöp kutusu yükleniyor...</p> : null}
-      {trashQuery.isError ? <p className="text-sm text-rose-600">Çöp kutusu yüklenemedi.</p> : null}
+      {trashQuery.isError && !trashQuery.data ? <p className="text-sm text-rose-600">Çöp kutusu yüklenemedi.</p> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         {trashQuery.data?.items.map((item) => (

@@ -88,21 +88,18 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
   const depositFeeUsd = round2(depositFeeTry / draft.usdTryRate);
 
   const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
+  const vatFeeRows: Array<[string, number]> = [
+    ["listing_related_fee", listingRelatedFeeUsd],
+    ["transaction_fee", transactionFeeUsd],
+    ["processing_fee", processingFeeUsd],
+    ["regulatory_operating_fee", regulatoryFeeUsd],
+    ["offsite_ads_fee", offsiteAdsFeeUsd],
+    ["currency_conversion_fee", currencyConversionFeeUsd],
+    ["deposit_fee", depositFeeUsd],
+  ];
   const vatBaseUsd =
     draft.vatMode === "no_vat_id"
-      ? round2(
-          [
-            ["listing_related_fee", listingRelatedFeeUsd],
-            ["transaction_fee", transactionFeeUsd],
-            ["processing_fee", processingFeeUsd],
-            ["regulatory_operating_fee", regulatoryFeeUsd],
-            ["offsite_ads_fee", offsiteAdsFeeUsd],
-            ["currency_conversion_fee", currencyConversionFeeUsd],
-            ["deposit_fee", depositFeeUsd],
-          ]
-            .filter(([key]) => vatApplicableFeeKeys.has(key))
-            .reduce((sum, [, value]) => sum + value, 0),
-        )
+      ? round2(vatFeeRows.filter(([key]) => vatApplicableFeeKeys.has(key)).reduce((sum, [, value]) => sum + value, 0))
       : 0;
   const sellerFeeVatUsd = draft.vatMode === "no_vat_id" ? round2(vatBaseUsd * feeProfile.vatRate) : 0;
 

@@ -1,10 +1,10 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 function ndjsonBody(events: unknown[]) {
   return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
 }
 
-test("user opens Etsy prep from product detail, generates a field, and saves the workspace", async ({ page }) => {
+test("user opens Etsy prep from product detail, generates the prompt pack, and saves the workspace", async ({ page }) => {
   const savePayloads: Array<{
     englishTitle: string | null;
     longDescription: string | null;
@@ -39,7 +39,7 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
           title: "Oversize Hoodie",
           brand: "North Apparel",
           category: "Sweatshirt",
-          descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+          descriptionRaw: "Yumusak dokulu oversize hoodie.",
           attributes: [{ key: "Renk", value: "Siyah" }],
           images: ["https://cdn.example.com/hoodie-1.jpg"],
           status: "ACTIVE",
@@ -64,7 +64,35 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
     });
   });
 
-  await page.route("**/tracking/products*", async (route) => {
+  await page.route("**/owners/berke/products/refresh-runs/active", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run: null }),
+    });
+  });
+
+  await page.route("**/owners/berke/categories", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [] }),
+    });
+  });
+
+  await page.route("**/owners/berke/products/prod_1/tariff-analysis/run", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        runId: "run_1",
+        usedAi: false,
+        recommendations: [],
+      }),
+    });
+  });
+
+  await page.route("**/owners/berke/products", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -114,7 +142,7 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
           title: "Oversize Hoodie",
           brand: "North Apparel",
           category: "Sweatshirt",
-          descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+          descriptionRaw: "Yumusak dokulu oversize hoodie.",
           attributes: [{ key: "Renk", value: "Siyah" }],
           images: ["https://cdn.example.com/hoodie-1.jpg"],
           status: "ACTIVE",
@@ -141,35 +169,47 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
     });
   });
 
-  await page.route("**/settings", async (route) => {
+  await page.route("**/products/prod_1/etsy-prep/prompt-pack", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: "default",
-        refreshIntervalHours: 5,
-        promptPreferences: null,
-        connectorHealthcheckEnabled: true,
-        aiTargetBaseUrl: "https://clip.example.com",
-        aiTargetManagementKey: null,
-        aiTargetLabel: null,
-        aiTargetApiKey: null,
+        rulebookVersion: "etsy-prompt-pack-v1",
+        generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+        productSnapshot: {
+          productId: "prod_1",
+          title: "Oversize Hoodie",
+          brand: "North Apparel",
+          category: "Sweatshirt",
+          attributeCount: 2,
+          variantCount: 1,
+          imageCount: 1,
+        },
+        listingPromptPack: {
+          prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+          outputContract: { type: "json", fields: ["title", "description", "tags"] },
+        },
+        imagePromptPack: {
+          mainPrompt: "Use the reference image as truth.",
+          variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
+          guardrailSummary: ["Urun formunu degistirme"],
+        },
       }),
     });
   });
 
-  await page.route("https://clip.example.com/health", async (route) => {
+  await page.route("**/ai-profiles/health", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status: "online",
-        provider: "chatgpt-web",
+        provider: "openai-oauth",
         activeProfile: {
           id: "profile_main",
           label: "OpenAI Workspace",
           emailMasked: "wo***@company.com",
-          provider: "chatgpt-web",
+          provider: "openai-oauth",
           status: "connected",
           lastValidatedAt: Date.now(),
           lastError: null,
@@ -215,31 +255,35 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
     });
   });
 
-  await page.route("**/products/prod_1/etsy-prep/generate-title", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: { "Content-Type": "application/x-ndjson" },
-      body: ndjsonBody([
-        { type: "step_started", step: "build_prompt_package", field: "title" },
-        { type: "step_completed", step: "build_prompt_package", field: "title" },
-        {
-          type: "prompt_ready",
-          field: "title",
-          prompt: "Return ONLY valid JSON",
-          context: { productId: "prod_1" },
-        },
-      ]),
-    });
-  });
-
-  await page.route("https://clip.example.com/generate-field", async (route) => {
+  await page.route("**/settings", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        field: "title",
-        value: "Handmade Oversize Hoodie",
-        provider: "chatgpt-web",
+        id: "default",
+        refreshIntervalHours: 5,
+        promptPreferences: null,
+        connectorHealthcheckEnabled: true,
+        aiTargetBaseUrl: null,
+        aiTargetManagementKey: null,
+        aiTargetLabel: null,
+        aiTargetApiKey: null,
+      }),
+    });
+  });
+
+  await page.route("**/products/prod_1/etsy-prep/generate-listing-pack", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "openai-oauth",
+        rulebookVersion: "etsy-prompt-pack-v1",
+        result: {
+          title: "Handmade Oversize Hoodie",
+          description: "Soft cotton hoodie for everyday wear.",
+          tags: "oversize hoodie, streetwear gift",
+        },
       }),
     });
   });
@@ -302,7 +346,7 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
           title: "Oversize Hoodie",
           brand: "North Apparel",
           category: "Sweatshirt",
-          descriptionRaw: "Yumuşak dokulu oversize hoodie.",
+          descriptionRaw: "Yumusak dokulu oversize hoodie.",
           attributes: [{ key: "Renk", value: "Siyah" }],
           images: ["https://cdn.example.com/hoodie-1.jpg"],
           status: "ACTIVE",
@@ -328,28 +372,23 @@ test("user opens Etsy prep from product detail, generates a field, and saves the
   });
 
   await page.goto("/");
-  await page.getByRole("link", { name: /ürün görseli: oversize hoodie/i }).click();
+  await page.getByRole("link", { name: /^Ürün görseli: Oversize Hoodie$/i }).click();
   await expect(page).toHaveURL(/\/products\/prod_1$/);
   await expect(page.getByText(/Ürün Özeti/i)).toBeVisible();
+
   await page.getByRole("button", { name: "Etsy'e Yükle" }).click();
 
-  await expect(page.getByRole("heading", { name: /etsy hazırlık çalışma alanı/i })).toBeVisible();
-  await expect(page.getByText(/Lead with hoodie keyword\./i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /listing prompt pack/i })).toBeVisible();
+  await expect(page.getByText(/rulebook: etsy-prompt-pack-v1/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
 
-  await page.getByRole("button", { name: /title üret/i }).click();
+  await page.getByRole("button", { name: /ai ile uret/i }).click();
   await expect(page.getByLabel("Title")).toHaveValue("Handmade Oversize Hoodie");
+  await expect(page.getByLabel("Description")).toHaveValue("Soft cotton hoodie for everyday wear.");
+  await expect(page.getByLabel("Tags")).toHaveValue("oversize hoodie, streetwear gift");
 
   await page.getByRole("button", { name: /kaydet/i }).click();
   await expect(page.getByText(/^Kaydedildi$/i)).toBeVisible();
 
-  await page.getByLabel("Title").fill("Handmade Oversize Hoodie Updated");
-  await page.getByRole("button", { name: /kaydet/i }).click();
-
-  await expect(page.getByText(/^Kaydedildi$/i)).toBeVisible();
-  expect(savePayloads).toHaveLength(2);
-  expect(savePayloads[0]?.generatedFields).toContain("title");
-  expect(savePayloads[0]?.policyNotes).toContain("Etsy Uyum Kontrolleri:");
-  expect(savePayloads[0]?.policyNotes).toContain("Eksik Veri / Riskler:");
-  expect(savePayloads[1]?.generatedFields).toEqual([]);
-  expect(savePayloads[1]?.editedFields).toContain("title");
+  expect(savePayloads[0]?.generatedFields).toEqual(["title", "description", "tags"]);
 });

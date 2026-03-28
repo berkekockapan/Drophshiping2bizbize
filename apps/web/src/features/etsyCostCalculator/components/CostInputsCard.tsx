@@ -13,15 +13,19 @@ function createCostLine(): CostLineInput {
 export function CostInputsCard({
   draft,
   onChange,
+  variant = "all",
 }: {
   draft: CalculatorDraft;
   onChange: (patch: Partial<CalculatorDraft>) => void;
+  variant?: "all" | "advanced-only";
 }) {
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">Maliyet karti</p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <MoneyInputField label="Urun maliyeti" value={draft.productCost} onChange={(value) => onChange({ productCost: value })} />
+        {variant === "all" ? (
+          <MoneyInputField label="Urun maliyeti" value={draft.productCost} onChange={(value) => onChange({ productCost: value })} />
+        ) : null}
         <MoneyInputField
           label="Gercek kargo maliyeti"
           value={draft.actualShippingCost}

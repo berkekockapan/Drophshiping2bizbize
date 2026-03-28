@@ -8,6 +8,14 @@ import { expect, it, vi } from "vitest";
 import { createDefaultDraft } from "../lib/defaults";
 import { CostInputsCard } from "./CostInputsCard";
 
+it("hides product cost in advanced-only mode", () => {
+  const onChange = vi.fn();
+
+  render(<CostInputsCard draft={createDefaultDraft()} variant="advanced-only" onChange={onChange} />);
+
+  expect(screen.queryByLabelText(/^urun maliyeti$/i)).not.toBeInTheDocument();
+});
+
 it("adds, edits, currency-switches, and removes custom cost rows", async () => {
   const user = userEvent.setup();
   const onChange = vi.fn();

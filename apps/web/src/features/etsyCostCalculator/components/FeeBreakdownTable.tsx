@@ -1,8 +1,15 @@
-export function FeeBreakdownTable({
-  rows,
-}: {
-  rows: Array<{ key: string; label: string; formattedUsd: string; formattedTry: string; badgeLabel: string; note?: string }>;
-}) {
+import type { BreakdownGroup } from "../lib/types";
+
+type LegacyRow = {
+  key: string;
+  label: string;
+  formattedUsd: string;
+  formattedTry: string;
+  badgeLabel: string;
+  note?: string;
+};
+
+function renderLegacyTable(rows: LegacyRow[]) {
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">Fee breakdown</p>
@@ -35,4 +42,44 @@ export function FeeBreakdownTable({
       </div>
     </section>
   );
+}
+
+function renderGroupedBreakdown(groups: BreakdownGroup[]) {
+  return (
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-sm font-semibold text-slate-900">Fee breakdown</p>
+      <div className="mt-4 space-y-4">
+        {groups.map((group) => (
+          <section key={group.key} className="rounded-2xl border border-slate-100 p-4">
+            <h3 className="text-sm font-semibold text-slate-900">{group.label}</h3>
+            <div className="mt-3 space-y-3">
+              {group.rows.length > 0 ? (
+                group.rows.map((row) => (
+                  <div key={row.key} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_120px_120px_auto] md:items-start">
+                    <div>
+                      <div className="font-medium text-slate-900">{row.label}</div>
+                      {row.note ? <div className="mt-1 text-xs text-slate-500">{row.note}</div> : null}
+                    </div>
+                    <div className="text-sm text-slate-700">{row.formattedUsd}</div>
+                    <div className="text-sm text-slate-700">{row.formattedTry}</div>
+                    <div>
+                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                        {row.badgeLabel}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">Kalem yok</p>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function FeeBreakdownTable(props: { rows: LegacyRow[] } | { groups: BreakdownGroup[] }) {
+  return "rows" in props ? renderLegacyTable(props.rows) : renderGroupedBreakdown(props.groups);
 }

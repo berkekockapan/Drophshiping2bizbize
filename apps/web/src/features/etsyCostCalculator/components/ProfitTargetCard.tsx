@@ -5,39 +5,47 @@ export function ProfitTargetCard({
   draft,
   validationErrors,
   onChange,
+  showTargetFields = true,
 }: {
   draft: CalculatorDraft;
   validationErrors: Record<string, string>;
   onChange: (patch: Partial<CalculatorDraft>) => void;
+  showTargetFields?: boolean;
 }) {
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">Genel gider ve hedef kar karti</p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm text-slate-700">
-          Hedef kar modu
-          <select
-            value={draft.targetProfitMode}
-            onChange={(event) => onChange({ targetProfitMode: event.target.value as CalculatorDraft["targetProfitMode"] })}
-            className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
-          >
-            <option value="margin_percent">% net kar</option>
-            <option value="net_profit_usd">USD net kar</option>
-            <option value="net_profit_try">TRY net kar</option>
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm text-slate-700">
-          Hedef kar degeri
-          <input
-            aria-invalid={Boolean(validationErrors.targetProfitValue)}
-            type="number"
-            min={0}
-            step="0.01"
-            value={draft.targetProfitValue}
-            onChange={(event) => onChange({ targetProfitValue: Number(event.target.value) })}
-            className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
-          />
-        </label>
+
+      {showTargetFields ? (
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2 text-sm text-slate-700">
+            Hedef kar modu
+            <select
+              value={draft.targetProfitMode}
+              onChange={(event) => onChange({ targetProfitMode: event.target.value as CalculatorDraft["targetProfitMode"] })}
+              className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
+            >
+              <option value="margin_percent">% net kar</option>
+              <option value="net_profit_usd">USD net kar</option>
+              <option value="net_profit_try">TRY net kar</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm text-slate-700">
+            Hedef kar degeri
+            <input
+              aria-invalid={Boolean(validationErrors.targetProfitValue)}
+              type="number"
+              min={0}
+              step="0.01"
+              value={draft.targetProfitValue}
+              onChange={(event) => onChange({ targetProfitValue: Number(event.target.value) })}
+              className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      <div className={showTargetFields ? "mt-4 grid gap-4 md:grid-cols-2" : "mt-4 grid gap-4 md:grid-cols-2"}>
         <label className="grid gap-2 text-sm text-slate-700">
           Genel gider modu
           <select
@@ -54,11 +62,7 @@ export function ProfitTargetCard({
 
       {draft.overheadMode === "per_order" ? (
         <div className="mt-4">
-          <MoneyInputField
-            label="Siparis basi genel gider"
-            value={draft.overheadPerOrder}
-            onChange={(value) => onChange({ overheadPerOrder: value })}
-          />
+          <MoneyInputField label="Siparis basi genel gider" value={draft.overheadPerOrder} onChange={(value) => onChange({ overheadPerOrder: value })} />
         </div>
       ) : null}
 

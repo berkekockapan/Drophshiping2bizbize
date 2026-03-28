@@ -2,6 +2,13 @@
 
 Bu doküman `apps/api` uygulamasını Cloudflare Worker olarak, `apps/web` uygulamasını Cloudflare Pages üzerinde yayınlamak için gereken kalıcı kurulum akışını toplar. `apps/connector` bu kapsamda deploy edilmez.
 
+## Canli veri kurali
+
+- Production kullanicilari sadece deploy edilmis Pages + deploy edilmis Worker + `trendyol-etsy-prod` uzerinden calisir.
+- `trendyol-etsy-prod` canli veri icin tek dogruluk kaynagidir.
+- `trendyol-etsy-dev`, lokal `wrangler dev` ve lokal D1 sadece gelistirme ve test amaclidir; canli veri kaynagi degildir.
+- `VITE_API_BASE_URL` production Pages ortaminda bos birakilmaz ve canli Worker domainine isaret eder.
+
 ## Hedef kaynaklar
 
 - Worker (production): `trendyol-etsy-api`
@@ -174,7 +181,28 @@ OpenAI OAuth / masaüstü connector detayları gerekirse ek rehber için `docs/r
 - Web için yeni build/deploy al
 - Production D1 verisini silme; yalnızca kodu geri sar
 
-## 10) Başarı kriterleri
+
+## 10) Time Travel ve geri donus
+
+Bookmark durumunu gor:
+
+```bash
+pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel info trendyol-etsy-prod
+```
+
+Geri donus uygula:
+
+```bash
+pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel restore trendyol-etsy-prod --bookmark=<bookmark>
+```
+
+Veri merkezli bir degisiklik veya bootstrap oncesinde mevcut durumu gormek icin:
+
+```bash
+pnpm --filter @trendyol-etsy/api exec wrangler d1 info trendyol-etsy-prod
+```
+
+## 11) Basari kriterleri
 
 Bu iş tamamlanmış sayılırsa:
 

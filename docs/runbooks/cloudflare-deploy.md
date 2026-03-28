@@ -1,6 +1,7 @@
 # Cloudflare Deploy Runbook
 
 > Güncel Worker + D1 + Pages deploy akışı için önce `docs/deploy/cloudflare.md` dosyasını kullanın. Bu runbook yalnızca Cloudflare üzerindeki OpenAI OAuth / masaüstü connector ayrıntılarını tamamlar.
+> Merkezi bulut kaliciligi ve iki cihaz smoke test akisi icin `docs/runbooks/2026-03-28-central-cloud-persistence-rollout.md` dosyasina bakin.
 
 ## Ne zaman gerekli?
 
@@ -44,3 +45,5 @@ pnpm --filter @trendyol-etsy/api exec wrangler secret put OPENAI_OAUTH_ENCRYPTIO
 - `~/.codex/auth.json` içindeki `client_id` bu proje için kullanılmamalıdır.
 - Bu değer Codex istemcisine aittir ve custom redirect ile `unknown_error` üretebilir.
 - Deploy, migration, smoke test ve rollback adımlarının canonical kaynağı `docs/deploy/cloudflare.md` dosyasıdır.
+- Production D1 tek resmi veri kaynagidir; lokal veya dev D1 canli veri yerine gecemez.
+- Production veri geri donusu gerekiyorsa once `docs/deploy/cloudflare.md` icindeki Time Travel ve geri donus bolumu kullanilir.

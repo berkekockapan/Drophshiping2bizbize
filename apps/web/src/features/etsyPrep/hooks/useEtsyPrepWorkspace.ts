@@ -77,6 +77,8 @@ const initialFieldGenerationState: Record<EtsyPrepField, FieldGenerationState> =
   tags: { isGenerating: false, error: null, helper: null, provider: null },
 };
 
+const LISTING_PACK_FIELDS: EtsyPrepField[] = ["title", "description", "tags"];
+
 const IN_PROGRESS_ATTEMPT_STATUSES = new Set<ConnectionAttemptResponse["status"]>([
   "pending_browser_launch",
   "waiting_for_login",
@@ -559,8 +561,8 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
         description: generated.result.description,
         tags: generated.result.tags,
       }));
-      setGeneratedFields((current) => [...new Set([...current, "title", "description", "tags"])]);
-      setEditedFields((current) => current.filter((field) => !["title", "description", "tags"].includes(field)));
+      setGeneratedFields((current) => Array.from(new Set<EtsyPrepField>([...current, ...LISTING_PACK_FIELDS])));
+      setEditedFields((current) => current.filter((field) => !LISTING_PACK_FIELDS.includes(field)));
       setListingPackState({
         isGenerating: false,
         error: null,

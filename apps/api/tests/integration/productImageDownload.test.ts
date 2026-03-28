@@ -44,6 +44,7 @@ describe("product image download", () => {
     expect(okResponse.status).toBe(200);
     expect(okResponse.headers.get("content-type")).toContain("image/jpeg");
     expect(okResponse.headers.get("content-disposition")).toContain(".jpg");
+    expect(okResponse.headers.get("access-control-allow-origin")).toBe("*");
     expect(new Uint8Array(await okResponse.arrayBuffer())).toEqual(new Uint8Array([255, 216, 255, 217]));
 
     const invalidResponse = await app.request(
@@ -53,6 +54,24 @@ describe("product image download", () => {
     );
 
     expect(invalidResponse.status).toBe(400);
+    expect(invalidResponse.headers.get("access-control-allow-origin")).toBe("*");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns CORS headers for preflight requests", async () => {
+    const { env } = createTestEnv();
+    const app = createApp();
+
+    const response = await app.request(
+      "http://localhost/owners/berke/products/some-id/images/download?url=https://cdn.example.com/x.jpg",
+      {
+        method: "OPTIONS",
+      },
+      env,
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-allow-methods")).toContain("OPTIONS");
   });
 });

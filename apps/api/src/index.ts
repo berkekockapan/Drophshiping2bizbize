@@ -10,15 +10,28 @@ export function createApp(options: CreateTrackedProductOptions = {}) {
   const app = new Hono<{ Bindings: Env }>();
 
   app.use("*", async (c, next) => {
-    c.header("Access-Control-Allow-Origin", "*");
-    c.header("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    c.header("Access-Control-Allow-Headers", "Content-Type");
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    } as const;
 
     if (c.req.method === "OPTIONS") {
-      return c.body(null, 204);
+      return c.body(null, 204, corsHeaders);
     }
 
     await next();
+
+    const headers = new Headers(c.res.headers);
+    for (const [key, value] of Object.entries(corsHeaders)) {
+      headers.set(key, value);
+    }
+
+    c.res = new Response(c.res.body, {
+      headers,
+      status: c.res.status,
+      statusText: c.res.statusText,
+    });
   });
 
   app.get("/health", (c) => c.json({ ok: true }));

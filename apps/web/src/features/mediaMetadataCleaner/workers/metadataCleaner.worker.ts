@@ -85,6 +85,9 @@ export function registerMetadataCleanerWorker(target: MetadataCleanerWorkerScope
   });
 }
 
-if (typeof self !== "undefined" && "importScripts" in self && typeof (self as { importScripts?: unknown }).importScripts === "function") {
+if (
+  typeof self !== "undefined" &&
+  typeof (self as { addEventListener?: unknown }).addEventListener === "function"
+) {
   registerMetadataCleanerWorker(self as MetadataCleanerWorkerScope);
 }

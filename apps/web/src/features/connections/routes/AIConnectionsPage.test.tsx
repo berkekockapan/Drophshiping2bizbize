@@ -213,7 +213,9 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText("Yerel bağlantı servisi hazır değil")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Merkezi bulut verisine erisilemedi. Internet baglantisini ve canli API ayarlarini kontrol edip tekrar deneyin."),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Bağlantı Servisi URL")).not.toBeInTheDocument();
 
     await user.click(screen.getByText("Gelişmiş Ayarlar"));

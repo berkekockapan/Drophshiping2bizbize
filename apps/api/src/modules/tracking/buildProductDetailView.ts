@@ -5,6 +5,8 @@ import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 import { createRefreshAuditRepo } from "../../db/repositories/refreshAuditRepo";
+import { createTariffAnalysisRepo } from "../../db/repositories/tariffAnalysisRepo";
+import { createTariffSelectionRepo } from "../../db/repositories/tariffSelectionRepo";
 import {
   buildProductChangeTimeline,
   type ContentHistoryRow,
@@ -57,6 +59,8 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const historyRepo = createHistoryRepo(db);
   const notificationsRepo = createNotificationsRepo(db);
   const refreshAuditRepo = createRefreshAuditRepo(db);
+  const tariffAnalysisRepo = createTariffAnalysisRepo(db);
+  const tariffSelectionRepo = createTariffSelectionRepo(db);
   const detail = await productsRepo.getProductDetail(ownerKey, productId);
 
   if (!detail) {
@@ -77,6 +81,8 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const contentHistory = (await refreshAuditRepo.listContentHistory(productId)) as unknown as ContentHistoryRow[];
   const priceHistory = (await historyRepo.listPriceHistory(productId)) as unknown as PriceHistoryRow[];
   const stockHistory = (await historyRepo.listStockHistory(productId)) as unknown as StockHistoryRow[];
+  const latestTariffRun = await tariffAnalysisRepo.getLatestRun(productId);
+  const tariffSelection = await tariffSelectionRepo.getSelection(productId);
   const { userCategoryId, userCategoryName, ...product } = detail.product;
 
   return {
@@ -104,5 +110,17 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
       variants: detail.variants,
     }),
     notifications: await notificationsRepo.listNotifications(ownerKey, productId),
+    tariffAnalysis: {
+      selection: tariffSelection,
+      latestRun: latestTariffRun,
+      recommendations:
+        Array.isArray(latestTariffRun?.resultSnapshot) || !latestTariffRun?.resultSnapshot
+          ? []
+          : Array.isArray((latestTariffRun.resultSnapshot as { recommendations?: unknown }).recommendations)
+            ? ((latestTariffRun.resultSnapshot as { recommendations: unknown[] }).recommendations as unknown[])
+            : [],
+      manualSearchEnabled: true,
+      disclaimer: "Planlama amacli GTIP tahminidir; nihai beyan karari degildir.",
+    },
   };
 }

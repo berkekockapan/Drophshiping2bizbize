@@ -79,6 +79,63 @@ export interface ProductChangeTimelineItem {
   refreshSource: "MANUAL" | "SCHEDULED" | null;
 }
 
+export interface ProductTariffRecommendation {
+  catalogId: string;
+  canonicalHs6: string;
+  title: string;
+  rationale: string;
+  score: number;
+  usProfileId: string | null;
+  generalDutyRate: number;
+  additionalDutyRate: number;
+  combinedDutyRate: number;
+  dutySummary: string;
+  sourceBadges: string[];
+}
+
+export interface ProductTariffAnalysisRun {
+  id: string;
+  productId: string;
+  ownerKey: OwnerKey;
+  status: string;
+  usedAi: boolean;
+  inputSnapshot: Record<string, unknown>;
+  resultSnapshot: {
+    recommendations: ProductTariffRecommendation[];
+  } | null;
+  engineVersion: string;
+  createdAt: number;
+  completedAt: number | null;
+}
+
+export interface ProductTariffSelection {
+  productId: string;
+  ownerKey: OwnerKey;
+  catalogId: string;
+  canonicalHs6: string;
+  title: string;
+  usProfileId: string | null;
+  selectionSource: string;
+  selectedBy: string;
+  selectedAt: number;
+  analysisRunId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  generalDutyRate: number;
+  additionalDutyRate: number;
+  combinedDutyRate: number;
+  dutySummary: string;
+  revisionLabel: string | null;
+}
+
+export interface ProductTariffAnalysisSummary {
+  selection: ProductTariffSelection | null;
+  latestRun: ProductTariffAnalysisRun | null;
+  recommendations: ProductTariffRecommendation[];
+  manualSearchEnabled: boolean;
+  disclaimer: string;
+}
+
 export interface ProductDetailResponse {
   product: {
     id: string;
@@ -138,6 +195,7 @@ export interface ProductDetailResponse {
   }>;
   changeTimeline: ProductChangeTimelineItem[];
   notifications: NotificationItem[];
+  tariffAnalysis: ProductTariffAnalysisSummary;
 }
 
 export interface CreateTrackedProductResponse {
@@ -355,6 +413,38 @@ export interface ManualRefreshRunSummary {
   sourceRunId: string | null;
 }
 
+export interface ProductTariffAnalysisRunResponse {
+  runId: string;
+  usedAi: boolean;
+  recommendations: ProductTariffRecommendation[];
+}
+
+export interface ProductTariffSelectionPayload {
+  catalogId: string;
+  usProfileId: string | null;
+  selectionSource: string;
+}
+
+export interface ProductTariffSelectionResponse {
+  selection: ProductTariffSelection;
+}
+
+export interface ProductTariffSearchResponse {
+  items: ProductTariffRecommendation[];
+}
+
+export interface TariffKnowledgeCandidatePayload {
+  catalogId: string;
+  usProfileId: string | null;
+  candidateSource: string;
+  notes?: string | null;
+}
+
+export interface TariffKnowledgeCandidateResponse {
+  candidateId: string;
+  status: string;
+}
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 function toApiUrl(path: string) {
@@ -550,6 +640,54 @@ export async function createTrackedProduct(ownerKey: OwnerKey, trendyolUrl: stri
 export async function fetchProductDetail(ownerKey: OwnerKey, productId: string): Promise<ProductDetailResponse> {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}`);
   return parseJson<ProductDetailResponse>(response);
+}
+
+export async function runProductTariffAnalysis(ownerKey: OwnerKey, productId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/tariff-analysis/run`, {
+    method: "POST",
+  });
+
+  return parseJson<ProductTariffAnalysisRunResponse>(response);
+}
+
+export async function saveProductTariffSelection(
+  ownerKey: OwnerKey,
+  productId: string,
+  payload: ProductTariffSelectionPayload,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/tariff-selection`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<ProductTariffSelectionResponse>(response);
+}
+
+export async function searchProductTariffCatalog(ownerKey: OwnerKey, productId: string, query: string) {
+  const response = await fetchWithTimeout(
+    `/owners/${ownerKey}/products/${productId}/tariff-search?q=${encodeURIComponent(query)}`,
+  );
+
+  return parseJson<ProductTariffSearchResponse>(response);
+}
+
+export async function submitTariffKnowledgeCandidate(
+  ownerKey: OwnerKey,
+  productId: string,
+  payload: TariffKnowledgeCandidatePayload,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/tariff-knowledge-candidates`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<TariffKnowledgeCandidateResponse>(response);
 }
 
 export async function setTrackedProductFavorite(ownerKey: OwnerKey, productId: string, isFavorite: boolean) {

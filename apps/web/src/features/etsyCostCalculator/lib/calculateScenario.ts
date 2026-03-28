@@ -86,6 +86,10 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       ? feeProfile.depositFeeTry
       : 0;
   const depositFeeUsd = round2(depositFeeTry / draft.usdTryRate);
+  const importDutyUsd =
+    draft.importDutyEnabled && typeof draft.importDutyRate === "number"
+      ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+      : 0;
 
   const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
   const vatFeeRows: Array<[string, number]> = [
@@ -108,6 +112,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       toUsd(draft.actualShippingCost, draft.usdTryRate) +
       toUsd(draft.packagingCost, draft.usdTryRate) +
       toUsd(draft.shipentegraOperationCost, draft.usdTryRate) +
+      importDutyUsd +
       draft.customCosts.filter((line) => line.enabled).reduce((sum, line) => sum + toUsd(line.value, draft.usdTryRate), 0) +
       resolveOverheadUsd(draft),
   );
@@ -140,6 +145,12 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     warnings.push({
       key: "currency_conversion",
       message: "Para donusumu kapali. Odeme para birimi farkliysa gercek ucret daha yuksek olabilir.",
+    });
+  }
+  if (draft.importDutyEnabled && typeof draft.importDutyRate === "number") {
+    warnings.push({
+      key: "import_duty",
+      message: "ABD ithalat vergisi secili GTIP oranina gore tahmini olarak eklendi.",
     });
   }
   if (round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
@@ -237,6 +248,19 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       sourceType: "user_input",
     },
   ];
+
+  if (draft.importDutyEnabled && typeof draft.importDutyRate === "number") {
+    breakdown.push({
+      key: "import_duty_fee",
+      label: draft.importDutyLabel ?? "ABD ithalat vergisi",
+      amountUsd: importDutyUsd,
+      amountTry: toTry(importDutyUsd, draft.usdTryRate),
+      sourceType: "conditional",
+      note: draft.selectedTariffCode
+        ? `Secili GTIP ${draft.selectedTariffCode} icin hesaplandi.`
+        : "GTIP secimi olmadan uygulanmaz.",
+    });
+  }
 
   for (const line of draft.customCosts.filter((cost) => cost.enabled)) {
     const lineUsd = toUsd(line.value, draft.usdTryRate);

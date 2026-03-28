@@ -167,6 +167,7 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
 
   const cancelRequestedRef = useRef(false);
   const itemsRef = useRef<CleanerItem[]>([]);
+  const cancelSignalResolveRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -226,6 +227,9 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
     setZipBlob(null);
     setZipErrorMessage(null);
     cancelRequestedRef.current = false;
+    const cancelSignal = new Promise<void>((resolve) => {
+      cancelSignalResolveRef.current = resolve;
+    });
 
     const queuedIds = snapshot.filter((item) => item.status === "queued").map((item) => item.id);
     const workerTarget = Math.max(1, Math.min(4, globalThis.navigator?.hardwareConcurrency ?? 4));
@@ -264,9 +268,12 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
                 bytes: await readFileArrayBuffer(itemSnapshot.file),
               };
 
-              const response = await runWorkerJob(worker, request);
+              const result = await Promise.race([
+                runWorkerJob(worker, request).then((response) => ({ kind: "response" as const, response })),
+                cancelSignal.then(() => ({ kind: "cancelled" as const })),
+              ]);
 
-              if (cancelRequestedRef.current) {
+              if (result.kind === "cancelled" || cancelRequestedRef.current) {
                 patchItem(id, (item) => ({
                   ...item,
                   status: "cancelled",
@@ -277,6 +284,8 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
                 }));
                 continue;
               }
+
+              const { response } = result;
 
               if (response.status === "success") {
                 const outputBlob = new Blob([response.cleanedBytes], {
@@ -317,6 +326,7 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
         }),
       );
     } finally {
+      cancelSignalResolveRef.current = null;
       for (const worker of workers) {
         worker.terminate();
       }
@@ -363,6 +373,7 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
     }
 
     cancelRequestedRef.current = true;
+    cancelSignalResolveRef.current?.();
     setIsCancelling(true);
   }, [isProcessing]);
 

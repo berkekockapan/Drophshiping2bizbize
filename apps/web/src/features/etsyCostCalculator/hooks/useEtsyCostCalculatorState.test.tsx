@@ -51,6 +51,31 @@ describe("useEtsyCostCalculatorState", () => {
     expect(result.current.draft.feeProfileOverrides).toBeNull();
   });
 
+  it("tracks import duty fields and adds the breakdown row when enabled", () => {
+    const onPersist = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useEtsyCostCalculatorState({
+        initialStorage: createDefaultCalculatorStorage(),
+        onPersist,
+        autosaveDelayMs: 0,
+      }),
+    );
+
+    expect(result.current.draft.importDutyEnabled).toBe(false);
+
+    act(() => {
+      result.current.updateDraft({
+        salePriceUsd: 50,
+        importDutyEnabled: true,
+        importDutyRate: 0.11,
+        importDutyLabel: "ABD GTIP vergisi",
+        selectedTariffCode: "711790",
+      });
+    });
+
+    expect(result.current.result.breakdown.map((row) => row.key)).toContain("import_duty_fee");
+  });
+
   it("creates, updates, loads and deletes presets explicitly", () => {
     const onPersist = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() =>

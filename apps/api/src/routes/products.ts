@@ -9,6 +9,10 @@ import {
   InvalidEtsyPrepDraftPayloadError,
   saveEtsyPrepDraft,
 } from "../modules/etsyPrep/saveEtsyPrepDraft";
+import { buildTariffRecommendations } from "../modules/tariff/analysis/buildTariffRecommendations";
+import { createTariffKnowledgeCandidate } from "../modules/tariff/knowledge/createTariffKnowledgeCandidate";
+import { searchTariffCatalog } from "../modules/tariff/search/searchTariffCatalog";
+import { saveProductTariffSelection } from "../modules/tariff/selection/saveProductTariffSelection";
 import { downloadProductImageAsJpg } from "../modules/tracking/downloadProductImageAsJpg";
 import { buildProductDetailView } from "../modules/tracking/buildProductDetailView";
 
@@ -167,6 +171,134 @@ export function createProductsRouter() {
     }
 
     return c.json(detail);
+  });
+
+  app.get("/:productId/tariff-analysis", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await buildProductDetailView(c.env.DB, ownerKey, c.req.param("productId"));
+    if (!detail) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    return c.json(
+      detail.tariffAnalysis ?? {
+        selection: null,
+        latestRun: null,
+        recommendations: [],
+        manualSearchEnabled: true,
+        disclaimer: "Planlama amacli tahmindir.",
+      },
+    );
+  });
+
+  app.post("/:productId/tariff-analysis/run", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await buildProductDetailView(c.env.DB, ownerKey, c.req.param("productId"));
+    if (!detail) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    return c.json(
+      await buildTariffRecommendations(c.env.DB, {
+        ownerKey,
+        productId: c.req.param("productId"),
+        title: detail.product.title,
+        descriptionRaw: detail.product.descriptionRaw,
+        category: detail.product.category,
+        attributes: detail.product.attributes ?? [],
+        images: detail.product.images ?? [],
+        aiContext: null,
+      }),
+    );
+  });
+
+  app.put("/:productId/tariff-selection", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req
+      .json<{ catalogId?: string; usProfileId?: string | null; selectionSource?: string; analysisRunId?: string | null }>()
+      .catch(() => null);
+    if (!body?.catalogId || !body.selectionSource) {
+      return c.json({ error: "catalogId ve selectionSource gereklidir" }, 400);
+    }
+
+    try {
+      const selection = await saveProductTariffSelection(c.env.DB, {
+        ownerKey,
+        productId: c.req.param("productId"),
+        catalogId: body.catalogId,
+        usProfileId: body.usProfileId ?? null,
+        selectionSource: body.selectionSource,
+        analysisRunId: body.analysisRunId ?? null,
+      });
+
+      if (!selection) {
+        return c.json({ error: "Kayit bulunamadi" }, 404);
+      }
+
+      return c.json({ selection });
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Secim kaydedilemedi" }, 400);
+    }
+  });
+
+  app.get("/:productId/tariff-search", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const detail = await buildProductDetailView(c.env.DB, ownerKey, c.req.param("productId"));
+    if (!detail) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const query = c.req.query("q") ?? "";
+    return c.json({ items: await searchTariffCatalog(c.env.DB, query) });
+  });
+
+  app.post("/:productId/tariff-knowledge-candidates", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req
+      .json<{ catalogId?: string; usProfileId?: string | null; candidateSource?: string; notes?: string | null }>()
+      .catch(() => null);
+    if (!body?.catalogId || !body.candidateSource) {
+      return c.json({ error: "catalogId ve candidateSource gereklidir" }, 400);
+    }
+
+    try {
+      const candidate = await createTariffKnowledgeCandidate(c.env.DB, {
+        ownerKey,
+        productId: c.req.param("productId"),
+        catalogId: body.catalogId,
+        usProfileId: body.usProfileId ?? null,
+        candidateSource: body.candidateSource,
+        notes: body.notes ?? null,
+      });
+
+      if (!candidate) {
+        return c.json({ error: "Kayit bulunamadi" }, 404);
+      }
+
+      return c.json({ candidateId: candidate.id, status: candidate.status }, 201);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Aday olusturulamadi" }, 400);
+    }
   });
 
   return app;

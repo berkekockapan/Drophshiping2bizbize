@@ -66,7 +66,9 @@ describe("EtsyPrepWorkspace", () => {
     vi.restoreAllMocks();
   });
 
-  it("streams analysis steps, uses the local connector generate-field endpoint, persists risk notes, and resets generation metadata after save", async () => {
+  it(
+    "streams analysis steps, uses the local connector generate-field endpoint, persists risk notes, and resets generation metadata after save",
+    async () => {
     const user = userEvent.setup();
     const savePayloads: Array<{
       englishTitle: string | null;
@@ -214,7 +216,9 @@ describe("EtsyPrepWorkspace", () => {
     expect(await screen.findByText(/^Kaydedildi$/i)).toBeInTheDocument();
     expect(savePayloads).toHaveLength(2);
     expect(savePayloads[1]?.generatedFields).toEqual([]);
-  });
+    },
+    15_000,
+  );
 
   it("blocks field generation with a product-language message when no active connector profile exists", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {

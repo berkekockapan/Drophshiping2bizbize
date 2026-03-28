@@ -43,15 +43,81 @@ test("loads quick mode, saves a preset, opens advanced settings, and switches an
     });
   });
 
-  await page.goto("/");
-  await page.getByRole("link", { name: /etsy maliyet hesaplayici/i }).click();
-  await expect(page).toHaveURL(/\/etsy-cost-calculator$/);
+  await page.route("**/owners/berke/products/prod_1", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: {
+          id: "prod_1",
+          ownerKey: "berke",
+          trendyolUrl: "https://www.trendyol.com/example",
+          sourceProductId: "123",
+          title: "Deri bileklik",
+          brand: "North Apparel",
+          category: "Aksesuar",
+          userCategory: null,
+          descriptionRaw: "El yapimi urun",
+          attributes: [],
+          images: [],
+          status: "ACTIVE",
+          parseStatus: "OK",
+          lastCheckedAt: Date.now(),
+        },
+        currentState: {
+          currentPrice: 44990,
+          minPrice: 34990,
+          maxPrice: 44990,
+          inStockVariantCount: 2,
+          totalVariantCount: 3,
+          lastChangeAt: Date.now(),
+          lastCheckedAt: Date.now(),
+        },
+        variants: [],
+        priceHistory: [],
+        stockHistory: [],
+        changeTimeline: [],
+        notifications: [],
+        tariffAnalysis: {
+          selection: {
+            productId: "prod_1",
+            ownerKey: "berke",
+            catalogId: "catalog_711790",
+            canonicalHs6: "711790",
+            title: "Imitation jewelry",
+            usProfileId: "us_711790_2026r4",
+            selectionSource: "recommended",
+            selectedBy: "berke",
+            selectedAt: Date.now(),
+            analysisRunId: "run_1",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            generalDutyRate: 0.11,
+            additionalDutyRate: 0,
+            combinedDutyRate: 0.11,
+            dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
+            revisionLabel: "USITC HTS 2026 Revision 4",
+          },
+          latestRun: null,
+          recommendations: [],
+          manualSearchEnabled: true,
+          disclaimer: "Planlama",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/etsy-cost-calculator?ownerKey=berke&productId=prod_1");
+  await expect(page).toHaveURL(/\/etsy-cost-calculator\?ownerKey=berke&productId=prod_1$/);
   await expect(page.getByRole("heading", { name: /etsy maliyet hesaplayici/i })).toBeVisible();
   await expect(page.getByRole("tab", { name: /hedef kar icin satis fiyati bul/i })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: /abd ithalat vergisi/i })).toBeVisible();
+  await expect(page.getByText(/gtip 711790/i)).toBeVisible();
 
   await page.getByLabel(/^Urun maliyeti$/i).fill("18");
   await page.getByLabel(/^Gercek kargo$/i).fill("5");
   await page.getByLabel(/hedef kar degeri/i).fill("10");
+  await page.getByRole("checkbox", { name: /abd ithalat vergisini dahil et/i }).check();
 
   await expect(page.getByText(/onerilen satis fiyati/i)).toBeVisible();
   await expect(page.getByText(/basa bas fiyat/i)).toBeVisible();

@@ -38,6 +38,12 @@ export interface CalculatorDraft {
   buyerPaidShippingUsd: number;
   buyerPaidExtrasUsd: number;
   buyerTaxCollectedByEtsyUsd: number;
+  linkedOwnerKey: string | null;
+  linkedProductId: string | null;
+  selectedTariffCode: string | null;
+  importDutyEnabled: boolean;
+  importDutyRate: number | null;
+  importDutyLabel: string | null;
   saleDiscountPercent: number;
   coupon: CouponInput;
   freeShipping: boolean;

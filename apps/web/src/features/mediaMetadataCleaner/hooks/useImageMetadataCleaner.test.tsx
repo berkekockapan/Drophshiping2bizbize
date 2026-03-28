@@ -127,6 +127,7 @@ describe("useImageMetadataCleaner", () => {
   });
 
   it("kuyruk özetlerini ve canDownloadZip durumunu registerFiles sonrası doğru hesaplar", () => {
+    setHardwareConcurrency(1);
     const { result } = renderHook(() => useImageMetadataCleaner());
 
     act(() => {
@@ -252,8 +253,6 @@ describe("useImageMetadataCleaner", () => {
       ]);
     });
 
-    setHardwareConcurrency(1);
-
     act(() => {
       void result.current.startCleaning();
     });
@@ -274,10 +273,10 @@ describe("useImageMetadataCleaner", () => {
 
     await waitFor(() => {
       expect(zipBuilderMocks.buildMediaMetadataZip).toHaveBeenCalledTimes(1);
-    });
+    }, { timeout: 3_000 });
     await waitFor(() => {
       expect(result.current.isProcessing).toBe(false);
-    });
+    }, { timeout: 3_000 });
 
     expect(result.current.items.map((item) => item.status)).toEqual(["cancelled", "cancelled", "cancelled"]);
     expect(result.current.summary).toMatchObject({

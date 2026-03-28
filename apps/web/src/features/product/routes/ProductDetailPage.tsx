@@ -8,6 +8,7 @@ import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 import { ChangeTimeline } from "../components/ChangeTimeline";
+import { ProductTariffPanel } from "../components/ProductTariffPanel";
 import { ProductSummary } from "../components/ProductSummary";
 import { VariantTable } from "../components/VariantTable";
 
@@ -116,6 +117,8 @@ export function ProductDetailPage() {
               ) : null
             }
           />
+
+          <ProductTariffPanel ownerKey={ownerKey} productId={productId} analysis={detailQuery.data.tariffAnalysis} />
 
           <div className="space-y-6" hidden={mode !== "overview"} aria-hidden={mode !== "overview"}>
             <VariantTable variants={detailQuery.data.variants} />

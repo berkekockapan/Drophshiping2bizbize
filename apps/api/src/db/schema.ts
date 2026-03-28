@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const products = sqliteTable(
   "products",
@@ -331,6 +331,111 @@ export const manualRefreshRunItems = sqliteTable(
   }),
 );
 
+export const tariffClassificationCatalog = sqliteTable(
+  "tariff_classification_catalog",
+  {
+    id: text("id").primaryKey(),
+    canonicalHs6: text("canonical_hs6").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    keywordsJson: text("keywords_json"),
+    sourceType: text("source_type").notNull(),
+    sourceVersion: text("source_version").notNull(),
+    effectiveFrom: integer("effective_from", { mode: "timestamp_ms" }),
+    effectiveTo: integer("effective_to", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    canonicalHs6Idx: index("tariff_classification_catalog_hs6_idx").on(table.canonicalHs6),
+  }),
+);
+
+export const tariffClassificationUsProfiles = sqliteTable(
+  "tariff_classification_us_profiles",
+  {
+    id: text("id").primaryKey(),
+    catalogId: text("catalog_id").notNull(),
+    htsusCode: text("htsus_code").notNull(),
+    generalDutyRate: real("general_duty_rate").notNull(),
+    additionalDutyRate: real("additional_duty_rate").notNull().default(0),
+    combinedDutyRate: real("combined_duty_rate").notNull(),
+    summaryText: text("summary_text").notNull(),
+    revisionLabel: text("revision_label").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    catalogUnique: uniqueIndex("tariff_classification_us_profiles_catalog_id_unique").on(table.catalogId),
+  }),
+);
+
+export const productTariffAnalysisRuns = sqliteTable(
+  "product_tariff_analysis_runs",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    status: text("status").notNull(),
+    usedAi: integer("used_ai", { mode: "boolean" }).notNull().default(false),
+    inputSnapshotJson: text("input_snapshot_json").notNull(),
+    resultSnapshotJson: text("result_snapshot_json"),
+    engineVersion: text("engine_version").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+  },
+  (table) => ({
+    productCreatedIdx: index("product_tariff_analysis_runs_product_created_idx").on(table.productId, table.createdAt),
+    ownerProductCreatedIdx: index("product_tariff_analysis_runs_owner_product_created_idx").on(
+      table.ownerKey,
+      table.productId,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const productTariffSelection = sqliteTable(
+  "product_tariff_selection",
+  {
+    productId: text("product_id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    catalogId: text("catalog_id").notNull(),
+    usProfileId: text("us_profile_id"),
+    selectionSource: text("selection_source").notNull(),
+    selectedBy: text("selected_by").notNull(),
+    selectedAt: integer("selected_at", { mode: "timestamp_ms" }).notNull(),
+    analysisRunId: text("analysis_run_id"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    ownerCatalogIdx: index("product_tariff_selection_owner_catalog_idx").on(table.ownerKey, table.catalogId),
+  }),
+);
+
+export const tariffKnowledgeCandidates = sqliteTable(
+  "tariff_knowledge_candidates",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    catalogId: text("catalog_id").notNull(),
+    usProfileId: text("us_profile_id"),
+    candidateSource: text("candidate_source").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    status: text("status").notNull(),
+    submittedBy: text("submitted_by").notNull(),
+    submittedAt: integer("submitted_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    ownerStatusSubmittedIdx: index("tariff_knowledge_candidates_owner_status_submitted_idx").on(
+      table.ownerKey,
+      table.status,
+      table.submittedAt,
+    ),
+  }),
+);
+
 export const schema = {
   products,
   productVariants,
@@ -349,6 +454,11 @@ export const schema = {
   manualRefreshRuns,
   manualRefreshRunItems,
   productCategories,
+  tariffClassificationCatalog,
+  tariffClassificationUsProfiles,
+  productTariffAnalysisRuns,
+  productTariffSelection,
+  tariffKnowledgeCandidates,
 };
 
 export const schemaTableNames = [
@@ -369,4 +479,9 @@ export const schemaTableNames = [
   "manual_refresh_runs",
   "manual_refresh_run_items",
   "product_categories",
+  "tariff_classification_catalog",
+  "tariff_classification_us_profiles",
+  "product_tariff_analysis_runs",
+  "product_tariff_selection",
+  "tariff_knowledge_candidates",
 ] as const;

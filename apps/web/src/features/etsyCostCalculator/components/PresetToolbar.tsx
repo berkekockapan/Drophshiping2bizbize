@@ -20,7 +20,7 @@ export function PresetToolbar({
   onDeletePreset: (presetId: string) => void;
 }) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <section aria-label="Preset araci" className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <div>
         <p className="text-sm font-semibold text-slate-900">Preset araci</p>
         <p className="mt-1 text-sm text-slate-600">Senaryolari acikca kaydet, guncelle ve tekrar yukle.</p>

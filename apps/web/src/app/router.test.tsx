@@ -111,5 +111,6 @@ describe("AppRouter", () => {
 
     expect(await screen.findByRole("heading", { name: /etsy maliyet hesaplayici/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /etsy maliyet hesaplayici/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /hedef kar icin satis fiyati bul/i })).toHaveAttribute("aria-selected", "true");
   });
 });

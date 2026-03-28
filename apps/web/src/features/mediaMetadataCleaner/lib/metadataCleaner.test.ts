@@ -82,6 +82,7 @@ describe("cleanImageMetadata", () => {
       makeSegment(0xe0, [...asciiBytes("JFIF"), 0x00, 0x01, 0x02, 0x00, 0x00, 0x01]),
       makeSegment(0xe1, [...asciiBytes("Exif"), 0x00, 0x00, 0x11, 0x22]),
       makeSegment(0xe2, [...asciiBytes("ICC"), 0x00]),
+      makeSegment(0xeb, [...asciiBytes("C2PA"), 0x00, 0x01, 0x02, 0x03]),
       makeSegment(0xed, [...asciiBytes("Photoshop"), 0x00]),
       makeSegment(0xfe, [...asciiBytes("notlar")]),
       [0xff, 0xda, ...be16(8), 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00],
@@ -98,7 +99,9 @@ describe("cleanImageMetadata", () => {
 
     expect(result.format).toBe("jpeg");
     expect(result.changed).toBe(true);
-    expect(result.removedMetadataBlocks).toEqual(expect.arrayContaining(["APP1", "APP2", "APP13", "COM"]));
+    expect(result.removedMetadataBlocks).toEqual(
+      expect.arrayContaining(["APP1", "APP2", "APP11", "APP13", "COM"]),
+    );
     expect(Array.from(result.cleanedBytes)).toEqual([
       0xff, 0xd8,
       0xff, 0xe0, 0x00, 0x0c, ...asciiBytes("JFIF"), 0x00, 0x01, 0x02, 0x00, 0x00, 0x01,
@@ -114,6 +117,9 @@ describe("cleanImageMetadata", () => {
       makePngChunk("IHDR", [0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00]),
       makePngChunk("tEXt", [...asciiBytes("Author"), 0x00, ...asciiBytes("Berke")]),
       makePngChunk("iCCP", [...asciiBytes("profile"), 0x00, 0x00, 0x01]),
+      makePngChunk("caBX", [...asciiBytes("jumbf"), 0x00, 0x00, 0x00, 0x01]),
+      makePngChunk("pHYs", [...be32(2835), ...be32(2835), 0x01]),
+      makePngChunk("tIME", [0x07, 0xe9, 0x03, 0x1c, 0x0b, 0x22, 0x10]),
       makePngChunk("IDAT", [0x78, 0x9c, 0x63, 0x60]),
       makePngChunk("iTXt", [...asciiBytes("Comment"), 0x00, 0x00, 0x00, ...asciiBytes("Merhaba")]),
       makePngChunk("zTXt", [...asciiBytes("Keywords"), 0x00, 0x00]),
@@ -130,7 +136,9 @@ describe("cleanImageMetadata", () => {
 
     expect(result.format).toBe("png");
     expect(result.changed).toBe(true);
-    expect(result.removedMetadataBlocks).toEqual(expect.arrayContaining(["tEXt", "iCCP", "iTXt", "zTXt", "eXIf"]));
+    expect(result.removedMetadataBlocks).toEqual(
+      expect.arrayContaining(["tEXt", "iCCP", "caBX", "pHYs", "tIME", "iTXt", "zTXt", "eXIf"]),
+    );
 
     const output = Array.from(result.cleanedBytes);
     expect(output.slice(0, 8)).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -145,10 +153,41 @@ describe("cleanImageMetadata", () => {
     expect(readChunkTypes(result.cleanedBytes)).toEqual(["IHDR", "IDAT", "IEND"]);
   });
 
+  it("PNG worker yardimcisi metadata chunk'larini kaldirip temiz bytes dondurur", () => {
+    const png = concatBytes([
+      Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      makePngChunk("IHDR", [0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00]),
+      makePngChunk("tEXt", [...asciiBytes("Author"), 0x00, ...asciiBytes("Berke")]),
+      makePngChunk("caBX", [...asciiBytes("jumbf"), 0x00, 0x00, 0x00, 0x01]),
+      makePngChunk("pHYs", [...be32(2835), ...be32(2835), 0x01]),
+      makePngChunk("tIME", [0x07, 0xe9, 0x03, 0x1c, 0x0b, 0x22, 0x10]),
+      makePngChunk("IDAT", [0x78, 0x9c, 0x63, 0x60]),
+      makePngChunk("IEND", []),
+    ]);
+
+    const result = handleMetadataCleanerWorkerRequest({
+      id: "job-png",
+      fileName: "foto.png",
+      bytes: png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength),
+    });
+
+    expect(result.id).toBe("job-png");
+    expect(result.status).toBe("success");
+    if (result.status !== "success") {
+      throw new Error("Beklenmeyen hata sonucu");
+    }
+
+    expect(result.format).toBe("png");
+    expect(result.changed).toBe(true);
+    expect(result.removedMetadataBlocks).toEqual(expect.arrayContaining(["tEXt", "caBX", "pHYs", "tIME"]));
+    expect(readChunkTypes(new Uint8Array(result.cleanedBytes))).toEqual(["IHDR", "IDAT", "IEND"]);
+  });
+
   it("WebP metadata chunk'larini kaldirir ve VP8X bayraklarini temizler", () => {
     const vp8xPayload = [0x2c, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00];
     const webpChunks = [
       makeWebPChunk("VP8X", vp8xPayload),
+      makeWebPChunk("C2PA", [0x63, 0x32, 0x70, 0x61, 0x01, 0x02]),
       makeWebPChunk("ICCP", [0x01, 0x02, 0x03]),
       makeWebPChunk("VP8 ", [0x11, 0x22, 0x33]),
       makeWebPChunk("EXIF", [0x44, 0x55, 0x66]),
@@ -170,7 +209,7 @@ describe("cleanImageMetadata", () => {
 
     expect(result.format).toBe("webp");
     expect(result.changed).toBe(true);
-    expect(result.removedMetadataBlocks).toEqual(expect.arrayContaining(["ICCP", "EXIF", "XMP "]));
+    expect(result.removedMetadataBlocks).toEqual(expect.arrayContaining(["C2PA", "ICCP", "EXIF", "XMP "]));
     expect(readWebpChunkTypes(result.cleanedBytes)).toEqual(["VP8X", "VP8 "]);
     expect(result.cleanedBytes[20]).toBe(0x00);
   });

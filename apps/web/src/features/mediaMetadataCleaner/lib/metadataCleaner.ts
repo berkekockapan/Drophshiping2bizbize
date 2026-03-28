@@ -34,13 +34,23 @@ const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 
 const JPEG_METADATA_MARKERS = new Map<number, string>([
   [0xe1, "APP1"],
   [0xe2, "APP2"],
+  [0xeb, "APP11"],
   [0xed, "APP13"],
   [0xfe, "COM"],
 ]);
 
-const PNG_METADATA_CHUNKS = new Set(["tEXt", "iTXt", "zTXt", "iCCP", "eXIf"]);
+const PNG_METADATA_CHUNKS = new Set([
+  "tEXt",
+  "iTXt",
+  "zTXt",
+  "iCCP",
+  "eXIf",
+  "pHYs",
+  "tIME",
+  "caBX",
+]);
 
-const WEBP_METADATA_CHUNKS = new Set(["ICCP", "EXIF", "XMP "]);
+const WEBP_METADATA_CHUNKS = new Set(["ICCP", "EXIF", "XMP ", "C2PA"]);
 
 const WEBP_VP8X_METADATA_FLAGS = 0x04 | 0x08 | 0x20;
 

@@ -7,6 +7,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$CloudPreviewPort = 4174
+$LocalWebPort = 5173
+$LocalApiPort = 8787
+
 function Write-Log {
   param([Parameter(Mandatory = $true)][string]$Message)
   Write-Host ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message)
@@ -129,23 +133,36 @@ function Start-ServiceWindows {
     [Parameter(Mandatory = $true)][string]$BashExecutable
   )
 
-  $apiCmd = "title Dropship API && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @trendyol-etsy/api exec wrangler dev --port 8787"
+  $apiHealthUrl = "http://127.0.0.1:$LocalApiPort/health"
+  $webLocalUrl = "http://127.0.0.1:$LocalWebPort"
+  $apiCmd = "title Dropship API && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @trendyol-etsy/api exec wrangler dev --port $LocalApiPort"
   $webCmd = "title Dropship Web && cd /d `"$ResolvedRepoPath`" && pnpm.cmd dev:web"
-  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http 5173"
+  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http $LocalWebPort"
 
   Write-Log "API penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $apiCmd | Out-Null
-  Wait-HttpEndpoint -Label "API" -Url "http://127.0.0.1:8787/health"
+  if ((Wait-HttpEndpoint -Label "API" -Url $apiHealthUrl) -eq $false) {
+    throw "API hazir olmadi: $apiHealthUrl"
+  }
 
   Write-Log "WEB penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $webCmd | Out-Null
-  Wait-HttpEndpoint -Label "WEB" -Url "http://127.0.0.1:5173"
+  if ((Wait-HttpEndpoint -Label "WEB" -Url $webLocalUrl) -eq $false) {
+    throw "WEB hazir olmadi: $webLocalUrl"
+  }
 
   Write-Log "ngrok penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $ngrokCmd | Out-Null
 
   $publicUrl = Wait-NgrokPublicUrl
   Write-Log "ngrok public URL: $publicUrl"
+
+  return [pscustomobject]@{
+    Mode = "Local"
+    WebLocalUrl = $webLocalUrl
+    ApiHealthUrl = $apiHealthUrl
+    PublicUrl = $publicUrl
+  }
 }
 
 function Start-ServiceWindowsCloud {
@@ -154,21 +171,47 @@ function Start-ServiceWindowsCloud {
     [Parameter(Mandatory = $true)][string]$ResolvedCloudApiBaseUrl
   )
 
-  $webCmd = "title Dropship Web (Cloud API) && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd dev:web"
-  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http 5173"
+  $apiHealthUrl = "$ResolvedCloudApiBaseUrl/health"
+  $webLocalUrl = "http://127.0.0.1:$CloudPreviewPort"
+  $webCmd = "title Dropship Web (Cloud Preview) && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd --filter @trendyol-etsy/web build && pnpm.cmd --filter @trendyol-etsy/web exec vite preview --host 0.0.0.0 --port $CloudPreviewPort --strictPort"
+  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http $CloudPreviewPort"
 
   Write-Log "Cloud API saglik kontrolu yapiliyor..."
-  Wait-HttpEndpoint -Label "Cloud API" -Url "$ResolvedCloudApiBaseUrl/health"
+  if ((Wait-HttpEndpoint -Label "Cloud API" -Url $apiHealthUrl) -eq $false) {
+    throw "Cloud API hazir olmadi: $apiHealthUrl"
+  }
 
-  Write-Log "WEB penceresi aciliyor (VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl)..."
+  Write-Log "WEB preview penceresi aciliyor (VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl)..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $webCmd | Out-Null
-  Wait-HttpEndpoint -Label "WEB" -Url "http://127.0.0.1:5173"
+  if ((Wait-HttpEndpoint -Label "WEB Preview" -Url $webLocalUrl) -eq $false) {
+    throw "WEB Preview hazir olmadi: $webLocalUrl"
+  }
 
   Write-Log "ngrok penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $ngrokCmd | Out-Null
 
   $publicUrl = Wait-NgrokPublicUrl
   Write-Log "ngrok public URL: $publicUrl"
+
+  return [pscustomobject]@{
+    Mode = "Cloud"
+    WebLocalUrl = $webLocalUrl
+    ApiHealthUrl = $apiHealthUrl
+    PublicUrl = $publicUrl
+  }
+}
+
+function Write-RestartSummary {
+  param(
+    [Parameter(Mandatory = $true)][string]$HeadCommit,
+    [Parameter(Mandatory = $true)][psobject]$Runtime
+  )
+
+  Write-Log "Tamamlandi. Aktif commit: $HeadCommit"
+  Write-Log "Calisma modu: $($Runtime.Mode)"
+  Write-Log "Web local: $($Runtime.WebLocalUrl)"
+  Write-Log "API health: $($Runtime.ApiHealthUrl)"
+  Write-Log "ngrok public URL: $($Runtime.PublicUrl)"
 }
 
 function Wait-HttpEndpoint {
@@ -244,7 +287,7 @@ function Main {
   Sync-MainBranch
   Install-Dependencies
 
-  if ($Mode -eq "Local") {
+  $runtime = if ($Mode -eq "Local") {
     $bashExecutable = Resolve-BashExecutable
     Write-Log "bash: $bashExecutable"
     Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
@@ -255,14 +298,9 @@ function Main {
   }
 
   $head = (& git rev-parse --short HEAD).Trim()
-  Write-Log "Tamamlandi. Aktif commit: $head"
-  Write-Log "Web local: http://127.0.0.1:5173"
-  if ($Mode -eq "Local") {
-    Write-Log "API health: http://127.0.0.1:8787/health"
-  } else {
-    Write-Log "API health (cloud): $resolvedCloudApiBaseUrl/health"
-  }
-  Write-Log "ngrok penceresindeki Forwarding https://... linkini kullan."
+  Write-RestartSummary -HeadCommit $head -Runtime $runtime
 }
 
-Main
+if (-not $RestartMainServerSkipMain) {
+  Main
+}

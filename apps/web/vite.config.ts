@@ -40,6 +40,10 @@ export default defineConfig(({ mode }) => {
           }
         : {}),
     },
+    preview: {
+      // ngrok gibi uzak host adlari preview sunucusu tarafindan reddedilmesin.
+      allowedHosts: true,
+    },
     test: {
       environment: "jsdom",
       globals: true,
@@ -48,7 +52,7 @@ export default defineConfig(({ mode }) => {
         "**/dist/**",
         "**/cypress/**",
         "**/.{idea,git,cache,output,temp}/**",
-        "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*",
+        "**/{karma,rollup,webpack,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*",
         "tests/e2e/**",
         "**/tests/e2e/**",
       ],

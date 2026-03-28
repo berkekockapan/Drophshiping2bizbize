@@ -22,6 +22,6 @@ if not "%EXIT_CODE%"=="0" (
 
 echo.
 echo [OK] Restart command completed.
-echo Secilen moda gore gerekli pencereler (WEB/ngrok ve gerekirse API) acilmis olmali.
+echo Aktif commit, mod, local URL ve ngrok public URL yukaridaki PowerShell loglarinda yazdirildi.
 pause
 

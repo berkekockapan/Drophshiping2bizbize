@@ -1,21 +1,31 @@
 # uzakpc
 
-Bu dosya, projeyi uzaktan yayınladığımız Windows makineyi (`uzakpc`) unutmamak için kısa operasyon hafızasıdır.
+Bu dosya, projeyi uzaktan yayinladigimiz Windows makineyi (`uzakpc`) unutmamak icin kisa operasyon hafizasidir.
 
-## Sistem Tanımı
+## Sistem Tanimi
 
 - Ad: `uzakpc`
-- Rol: Projeyi çalıştıran uzak Windows makine
-- Yayın modeli: `web (vite)` + `api (wrangler)` + `ngrok`
-- Hedef: Güncel kodu dışarıya `https://...ngrok...` linkiyle açmak
+- Rol: Projeyi calistiran uzak Windows makine
+- Yayin modeli:
+  - `Cloud`: `web (build + vite preview @ 4174)` + `Cloud Worker API` + `ngrok`
+  - `Local`: `web (vite dev @ 5173)` + `api (wrangler dev @ 8787)` + `ngrok`
+- Hedef: `Cloud` modda tek tikla guncel ve prod-benzeri uzaktan yayin acmak
+
+### Cloud mode notu (yeni varsayilan)
+
+- `restart-main-server.ps1` varsayilan olarak `Mode=Cloud` calisir.
+- Bu modda script once Cloud API health kontrolu yapar.
+- Sonra `VITE_API_BASE_URL` ile `pnpm.cmd --filter @trendyol-etsy/web build` alir.
+- Ardindan `vite preview --host 0.0.0.0 --port 4174` ile preview acip `ngrok http 4174` baslatir.
+- Build ya da preview health kontrolu basarisizsa script durur; yari-hazir yayin acik birakilmaz.
 
 ## Hangi Dal?
 
-- Varsayılan ve istenen dal: `main`
-- `windows-selfhost-ngrok-no-ai` dalı farklı davranır (AI menüsünü gizleyen self-host MVP akışı).
-- `uzakpc` için normalde `main` kullanılmalı.
+- Varsayilan ve istenen dal: `main`
+- `windows-selfhost-ngrok-no-ai` dalı farkli davranir (AI menusunu gizleyen self-host MVP akisi).
+- `uzakpc` icin normalde `main` kullanilmali.
 
-## Güncel Kodu Zorla Senkronlama (Windows)
+## Guncel Kodu Zorla Senkronlama (Windows)
 
 ```powershell
 cd C:\dropshiping-win
@@ -26,11 +36,11 @@ git rev-parse --short HEAD
 git rev-parse --short origin/main
 ```
 
-`HEAD` ve `origin/main` aynı değilse, güncel kod çalışmıyor demektir.
+`HEAD` ve `origin/main` ayni degilse, guncel kod calismiyor demektir.
 
-## Temiz Yeniden Başlatma Sırası
+## Temiz Yeniden Baslatma Sirasi
 
-Önce eski süreçleri kapat:
+Once eski surecleri kapat:
 
 ```powershell
 taskkill /IM node.exe /F
@@ -38,7 +48,7 @@ taskkill /IM ngrok.exe /F
 taskkill /IM caddy.exe /F
 ```
 
-Sonra 3 terminal ile aç:
+Sonra 3 terminal ile ac:
 
 1) API terminali
 
@@ -60,7 +70,7 @@ pnpm.cmd dev:web
 
 Beklenen: `Local: http://127.0.0.1:5173/`
 
-3) Dış erişim terminali
+3) Dis erisim terminali
 
 ```powershell
 cd C:\dropshiping-win
@@ -91,7 +101,7 @@ Bu akista script su sirayi uygular:
 1. Eski `node/ngrok/caddy` sureclerini kapatir
 2. `main` dalini `origin/main` ile zorla senkronlar
 3. `pnpm install` calistirir
-4. `Mode=Cloud` ise: once Cloud API health kontrolu yapar, sonra WEB, en son ngrok acar
+4. `Mode=Cloud` ise: once Cloud API health kontrolu yapar, sonra WEB preview, en son ngrok acar
 5. `Mode=Local` ise: once API, sonra WEB, en son ngrok acar
 6. ngrok public URL'yi terminale yazar
 
@@ -99,9 +109,10 @@ Not: restart scripti `bash.exe` yolunu otomatik bulur; API'yi PATH bagimsiz basl
 
 ## Hızlı Sağlık Kontrolü
 
-- Local web: `http://127.0.0.1:5173`
+- Cloud web preview: `http://127.0.0.1:4174`
+- Local web dev: `http://127.0.0.1:5173`
 - Local API health: `http://127.0.0.1:8787/health`
-- Dış erişim: ngrok’un verdiği `https://...` URL
+- Dış erişim: script sonunda loglanan `ngrok public URL`
 
 ## Sık Karşılaşılan Sorunlar
 
@@ -144,5 +155,5 @@ ngrok version
 ## Operasyon Notları
 
 - `uzakpc` için “güncel değil” şikayetinde ilk kontrol her zaman commit eşleşmesidir.
-- Kod güncel olsa bile eski süreçler açık kalırsa eski davranış görülebilir; bu yüzden süreç temizliği kritik.
+- Kod güncel olsa bile eski süreçler açık kalırsa eski davranış görülebilir; bu yüzden süreç temizliği kritiktir.
 - Gerekirse ngrok authtoken döndür (rotate) ve yeniden `ngrok config add-authtoken ...` çalıştır.

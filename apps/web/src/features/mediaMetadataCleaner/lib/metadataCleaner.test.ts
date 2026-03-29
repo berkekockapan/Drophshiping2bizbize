@@ -153,6 +153,27 @@ describe("cleanImageMetadata", () => {
     expect(readChunkTypes(result.cleanedBytes)).toEqual(["IHDR", "IDAT", "IEND"]);
   });
 
+  it("uzanti PNG olsa bile JPEG imzasini okuyup gercek formata gore temizler", () => {
+    const jpeg = concatBytes([
+      [0xff, 0xd8],
+      makeSegment(0xe1, [...asciiBytes("Exif"), 0x00, 0x00, 0x11, 0x22]),
+      [0xff, 0xda, ...be16(8), 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00],
+      [0x12, 0x34, 0x56],
+      [0xff, 0xd9],
+    ]);
+
+    const result = cleanImageMetadata({ fileName: "yanlis-uzanti.png", bytes: jpeg });
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") {
+      throw new Error("Beklenmeyen hata sonucu");
+    }
+
+    expect(result.format).toBe("jpeg");
+    expect(result.removedMetadataBlocks).toEqual(["APP1"]);
+    expect(Array.from(result.cleanedBytes.slice(0, 2))).toEqual([0xff, 0xd8]);
+  });
+
   it("PNG worker yardimcisi metadata chunk'larini kaldirip temiz bytes dondurur", () => {
     const png = concatBytes([
       Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -229,6 +250,20 @@ describe("cleanImageMetadata", () => {
       code: "UNSAFE_FORMAT",
       format: "avif",
     });
+  });
+
+  it("taninmayan baslikta daha acik invalid image data hatasi dondurur", () => {
+    const result = cleanImageMetadata({ fileName: "foto.jpg", bytes: new Uint8Array([0x00, 0x01, 0x02, 0x03]) });
+
+    expect(result).toMatchObject({
+      status: "error",
+      code: "INVALID_IMAGE_DATA",
+      format: "jpeg",
+    });
+    if (result.status !== "error") {
+      throw new Error("Beklenmeyen basari sonucu");
+    }
+    expect(result.message).toContain("uzanti yanlis ya da dosya bozuk olabilir");
   });
 
   it("worker yardimcisi ayni sonucu ArrayBuffer olarak dondurur", () => {

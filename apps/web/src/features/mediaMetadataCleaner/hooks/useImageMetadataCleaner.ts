@@ -1,8 +1,14 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { type CollectedMediaFile } from "../lib/fileCollection";
+import { resolveRelativePathForFormat } from "../lib/pathUtils";
 import { buildMediaMetadataZip, type MediaMetadataZipSourceItem } from "../lib/zipBuilder";
-import { getImageExtensionFromFileName, isSupportedImageExtension } from "../lib/supportedImageFormats";
+import {
+  getImageExtensionFromFileName,
+  getMimeTypeForSupportedImageFormat,
+  isSupportedImageExtension,
+  type SupportedImageFormat,
+} from "../lib/supportedImageFormats";
 import type { MetadataCleanerWorkerRequest, MetadataCleanerWorkerResponse } from "../workers/metadataCleaner.worker";
 
 export type CleanerStatus = "queued" | "processing" | "success" | "error" | "unsupported" | "cancelled";
@@ -106,27 +112,21 @@ function runWorkerJob(worker: Worker, request: MetadataCleanerWorkerRequest) {
   });
 }
 
-function getMimeType(file: File) {
+function getMimeType(file: File, format?: SupportedImageFormat | null) {
+  if (format) {
+    return getMimeTypeForSupportedImageFormat(format);
+  }
+
   if (file.type) {
     return file.type;
   }
 
   const extension = getImageExtensionFromFileName(file.name);
-  switch (extension) {
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "png":
-      return "image/png";
-    case "webp":
-      return "image/webp";
-    case "heic":
-      return "image/heic";
-    case "avif":
-      return "image/avif";
-    default:
-      return "application/octet-stream";
+  if (!extension || !isSupportedImageExtension(extension)) {
+    return "application/octet-stream";
   }
+
+  return getMimeTypeForSupportedImageFormat(extension === "jpg" || extension === "jpeg" ? "jpeg" : extension);
 }
 
 function buildZipItems(items: CleanerItem[]): MediaMetadataZipSourceItem[] {
@@ -135,7 +135,7 @@ function buildZipItems(items: CleanerItem[]): MediaMetadataZipSourceItem[] {
   for (const item of items) {
     if (item.status === "success") {
       zipItems.push({
-        sourcePath: item.relativePath,
+        sourcePath: item.zipTargetPath ?? item.relativePath,
         status: "success",
         blob: item.outputBlob ?? item.file,
         errorCode: item.errorCode,
@@ -288,8 +288,9 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
               const { response } = result;
 
               if (response.status === "success") {
+                const zipTargetPath = resolveRelativePathForFormat(itemSnapshot.relativePath, response.format);
                 const outputBlob = new Blob([response.cleanedBytes], {
-                  type: getMimeType(itemSnapshot.file),
+                  type: getMimeType(itemSnapshot.file, response.format),
                 });
 
                 patchItem(id, (item) => ({
@@ -298,7 +299,7 @@ export function useImageMetadataCleaner(): UseImageMetadataCleanerResult {
                   outputBlob,
                   errorCode: null,
                   errorMessage: null,
-                  zipTargetPath: item.relativePath,
+                  zipTargetPath,
                 }));
                 continue;
               }

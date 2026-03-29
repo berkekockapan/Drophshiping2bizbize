@@ -19,6 +19,22 @@ const EXTENSION_TO_FORMAT: Record<SupportedImageExtension, SupportedImageFormat>
   avif: "avif",
 };
 
+const FORMAT_TO_PREFERRED_EXTENSION: Record<SupportedImageFormat, SupportedImageExtension> = {
+  jpeg: "jpg",
+  png: "png",
+  webp: "webp",
+  heic: "heic",
+  avif: "avif",
+};
+
+const FORMAT_TO_MIME_TYPE: Record<SupportedImageFormat, string> = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  avif: "image/avif",
+};
+
 function normalizeFileName(value: string) {
   return value.trim().split(/[\\/]/).pop() ?? "";
 }
@@ -46,6 +62,14 @@ export function getSupportedImageFormatFromFileName(fileName: string): Supported
   }
 
   return EXTENSION_TO_FORMAT[extension];
+}
+
+export function getPreferredImageExtensionForFormat(format: SupportedImageFormat): SupportedImageExtension {
+  return FORMAT_TO_PREFERRED_EXTENSION[format];
+}
+
+export function getMimeTypeForSupportedImageFormat(format: SupportedImageFormat): string {
+  return FORMAT_TO_MIME_TYPE[format];
 }
 
 export function isLosslessMetadataCleaningSupportedFormat(

@@ -227,6 +227,48 @@ describe("useImageMetadataCleaner", () => {
     expect(workerInstances.every((worker) => worker.terminate.mock.calls.length === 1)).toBe(true);
   });
 
+  it("yanlis uzantili ama basarili temizlenen dosya icin ZIP hedef yolunu gercek formata gore duzeltir", async () => {
+    const { result } = renderHook(() => useImageMetadataCleaner());
+
+    workerRequestHandler = (request, worker) => {
+      worker.emitMessage({
+        id: request.id,
+        status: "success",
+        fileName: request.fileName,
+        format: "jpeg",
+        cleanedBytes: new Uint8Array([7, 8, 9]).buffer,
+        removedMetadataBlocks: ["APP1"],
+        changed: true,
+      });
+    };
+
+    act(() => {
+      result.current.registerFiles([
+        createCollectedFile(createFile("mismatch.png", "one", "image/png"), "gallery/mismatch.png", "png"),
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.startCleaning();
+    });
+
+    await waitFor(() => {
+      expect(zipBuilderMocks.buildMediaMetadataZip).toHaveBeenCalledTimes(1);
+    });
+
+    expect(result.current.items[0]?.status).toBe("success");
+    expect(result.current.items[0]?.zipTargetPath).toBe("gallery/mismatch.jpg");
+    expect(result.current.items[0]?.outputBlob?.type).toBe("image/jpeg");
+
+    const [zipItems] = zipBuilderMocks.buildMediaMetadataZip.mock.calls[0] as [MediaMetadataZipSourceItem[]];
+    expect(zipItems).toEqual([
+      expect.objectContaining({
+        sourcePath: "gallery/mismatch.jpg",
+        status: "success",
+      }),
+    ]);
+  });
+
   it("iptal edildiğinde processing ve queued öğeleri cancelled olarak işaretler", async () => {
     const { result } = renderHook(() => useImageMetadataCleaner());
     let resolveWorkerResponse: (() => void) | null = null;

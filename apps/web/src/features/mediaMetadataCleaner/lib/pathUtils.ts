@@ -1,3 +1,10 @@
+import {
+  getImageExtensionFromFileName,
+  getPreferredImageExtensionForFormat,
+  getSupportedImageFormatFromFileName,
+  type SupportedImageFormat,
+} from "./supportedImageFormats";
+
 export function normalizeRelativePath(input: string): string {
   const trimmed = input.replace(/\0/g, "").trim();
   if (!trimmed) {
@@ -24,6 +31,23 @@ export function normalizeRelativePath(input: string): string {
   }
 
   return result.join("/");
+}
+
+export function resolveRelativePathForFormat(relativePath: string, format: SupportedImageFormat): string {
+  const normalized = normalizeRelativePath(relativePath);
+  const safePath = normalized || relativePath.replace(/\0/g, "").trim() || "dosya";
+  const lastSlashIndex = safePath.lastIndexOf("/");
+  const folder = lastSlashIndex >= 0 ? safePath.slice(0, lastSlashIndex) : "";
+  const fileName = lastSlashIndex >= 0 ? safePath.slice(lastSlashIndex + 1) : safePath;
+  const currentExtension = getImageExtensionFromFileName(fileName);
+  const currentFormat = getSupportedImageFormatFromFileName(fileName);
+  const nextExtension = currentFormat === format && currentExtension ? currentExtension : getPreferredImageExtensionForFormat(format);
+  const nextFileName =
+    currentExtension && fileName.length > currentExtension.length + 1
+      ? `${fileName.slice(0, -(currentExtension.length + 1))}.${nextExtension}`
+      : `${fileName}.${nextExtension}`;
+
+  return folder ? `${folder}/${nextFileName}` : nextFileName;
 }
 
 export function getRelativePathName(relativePath: string): string {
@@ -77,4 +101,3 @@ export function resolveDeterministicZipPath(candidatePath: string, usedPaths: Se
     }
   }
 }
-

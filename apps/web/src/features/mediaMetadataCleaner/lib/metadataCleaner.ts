@@ -347,33 +347,77 @@ function cleanWebPMetadata(bytes: Uint8Array): MetadataCleanerResult {
   };
 }
 
-export function cleanImageMetadata(input: MetadataCleanerInput): MetadataCleanerResult {
-  const format = getSupportedImageFormatFromFileName(input.fileName);
+function detectFormatFromBytes(bytes: Uint8Array): LosslessMetadataCleaningFormat | null {
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    return "jpeg";
+  }
 
-  if (!format) {
+  if (bytes.length >= PNG_SIGNATURE.length) {
+    let isPng = true;
+
+    for (let index = 0; index < PNG_SIGNATURE.length; index += 1) {
+      if (bytes[index] !== PNG_SIGNATURE[index]) {
+        isPng = false;
+        break;
+      }
+    }
+
+    if (isPng) {
+      return "png";
+    }
+  }
+
+  if (bytes.length >= 12 && readAscii(bytes, 0, 4) === "RIFF" && readAscii(bytes, 8, 4) === "WEBP") {
+    return "webp";
+  }
+
+  return null;
+}
+
+export function cleanImageMetadata(input: MetadataCleanerInput): MetadataCleanerResult {
+  const extensionFormat = getSupportedImageFormatFromFileName(input.fileName);
+  const sniffedFormat = detectFormatFromBytes(input.bytes);
+
+  if (!extensionFormat && !sniffedFormat) {
     return createErrorResult("UNSUPPORTED_FORMAT", "Bu dosya uzantisi desteklenmiyor.", null);
   }
 
-  if (!isLosslessMetadataCleaningSupportedFormat(format)) {
+  if (sniffedFormat) {
+    switch (sniffedFormat) {
+      case "jpeg":
+        return cleanJpegMetadata(input.bytes);
+      case "png":
+        return cleanPngMetadata(input.bytes);
+      case "webp":
+        return cleanWebPMetadata(input.bytes);
+      default:
+        break;
+    }
+  }
+
+  if (!extensionFormat) {
+    return createErrorResult(
+      "INVALID_IMAGE_DATA",
+      "Dosya icerigi taninan JPEG, PNG veya WebP basligi ile eslesmiyor; uzanti yanlis ya da dosya bozuk olabilir.",
+      null,
+    );
+  }
+
+  if (!isLosslessMetadataCleaningSupportedFormat(extensionFormat)) {
     return createErrorResult(
       "UNSAFE_FORMAT",
       "HEIC/AVIF icin kayipsiz ve guvenli metadata temizligi bu surumde garanti edilemiyor.",
-      format,
+      extensionFormat,
     );
   }
 
   if (input.bytes.length === 0) {
-    return createErrorResult("INVALID_IMAGE_DATA", "Dosya icerigi bos.", format);
+    return createErrorResult("INVALID_IMAGE_DATA", "Dosya icerigi bos.", extensionFormat);
   }
 
-  switch (format) {
-    case "jpeg":
-      return cleanJpegMetadata(input.bytes);
-    case "png":
-      return cleanPngMetadata(input.bytes);
-    case "webp":
-      return cleanWebPMetadata(input.bytes);
-    default:
-      return createErrorResult("UNSAFE_FORMAT", "Bu format icin guvenli temizleme stratejisi tanimli degil.", format);
-  }
+  return createErrorResult(
+    "INVALID_IMAGE_DATA",
+    "Dosya icerigi taninan JPEG, PNG veya WebP basligi ile eslesmiyor; uzanti yanlis ya da dosya bozuk olabilir.",
+    extensionFormat,
+  );
 }

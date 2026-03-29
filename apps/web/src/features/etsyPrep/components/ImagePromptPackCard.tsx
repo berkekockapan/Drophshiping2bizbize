@@ -2,6 +2,7 @@ interface ImagePromptPackCardProps {
   mainPrompt: string;
   variations: string[];
   guardrailSummary: string[];
+  snapshotMeta?: string | null;
   onCopyMain: () => void;
   onCopyVariations: () => void;
 }
@@ -10,6 +11,7 @@ export function ImagePromptPackCard({
   mainPrompt,
   variations,
   guardrailSummary,
+  snapshotMeta,
   onCopyMain,
   onCopyVariations,
 }: ImagePromptPackCardProps) {
@@ -20,6 +22,10 @@ export function ImagePromptPackCard({
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Prompt Pack</p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">Gorsel Prompt Pack</h3>
           <p className="mt-1 text-sm text-slate-600">Referans urunu bozmayan sahne varyasyonlari.</p>
+          {snapshotMeta ? <p className="mt-2 text-xs text-slate-500">{snapshotMeta}</p> : null}
+          <p className="mt-1 text-sm text-slate-600">
+            Referans gorseli manuel yukleyip bu promptu kullandiginiz aracta ayni urun kimligini koruyun.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

@@ -49,7 +49,7 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildListingPromptPack", () => {
-  it("builds a self-contained listing prompt with strict json output", () => {
+  it("builds a sanitized listing prompt with strict json output", () => {
     const pack = buildListingPromptPack(detail);
 
     expect(pack.outputContract).toEqual({
@@ -57,9 +57,10 @@ describe("buildListingPromptPack", () => {
       fields: ["title", "description", "tags"],
     });
     expect(pack.prompt).toContain("Etsy listing strategist");
-    expect(pack.prompt).toContain("Non-Negotiable Rules");
+    expect(pack.prompt).toContain("Language Rules");
+    expect(pack.prompt).toContain("Sanitized Product Facts");
     expect(pack.prompt).toContain('"tags": "tag1, tag2, tag3"');
-    expect(pack.prompt).toContain("Variants");
-    expect(pack.prompt).toContain("Oversize Hoodie");
+    expect(pack.prompt).not.toMatch(/descriptionRaw|Images|PRODUCT_CONTEXT|https?:\/\/|cdn\./i);
+    expect(pack.prompt).not.toMatch(/Trendyol|yorumlarini inceleyin|indirimli fiyat/i);
   });
 });

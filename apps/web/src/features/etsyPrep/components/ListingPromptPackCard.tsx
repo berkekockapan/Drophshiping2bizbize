@@ -1,6 +1,7 @@
 interface ListingPromptPackCardProps {
   prompt: string;
   rulebookVersion: string;
+  snapshotMeta?: string | null;
   onCopy: () => void;
   onGenerate: () => void;
   copyMessage?: string | null;
@@ -13,6 +14,7 @@ interface ListingPromptPackCardProps {
 export function ListingPromptPackCard({
   prompt,
   rulebookVersion,
+  snapshotMeta,
   onCopy,
   onGenerate,
   copyMessage,
@@ -28,7 +30,10 @@ export function ListingPromptPackCard({
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Prompt Pack</p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">Listing Prompt Pack</h3>
           <p className="mt-1 text-sm text-slate-600">Tek prompt ile title, description ve tags uretir.</p>
-          <p className="mt-2 text-xs text-slate-500">Rulebook: {rulebookVersion}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Rulebook: {rulebookVersion}
+            {snapshotMeta ? ` • ${snapshotMeta}` : ""}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

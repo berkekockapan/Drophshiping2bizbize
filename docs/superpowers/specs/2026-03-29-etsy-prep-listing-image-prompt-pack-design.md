@@ -37,6 +37,9 @@ Bu yapı teknik olarak çalışsa da kullanıcının yeni ihtiyacı için eksik 
 - ChatGPT'ye kopyala-yapıştır yapılabilecek, kendi içinde kuralları taşıyan self-contained prompt yok
 - görsel üretimi için ayrı, güvenli ve ürün kimliğini koruyan bir prompt sistemi yok
 - otomatik üretim ile manuel kopyala-yapıştır akışı aynı omurgadan beslenmediği için ileride tutarsızlık riski var
+- ham kaynak açıklama içindeki pazar yeri copu prompta taşınabiliyor
+- görsel URL listeleri listing promptuna sızabiliyor
+- model çıkışı JSON kontratına uysa bile dil, başlık stili ve içerik temizliği istenen kalite seviyesine zorlanmıyor
 
 Kullanıcının istediği deneyim, sohbet hafızasına dayalı "önce sistemi öğret, sonra ürünü ver" yaklaşımı değil; sistem içinde saklanan kurallardan her ürün için güvenilir prompt paketleri üretmektir.
 
@@ -67,6 +70,12 @@ Bu tasarım için aşağıdaki kararlar onaylandı:
 - `Image Prompt Pack` çıktısı `1 ana prompt + 7 kısa varyasyon` olacaktır
 - 7 kısa varyasyon, sahne + çekim açısı + styling tonu değiştirerek üretilecektir
 - V1 kapsamında yalnızca prompt gösterimi değil, aynı prompt mantığıyla **otomatik AI üretimi** de yer alacaktır
+- listing çıktısı **yalnızca İngilizce** olacaktır; Türkçe kaynak dil doğrudan kopyalanmayacaktır
+- model çıktısı yalnızca çıplak JSON object olacaktır; markdown code fence, açıklama metni veya ön/arka metin bulunmayacaktır
+- prompta ham `descriptionRaw` doğrudan gömülmeyecek; önce sanitize edilip yalnızca ürüne ait temiz gerçekler çıkarılacaktır
+- `Trendyol`, kampanya dili, yorum çağrısı, indirim çağrısı, satıcı CTA'ları, kupon/kargo/taksit metinleri ve benzeri pazar yeri copu prompttan çıkarılacaktır
+- raw görsel URL'leri listing promptu ve image promptu metnine gömülmeyecektir
+- başlıkta tüm varyant matrisini dökme, açıklamada pazar yeri meta bilgisini tekrar etme ve ürün dışı boilerplate taşıma açıkça yasak olacaktır
 - prompt kural seti veritabanında serbest düzenlenebilir metin olarak değil, kod içinde denetlenebilir ve review edilebilir şekilde tutulacaktır
 - `etsy_drafts` kalıcı çıktı katmanı olarak kullanılmaya devam edecektir; prompt metinleri varsayılan olarak kalıcı saklanmayacaktır
 
@@ -151,17 +160,19 @@ Seçilen çözüm: **Yaklaşım B**.
 
 ## 6. Seçilen Çözümün Ana Mimarisi
 
-Seçilen tasarım, mevcut Etsy prep çalışma alanını üç katmanlı bir prompt mimarisiyle genişletir:
+Seçilen tasarım, mevcut Etsy prep çalışma alanını dört katmanlı bir prompt mimarisiyle genişletir:
 
 1. `Master Rulebook`
-2. `Listing Prompt Builder`
-3. `Image Prompt Builder`
+2. `Prompt Context Sanitizer`
+3. `Listing Prompt Builder`
+4. `Image Prompt Builder`
 
 Bu katmanların davranışı şöyledir:
 
 - `Master Rulebook`, Etsy SEO ve policy guardrail bilgisini tutar
-- `Listing Prompt Builder`, ürün verisi + rulebook ile tek seferlik listing prompt üretir
-- `Image Prompt Builder`, ürün verisi + referans ürün sadakati kuralı ile görsel prompt paketi üretir
+- `Prompt Context Sanitizer`, ham ürün verisinden yalnızca satışa uygun, temiz ve doğrulanmış gerçekleri çıkarır
+- `Listing Prompt Builder`, sanitize edilmiş ürün bağlamı + rulebook ile tek seferlik listing prompt üretir
+- `Image Prompt Builder`, sanitize edilmiş ürün bağlamı + referans ürün sadakati kuralı ile görsel prompt paketi üretir
 - `AI ile Üret`, aynı listing promptunu aktif AI sağlayıcısına göndererek JSON sonuç üretir
 - `Promptu Kopyala`, aynı listing promptunu kullanıcıya manuel kullanım için verir
 
@@ -181,6 +192,7 @@ Bu mimari sayesinde prompt mantığı tekil olur; yalnızca tüketim şekli ikiy
 Önerilen yapı:
 
 - `version`
+- `inputSanitizationRules`
 - `listingRole`
 - `listingGuardrails`
 - `listingSeoRules`
@@ -208,9 +220,10 @@ Bu prompt aşağıdaki bloklardan oluşur:
 
 1. `Role`
 2. `Non-Negotiable Rules`
-3. `SEO Rules`
-4. `Product Context`
-5. `Output Format`
+3. `Language Rules`
+4. `SEO Rules`
+5. `Sanitized Product Facts`
+6. `Output Format`
 
 `Role` kısmı modelin görevini net tanımlar:
 
@@ -224,27 +237,47 @@ Bu prompt aşağıdaki bloklardan oluşur:
 - doğrulanmamış özellik uydurma
 - yanlış materyal, yanlış ölçü, yanlış paket içeriği yazma
 - gerçek olmayan claim üretme
+- pazar yeri adı, kampanya metni, yorum çağrısı, kupon/kargo/taksit dili yazma
+- ham URL, CDN linki, görsel listesi veya kaynak platform izini çıktıya taşıma
+- markdown code fence, açıklama satırı veya JSON dışı metin üretme
 - başlığı spam listeye çevirme
 - description içinde anahtar kelime yığını üretme
+
+`Language Rules` kısmı dil kalitesini sabitler:
+
+- çıktı dili yalnızca İngilizce olsun
+- marka, özel isim ve teknik sabitler dışında Türkçe kelime taşıma
+- kaynak başlık Türkçe olsa bile doğrudan çeviri kokan, yerel pazar yeri tonu taşıyan metin üretme
 
 `SEO Rules` kısmı Etsy sinyallerini gömülü hale getirir:
 
 - en anlamlı anahtar kelimeleri başlıkta erken konumlandır
 - başlığı insan için okunur tut
+- tüm uzunluk, renk veya varyant listesini başlığa dökme
 - açıklamanın ilk cümlelerinde anahtar kelimeleri doğal kullan
 - tag'leri long-tail, çeşitli ve tekrarsız üret
 - kategori ve attribute ile birebir aynı boş tekrarları azalt
 
-`Product Context` kısmına dinamik olarak şunlar yerleştirilir:
+`Sanitized Product Facts` kısmına dinamik olarak şunlar yerleştirilir:
 
 - Trendyol kaynak başlığı
 - marka
 - kategori
-- kaynak açıklama
-- attribute'ler
-- varyantlar
+- temizlenmiş ürün özeti
+- filtrelenmiş attribute'ler
+- satış açısından anlamlı varyant özeti
 - varsa materyal, renk, ölçü, kullanım alanı
 - varsa mevcut Etsy taslak verisi
+
+Burada özellikle şunlar prompt dışında tutulur:
+
+- ham `descriptionRaw`
+- `Trendyol'a özel`, `yorumlarını inceleyin`, `indirimli fiyat`, `sepete ekle` benzeri pazar yeri cümleleri
+- raw görsel URL listeleri
+- kaynak HTML veya metin artıkları
+- satışa etkisi olmayan boilerplate garanti/menşei/bakım metinleri
+
+Bu katmanda amaç ham kaynağı modele dökmek değil, modelin yalnızca temiz ürün gerçekleriyle çalışmasını sağlamaktır.
 
 `Output Format` bölümü strict JSON ister:
 
@@ -291,6 +324,8 @@ Ancak şu şeyler değiştirilemez:
 
 Image prompt çıktısı JSON zorunluluğu taşımaz; düz metin prompt paketi olarak gösterilir. Çünkü hedefi başka bir image modeline veya ChatGPT içindeki görsel üretim arayüzüne yapıştırmaktır.
 
+Ancak image prompt metni içine de raw görsel URL'leri gömülmez. Sistem yalnızca referans görsel bulunduğunu ve kullanıcının bunu manuel sağlayacağını varsayar.
+
 ---
 
 ## 8. Kullanıcı Arayüzü ve Akış Tasarımı
@@ -320,6 +355,7 @@ Bu bölümde şunlar bulunur:
 
 - mevcut ürün verisinden üretilen self-contained promptu panoya kopyalar
 - kullanıcı bunu ChatGPT'ye manuel yapıştırabilir
+- prompt önizlemesi sanitize edilmiş bağlamdan üretildiği için ham pazar yeri copunu ve görsel URL'lerini içermez
 
 `AI ile Üret` davranışı:
 
@@ -337,6 +373,8 @@ Bu bölümde şunlar bulunur:
 - ürün sadakati guardrail özeti
 
 Bu bölüm sistem içinde otomatik görsel üretmek zorunda değildir. V1 davranışı prompt üretmek ve kopyalamaktır. Kullanıcı referans görseli manuel yükler ve promptu tercih ettiği görsel üretim aracında kullanır.
+
+UI ürün görsellerini kullanıcıya referans olarak gösterebilir; ancak bu görsellerin URL'leri prompt metnine düz yazı halinde taşınmaz.
 
 ### 8.4 Mevcut alanlarla ilişki
 
@@ -425,6 +463,7 @@ Bunun nedenleri:
 - ürün verisi değişirse prompt da güncel kalsın
 - rulebook değişirse prompt otomatik güncellensin
 - veritabanında prompt cache yönetimi gereksiz büyümesin
+- sanitize kuralları değişirse ham kirli kaynakları yeniden taşımadan anında daha temiz prompt üretilebilsin
 
 ### 10.2 Kalıcı kalan veri
 
@@ -461,6 +500,10 @@ Sistem prompt ve sonuç doğrulamasında şunları korumalıdır:
 - aynı kelimeleri spam biçimde tekrar etme
 - tag'leri 13 fırsat mantığına aykırı daraltma
 - aldatıcı ürün sunumu üretme
+- Türkçe listing çıktısı üretme
+- başlığa varyant matrisi yığma
+- açıklamaya pazar yeri boilerplate taşıma
+- `http`, `https`, `cdn.` veya platform izi taşıyan ham URL üretme
 
 Ayrıca bazı riskli kelimeler yalnızca açık dayanak varsa kullanılmalıdır:
 
@@ -498,6 +541,9 @@ Aktif AI sağlayıcısı çalışmıyorsa:
 - `description` boş değil
 - `tags` string formatında
 - `tags` parse edilince boş olmayan, tekrar kontrolünden geçen bir liste çıkarılabiliyor
+- çıktı markdown code fence içermiyor
+- çıktı içinde `Trendyol`, `yorumlarını inceleyin`, `indirimli fiyat`, `http://`, `https://`, `cdn.` gibi yasaklı token'lar bulunmuyor
+- çıktı dil kontrolünde baskın olarak İngilizce görünüyor
 
 Sonuç parse edilemezse alanlar sessizce kirlenmemeli; kullanıcıya hata verilmeli ve prompt kopyalama seçeneği korunmalıdır.
 
@@ -508,7 +554,9 @@ Sonuç parse edilemezse alanlar sessizce kirlenmemeli; kullanıcıya hata verilm
 ### 12.1 Unit test
 
 - rulebook builder doğru versiyonu dönüyor mu
+- sanitize katmanı Trendyol CTA, kampanya metni ve URL'leri temizliyor mu
 - listing prompt builder ürün bağlamını doğru yerleştiriyor mu
+- listing prompt builder ham `Images` ve ham `descriptionRaw` bloklarını prompta gömmüyor mu
 - image prompt builder `main + 7 variation` sözleşmesini sağlıyor mu
 - tags string normalizasyonu doğru çalışıyor mu
 
@@ -516,6 +564,7 @@ Sonuç parse edilemezse alanlar sessizce kirlenmemeli; kullanıcıya hata verilm
 
 - `prompt-pack` endpoint'i listing ve image pack'i birlikte döndürüyor mu
 - `generate-listing-pack` aynı prompt mantığını kullanarak parse edilebilir JSON üretiyor mu
+- üretilen listing sonucu İngilizce dışı/pazar yeri kokulu içerik taşıdığında doğrulama bunu reddediyor mu
 - aktif AI sağlayıcısı yokken prompt pack yine alınabiliyor mu
 
 ### 12.3 UI test

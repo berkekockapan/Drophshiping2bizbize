@@ -57,6 +57,28 @@ function createBootstrapPayload() {
 }
 
 function createPromptPackPayload() {
+  const researchPrompt = [
+    "Role",
+    "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+    "",
+    "Research First",
+    "- Inspect Etsy Seller Handbook guidance.",
+    "- Review competing listings for this product category.",
+    "",
+    "Output",
+    "1. Title",
+    "2. Description",
+    "3. Tags",
+  ].join("\n");
+
+  const systemPrompt = [
+    "Role",
+    "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+    "",
+    "Output Contract",
+    '- Return only valid JSON with title, description, tags.',
+  ].join("\n");
+
   return {
     rulebookVersion: "etsy-prompt-pack-v1",
     generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
@@ -69,23 +91,15 @@ function createPromptPackPayload() {
       variantCount: 1,
       imageCount: 1,
     },
-    listingPromptPack: {
-      prompt: [
-        "Role",
-        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
-        "",
-        "Language Rules",
-        "- Output English only except brand names and immutable technical proper nouns.",
-        "",
-        "Sanitized Product Facts",
-        "- Source title: Oversize Hoodie",
-        "- Brand: North Apparel",
-        "- Materyal: Pamuk",
-        "- Renk: Siyah",
-        "",
-        "Return ONLY the JSON object.",
-      ].join("\n"),
+    systemListingPromptPack: {
+      prompt: systemPrompt,
       outputContract: { type: "json", fields: ["title", "description", "tags"] },
+    },
+    chatGptResearchPromptPack: {
+      prompt: researchPrompt,
+      outputFormat: "sectioned-text",
+      researchMode: "required",
+      expectedSections: ["title", "description", "tags"],
     },
     imagePromptPack: {
       mainPrompt: "Use the manual reference image as the single source of truth for the product.",
@@ -183,23 +197,36 @@ describe("EtsyPrepWorkspace", () => {
 
     renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
-    await user.click(await screen.findByRole("button", { name: /^promptu kopyala$/i }));
+    expect(await screen.findByText(/ChatGPT Research Mode/i)).toBeInTheDocument();
+    expect(screen.getByText(/System Generate Mode/i)).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: /chatgpt arastirma promptunu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
       1,
       [
         "Role",
         "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
         "",
-        "Language Rules",
-        "- Output English only except brand names and immutable technical proper nouns.",
+        "Research First",
+        "- Inspect Etsy Seller Handbook guidance.",
+        "- Review competing listings for this product category.",
         "",
-        "Sanitized Product Facts",
-        "- Source title: Oversize Hoodie",
-        "- Brand: North Apparel",
-        "- Materyal: Pamuk",
-        "- Renk: Siyah",
+        "Output",
+        "1. Title",
+        "2. Description",
+        "3. Tags",
+      ].join("\n"),
+    );
+
+    await user.click(screen.getByRole("button", { name: /sistem promptunu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      2,
+      [
+        "Role",
+        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
         "",
-        "Return ONLY the JSON object.",
+        "Output Contract",
+        '- Return only valid JSON with title, description, tags.',
       ].join("\n"),
     );
 
@@ -207,13 +234,13 @@ describe("EtsyPrepWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: /ana promptu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
-      2,
+      3,
       "Use the manual reference image as the single source of truth for the product.",
     );
 
     await user.click(screen.getByRole("button", { name: /7 varyasyonu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
-      3,
+      4,
       [
         "1. Bright studio tabletop scene with a clean front angle and minimal props.",
         "2. Soft morning window light with a slight top-down camera angle.",
@@ -304,23 +331,33 @@ describe("EtsyPrepWorkspace", () => {
 
     renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
-    await user.click(await screen.findByRole("button", { name: /^promptu kopyala$/i }));
+    await user.click(await screen.findByRole("button", { name: /chatgpt arastirma promptunu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
       1,
       [
         "Role",
         "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
         "",
-        "Language Rules",
-        "- Output English only except brand names and immutable technical proper nouns.",
+        "Research First",
+        "- Inspect Etsy Seller Handbook guidance.",
+        "- Review competing listings for this product category.",
         "",
-        "Sanitized Product Facts",
-        "- Source title: Oversize Hoodie",
-        "- Brand: North Apparel",
-        "- Materyal: Pamuk",
-        "- Renk: Siyah",
+        "Output",
+        "1. Title",
+        "2. Description",
+        "3. Tags",
+      ].join("\n"),
+    );
+
+    await user.click(screen.getByRole("button", { name: /sistem promptunu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      2,
+      [
+        "Role",
+        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
         "",
-        "Return ONLY the JSON object.",
+        "Output Contract",
+        '- Return only valid JSON with title, description, tags.',
       ].join("\n"),
     );
 
@@ -328,13 +365,13 @@ describe("EtsyPrepWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: /ana promptu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
-      2,
+      3,
       "Use the manual reference image as the single source of truth for the product.",
     );
 
     await user.click(screen.getByRole("button", { name: /7 varyasyonu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
-      3,
+      4,
       [
         "1. Bright studio tabletop scene with a clean front angle and minimal props.",
         "2. Soft morning window light with a slight top-down camera angle.",
@@ -351,6 +388,7 @@ describe("EtsyPrepWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: /ai ile uret/i }));
     expect(await screen.findByText(/aktif openai hesabi bulunamadi/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^promptu kopyala$/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /chatgpt arastirma promptunu kopyala/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /sistem promptunu kopyala/i })).toBeEnabled();
   });
 });

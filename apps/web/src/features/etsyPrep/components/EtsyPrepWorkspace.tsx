@@ -77,13 +77,17 @@ export function EtsyPrepWorkspace({ ownerKey, productId, onBack }: EtsyPrepWorks
             </section>
           ) : null}
 
-          {workspace.promptPack?.listingPromptPack && workspace.promptPack?.imagePromptPack ? (
+          {workspace.promptPack?.systemListingPromptPack &&
+          workspace.promptPack?.chatGptResearchPromptPack &&
+          workspace.promptPack?.imagePromptPack ? (
             <>
               <ListingPromptPackCard
-                prompt={workspace.promptPack.listingPromptPack.prompt}
+                researchPrompt={workspace.promptPack.chatGptResearchPromptPack.prompt}
+                systemPrompt={workspace.promptPack.systemListingPromptPack.prompt}
                 rulebookVersion={workspace.promptPack.rulebookVersion}
                 snapshotMeta={promptPackMeta}
-                onCopy={workspace.copyListingPrompt}
+                onCopyResearch={workspace.copyResearchPrompt}
+                onCopySystem={workspace.copySystemPrompt}
                 onGenerate={workspace.generateListingPack}
                 copyMessage={workspace.copyMessage}
                 error={workspace.listingPackState.error}

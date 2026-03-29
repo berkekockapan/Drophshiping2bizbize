@@ -68,16 +68,18 @@ describe("buildProductPromptContext", () => {
 
     expect(context.listingFacts).toEqual(
       expect.arrayContaining([
-        "Source title: North Apparel Oversize Hoodie",
-        "Brand: North Apparel",
+        "Source title: Oversize Hoodie",
         "Category: Sweatshirt",
         "Renk: Siyah",
         "Materyal: Pamuk",
         "Available variants: Siyah / M; Siyah / L",
       ]),
     );
+    expect(context.listingFacts.join("\n")).not.toMatch(/North Apparel/i);
+    expect(context.forbiddenBrandPhrases).toEqual(["North Apparel", "NorthApparel"]);
     expect(context.imageBrief.referenceImageCount).toBe(2);
     expect(JSON.stringify(context)).not.toMatch(/Trendyol|yorumlarini inceleyin|indirimli fiyat|https?:\/\/|cdn\./i);
     expect(JSON.stringify(context)).not.toMatch(/Garanti Suresi|2 yil/i);
+    expect(JSON.stringify(context)).not.toMatch(/origin|warranty|care instructions/i);
   });
 });

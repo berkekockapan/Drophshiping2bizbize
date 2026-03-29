@@ -8,12 +8,21 @@ export interface EtsyPromptPackProductSnapshot {
   imageCount: number;
 }
 
-export interface ListingPromptPack {
+export interface SystemListingPromptPack {
   prompt: string;
   outputContract: {
     type: "json";
     fields: ["title", "description", "tags"];
   };
+}
+
+export type ListingPromptPack = SystemListingPromptPack;
+
+export interface ChatGptResearchPromptPack {
+  prompt: string;
+  outputFormat: "sectioned-text";
+  researchMode: "required";
+  expectedSections: ["title", "description", "tags"];
 }
 
 export interface ImagePromptPack {
@@ -26,7 +35,9 @@ export interface EtsyPromptPackResponse {
   rulebookVersion: string;
   generatedAt: number;
   productSnapshot: EtsyPromptPackProductSnapshot;
-  listingPromptPack: ListingPromptPack;
+  listingPromptPack: SystemListingPromptPack;
+  systemListingPromptPack: SystemListingPromptPack;
+  chatGptResearchPromptPack: ChatGptResearchPromptPack;
   imagePromptPack: ImagePromptPack;
 }
 

@@ -1,9 +1,11 @@
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import {
+  collectBannedBrandTokens,
   collectAllowedClaimTokens,
   isUsefulAttribute,
   sanitizeFactText,
   splitSanitizedSentences,
+  stripBrandFromText,
 } from "./promptSanitizers";
 
 export interface ProductPromptContext {
@@ -25,6 +27,7 @@ export interface ProductPromptContext {
   };
   listingFacts: string[];
   allowedClaimTokens: string[];
+  forbiddenBrandPhrases: string[];
   imageBrief: {
     referenceImageCount: number;
     productIdentity: string[];
@@ -49,9 +52,14 @@ function summarizeVariants(detail: EtsyPrepView) {
   return summary.length > 0 ? `Available variants: ${summary.join("; ")}` : null;
 }
 
+function collectSourceFacts(detail: EtsyPrepView) {
+  return splitSanitizedSentences(detail.product.descriptionRaw).map((line) => `Summary: ${line}`);
+}
+
 export function buildProductPromptContext(detail: EtsyPrepView): ProductPromptContext {
-  const sourceTitle = sanitizeFactText(detail.product.title) || "Untitled product";
   const brand = sanitizeFactText(detail.product.brand) || null;
+  const sourceTitle = sanitizeFactText(detail.product.title) || "Untitled product";
+  const listingSourceTitle = stripBrandFromText(sourceTitle, brand) || sanitizeFactText(detail.product.category) || "Untitled product";
   const category = sanitizeFactText(detail.product.category) || null;
 
   const attributes = (detail.product.attributes ?? [])
@@ -71,16 +79,23 @@ export function buildProductPromptContext(detail: EtsyPrepView): ProductPromptCo
   }));
 
   const images = (detail.product.images ?? []).map((_, index) => `reference-image-${index + 1}`);
-  const existingDraftTags = (detail.draft.tags ?? []).map((tag) => sanitizeFactText(tag)).filter(Boolean);
+  const existingDraftTags = (detail.draft.tags ?? [])
+    .map((tag) => stripBrandFromText(tag, brand))
+    .filter(Boolean);
+  const sourceFacts = collectSourceFacts(detail)
+    .map((line) => stripBrandFromText(line, brand))
+    .filter(Boolean);
+  const existingDraftTitle = detail.draft.englishTitle ? stripBrandFromText(detail.draft.englishTitle, brand) : null;
 
   const listingFacts = compact([
-    `Source title: ${sourceTitle}`,
-    brand ? `Brand: ${brand}` : null,
+    `Source title: ${listingSourceTitle}`,
     category ? `Category: ${category}` : null,
-    ...splitSanitizedSentences(detail.product.descriptionRaw).map((line) => `Summary: ${line}`),
-    ...attributes.map((attribute) => `${attribute.key}: ${attribute.value}`),
+    ...sourceFacts,
+    ...attributes
+      .map((attribute) => stripBrandFromText(`${attribute.key}: ${attribute.value}`, brand))
+      .filter(Boolean),
     summarizeVariants(detail),
-    detail.draft.englishTitle ? `Existing draft title: ${sanitizeFactText(detail.draft.englishTitle)}` : null,
+    existingDraftTitle ? `Existing draft title: ${existingDraftTitle}` : null,
     existingDraftTags.length > 0 ? `Existing draft tags: ${existingDraftTags.join(", ")}` : null,
   ]);
 
@@ -98,6 +113,7 @@ export function buildProductPromptContext(detail: EtsyPrepView): ProductPromptCo
     },
     listingFacts,
     allowedClaimTokens: collectAllowedClaimTokens(listingFacts),
+    forbiddenBrandPhrases: collectBannedBrandTokens(brand),
     imageBrief: {
       referenceImageCount: Array.isArray(detail.product.images) ? detail.product.images.length : 0,
       productIdentity: compact([

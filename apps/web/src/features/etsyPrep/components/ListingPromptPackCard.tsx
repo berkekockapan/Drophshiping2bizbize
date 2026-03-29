@@ -1,8 +1,10 @@
 interface ListingPromptPackCardProps {
-  prompt: string;
+  researchPrompt: string;
+  systemPrompt: string;
   rulebookVersion: string;
   snapshotMeta?: string | null;
-  onCopy: () => void;
+  onCopyResearch: () => void;
+  onCopySystem: () => void;
   onGenerate: () => void;
   copyMessage?: string | null;
   error?: string | null;
@@ -12,10 +14,12 @@ interface ListingPromptPackCardProps {
 }
 
 export function ListingPromptPackCard({
-  prompt,
+  researchPrompt,
+  systemPrompt,
   rulebookVersion,
   snapshotMeta,
-  onCopy,
+  onCopyResearch,
+  onCopySystem,
   onGenerate,
   copyMessage,
   error,
@@ -29,7 +33,19 @@ export function ListingPromptPackCard({
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Prompt Pack</p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">Listing Prompt Pack</h3>
-          <p className="mt-1 text-sm text-slate-600">Tek prompt ile title, description ve tags uretir.</p>
+          <p className="mt-1 text-sm text-slate-600">ChatGPT arastirma ve sistem uretim modlarini ayri ayri sunar.</p>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+              <p className="font-semibold text-slate-900">ChatGPT Research Mode</p>
+              <p className="mt-1">
+                Browse-first arastirma, rakip listing analizi ve nihai olarak 3 bolumlu manuel cikti icin.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+              <p className="font-semibold text-slate-900">System Generate Mode</p>
+              <p className="mt-1">Uygulamanin otomatik üretim akisi icin strict JSON sozlesmesi.</p>
+            </div>
+          </div>
           <p className="mt-2 text-xs text-slate-500">
             Rulebook: {rulebookVersion}
             {snapshotMeta ? ` • ${snapshotMeta}` : ""}
@@ -39,9 +55,16 @@ export function ListingPromptPackCard({
           <button
             type="button"
             className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
-            onClick={onCopy}
+            onClick={onCopyResearch}
           >
-            Promptu Kopyala
+            ChatGPT Arastirma Promptunu Kopyala
+          </button>
+          <button
+            type="button"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
+            onClick={onCopySystem}
+          >
+            Sistem Promptunu Kopyala
           </button>
           <button
             type="button"
@@ -58,9 +81,20 @@ export function ListingPromptPackCard({
       {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
       {provider ? <p className="mt-2 text-xs text-slate-500">Saglayici: {provider}</p> : null}
 
-      <pre className="mt-4 max-h-80 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">
-        {prompt}
-      </pre>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <article className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-slate-100">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">Research Prompt Preview</p>
+          <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-xs leading-6 text-slate-100">
+            {researchPrompt}
+          </pre>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-slate-100">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">System Prompt Preview</p>
+          <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-xs leading-6 text-slate-100">
+            {systemPrompt}
+          </pre>
+        </article>
+      </div>
     </section>
   );
 }

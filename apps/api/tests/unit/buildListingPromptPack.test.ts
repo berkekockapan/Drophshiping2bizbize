@@ -59,7 +59,12 @@ describe("buildListingPromptPack", () => {
     expect(pack.prompt).toContain("Etsy listing strategist");
     expect(pack.prompt).toContain("Language Rules");
     expect(pack.prompt).toContain("Sanitized Product Facts");
+    expect(pack.prompt).toContain("English-speaking Etsy shoppers");
+    expect(pack.prompt).toContain("omit it from the final output");
     expect(pack.prompt).toContain('"tags": "tag1, tag2, tag3"');
+    expect(pack.prompt).toContain("exactly 13 unique entries");
+    expect(pack.prompt).toContain("20-character limit");
+    expect(pack.prompt).not.toContain("Brand: North Apparel");
     expect(pack.prompt).not.toMatch(/descriptionRaw|Images|PRODUCT_CONTEXT|https?:\/\/|cdn\./i);
     expect(pack.prompt).not.toMatch(/Trendyol|yorumlarini inceleyin|indirimli fiyat/i);
   });

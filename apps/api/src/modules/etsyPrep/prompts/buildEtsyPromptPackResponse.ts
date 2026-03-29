@@ -1,6 +1,7 @@
 import type { EtsyPromptPackResponse } from "@trendyol-etsy/shared";
 
 import type { EtsyPrepView } from "../buildEtsyPrepView";
+import { buildChatGptResearchPromptPack } from "./buildChatGptResearchPromptPack";
 import { buildImagePromptPack } from "./buildImagePromptPack";
 import { buildListingPromptPack } from "./buildListingPromptPack";
 import { buildProductPromptContext } from "./buildProductPromptContext";
@@ -8,7 +9,8 @@ import { etsyMasterRulebook } from "./masterRulebook";
 
 export function buildEtsyPromptPackResponse(detail: EtsyPrepView): EtsyPromptPackResponse {
   const context = buildProductPromptContext(detail);
-  const listingPromptPack = buildListingPromptPack(detail);
+  const systemListingPromptPack = buildListingPromptPack(detail);
+  const chatGptResearchPromptPack = buildChatGptResearchPromptPack(detail);
   const imagePromptPack = buildImagePromptPack(detail);
 
   return {
@@ -23,7 +25,9 @@ export function buildEtsyPromptPackResponse(detail: EtsyPrepView): EtsyPromptPac
       variantCount: context.variants.length,
       imageCount: context.images.length,
     },
-    listingPromptPack,
+    listingPromptPack: systemListingPromptPack,
+    systemListingPromptPack,
+    chatGptResearchPromptPack,
     imagePromptPack,
   };
 }

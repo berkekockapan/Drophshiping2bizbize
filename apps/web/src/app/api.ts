@@ -1,4 +1,4 @@
-import type { EtsyPromptPackResponse, GenerateListingPackResponse } from "@trendyol-etsy/shared";
+import type { GenerateListingPackResponse } from "@trendyol-etsy/shared";
 
 import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
 import type { EtsyCostCalculatorStorage } from "../features/etsyCostCalculator/lib/types";
@@ -136,6 +136,42 @@ export interface ProductTariffAnalysisSummary {
   recommendations: ProductTariffRecommendation[];
   manualSearchEnabled: boolean;
   disclaimer: string;
+}
+
+export interface EtsySystemListingPromptPack {
+  prompt: string;
+  outputContract: {
+    type: "json";
+    fields: string[];
+  };
+}
+
+export interface EtsyChatGptResearchPromptPack {
+  prompt: string;
+  outputFormat: "sectioned-text";
+  researchMode: "required";
+  expectedSections: ["title", "description", "tags"];
+}
+
+export interface EtsyPromptPackResponse {
+  rulebookVersion: string;
+  generatedAt: number;
+  productSnapshot: {
+    productId: string;
+    title: string;
+    brand: string | null;
+    category: string | null;
+    attributeCount: number;
+    variantCount: number;
+    imageCount: number;
+  };
+  systemListingPromptPack: EtsySystemListingPromptPack;
+  chatGptResearchPromptPack: EtsyChatGptResearchPromptPack;
+  imagePromptPack: {
+    mainPrompt: string;
+    variations: string[];
+    guardrailSummary: string[];
+  };
 }
 
 export interface ProductDetailResponse {

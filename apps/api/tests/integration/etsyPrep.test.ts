@@ -339,15 +339,20 @@ describe("etsy prep", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(
+    const payload = await response.json();
+    expect(payload).toEqual(
       expect.objectContaining({
         rulebookVersion: "etsy-prompt-pack-v1",
-        listingPromptPack: expect.objectContaining({
-          prompt: expect.stringContaining("Non-Negotiable Rules"),
+        systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
             fields: ["title", "description", "tags"],
           },
+        }),
+        chatGptResearchPromptPack: expect.objectContaining({
+          outputFormat: "sectioned-text",
+          researchMode: "required",
+          expectedSections: ["title", "description", "tags"],
         }),
         imagePromptPack: expect.objectContaining({
           mainPrompt: expect.stringContaining("reference image"),
@@ -355,6 +360,15 @@ describe("etsy prep", () => {
         }),
       }),
     );
+    expect(payload.listingPromptPack.prompt).toBe(payload.systemListingPromptPack.prompt);
+    expect(payload.systemListingPromptPack.prompt).toContain("Non-Negotiable Rules");
+    expect(payload.systemListingPromptPack.prompt).toContain("Sanitized Product Facts");
+    expect(payload.systemListingPromptPack.prompt).toContain("exactly 13 unique entries");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain("Browse the Etsy Seller Handbook");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain("research competing English-language Etsy listings");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain("natural English only");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain("Never mention any brand name or seller name");
+    expect(JSON.stringify(payload)).not.toMatch(/descriptionRaw|Trendyol|yorumlarini inceleyin|indirimli fiyat|https?:\/\/|cdn\./i);
   });
 
   it("generate-listing-pack reuses the listing prompt and returns parsed JSON", async () => {
@@ -396,9 +410,10 @@ describe("etsy prep", () => {
             {
               message: {
                 content: JSON.stringify({
-                  title: "Handmade Oversize Hoodie",
+                  title: "Oversize Cotton Hoodie",
                   description: "Soft cotton hoodie for everyday wear.",
-                  tags: "oversize hoodie, streetwear gift, black hoodie",
+                  tags:
+                    "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
                 }),
               },
             },
@@ -432,15 +447,16 @@ describe("etsy prep", () => {
         messages: [
           expect.objectContaining({
             role: "user",
-            content: promptPack.listingPromptPack.prompt,
+            content: promptPack.systemListingPromptPack.prompt,
           }),
         ],
       }),
     );
     expect((await response.json()).result).toEqual({
-      title: "Handmade Oversize Hoodie",
+      title: "Oversize Cotton Hoodie",
       description: "Soft cotton hoodie for everyday wear.",
-      tags: "oversize hoodie, streetwear gift, black hoodie",
+      tags:
+        "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
     });
   });
 
@@ -481,9 +497,11 @@ describe("etsy prep", () => {
             {
               message: {
                 content: JSON.stringify({
-                  title: "Premium Hoodie",
-                  description: "Indirimli fiyat icin Trendyol linkine bakin",
-                  tags: "hoodie, gift",
+                  title: "14K Gold Mirror Chain Necklace with Opal, Long Gold Necklace",
+                  description:
+                    "This 14K gold mirror chain necklace brings together a refined gold finish and opal detail for an elegant everyday look. Origin: TR. Warranty period: 1 year. Care instructions are included.",
+                  tags:
+                    "14k gold necklace, mirror chain necklace, opal necklace, long gold necklace, gold chain necklace, 14 karat necklace, elegant gold jewelry, minimalist necklace, layered look necklace, women gold necklace, opal gold jewelry, turkish gold necklace, fine gold necklace",
                 }),
               },
             },

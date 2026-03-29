@@ -40,16 +40,17 @@ describe("parseListingPackResult", () => {
     expect(
       parseListingPackResult(
         JSON.stringify({
-          title: "Handmade Oversize Hoodie",
+          title: "Oversize Cotton Hoodie",
           description: "Soft cotton hoodie for everyday wear.",
-          tags: "oversize hoodie, streetwear gift, oversize hoodie",
+          tags: "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
         }),
         context,
       ),
     ).toEqual({
-      title: "Handmade Oversize Hoodie",
+      title: "Oversize Cotton Hoodie",
       description: "Soft cotton hoodie for everyday wear.",
-      tags: "oversize hoodie, streetwear gift",
+      tags:
+        "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
     });
 
     expect(() =>
@@ -84,6 +85,30 @@ describe("parseListingPackResult", () => {
     expect(() =>
       parseListingPackResult(
         JSON.stringify({
+          title: "North Apparel Cotton Hoodie",
+          description: "Soft cotton hoodie for everyday wear.",
+          tags:
+            "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
+        }),
+        context,
+      ),
+    ).toThrow(/brand/i);
+
+    expect(() =>
+      parseListingPackResult(
+        JSON.stringify({
+          title: "NorthApparel Cotton Hoodie",
+          description: "Soft cotton hoodie for everyday wear.",
+          tags:
+            "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
+        }),
+        context,
+      ),
+    ).toThrow(/brand/i);
+
+    expect(() =>
+      parseListingPackResult(
+        JSON.stringify({
           title: "Soft Cotton Hoodie / Black / M / L / XL / Variant Matrix",
           description: "Soft cotton hoodie for everyday wear.",
           tags: "hoodie",
@@ -102,5 +127,50 @@ describe("parseListingPackResult", () => {
         context,
       ),
     ).toThrow(/tags/i);
+
+    expect(() =>
+      parseListingPackResult(
+        JSON.stringify({
+          title: "Handmade Oversize Hoodie",
+          description: "Soft cotton hoodie for everyday wear.",
+          tags: "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
+        }),
+        context,
+      ),
+    ).toThrow(/claim/i);
+
+    expect(() =>
+      parseListingPackResult(
+        JSON.stringify({
+          title: "Oversize Cotton Hoodie",
+          description: "Origin: TR. Warranty period: 1 year. Care instructions are included.",
+          tags: "oversize hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential, minimalist look",
+        }),
+        context,
+      ),
+    ).toThrow(/boilerplate/i);
+
+    expect(() =>
+      parseListingPackResult(
+        JSON.stringify({
+          title: "Oversize Cotton Hoodie",
+          description: "Soft cotton hoodie for everyday wear.",
+          tags:
+            "mirror chain necklace, opal necklace, long gold necklace, 14k gold necklace, gold chain necklace, elegant gold jewelry, minimalist necklace, layered look necklace, women gold necklace, opal gold jewelry, fine gold necklace, extra long statement necklace, modern style necklace",
+        }),
+        context,
+      ),
+    ).toThrow(/20-character/i);
+
+    expect(() =>
+      parseListingPackResult(
+        JSON.stringify({
+          title: "Soft Cotton Hoodie",
+          description: "Soft cotton hoodie for everyday wear.",
+          tags: "hoodie, hoodie, streetwear gift, black hoodie, cotton hoodie, everyday wear, casual layer, soft cotton, street style, neutral staple, winter layer, gift idea, wardrobe essential",
+        }),
+        context,
+      ),
+    ).toThrow(/13 unique/i);
   });
 });

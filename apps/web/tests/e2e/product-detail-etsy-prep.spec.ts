@@ -185,9 +185,15 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
           variantCount: 1,
           imageCount: 1,
         },
-        listingPromptPack: {
+        systemListingPromptPack: {
           prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
           outputContract: { type: "json", fields: ["title", "description", "tags"] },
+        },
+        chatGptResearchPromptPack: {
+          prompt: "Browse Etsy competitors first.\nReturn:\n1. Title\n2. Description\n3. Tags",
+          outputFormat: "sectioned-text",
+          researchMode: "required",
+          expectedSections: ["title", "description", "tags"],
         },
         imagePromptPack: {
           mainPrompt: "Use the reference image as truth.",
@@ -383,6 +389,10 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
 
   await expect(page.getByRole("heading", { name: /listing prompt pack/i })).toBeVisible();
   await expect(page.getByText(/rulebook: etsy-prompt-pack-v1/i)).toBeVisible();
+  await expect(page.getByText(/chatgpt research mode/i)).toBeVisible();
+  await expect(page.getByText(/system generate mode/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /chatgpt arastirma promptunu kopyala/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /sistem promptunu kopyala/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
   await expect(listingCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();
   await expect(imageCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();

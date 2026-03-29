@@ -738,9 +738,23 @@ export function useEtsyPrepWorkspace(ownerKey: OwnerKey, productId: string) {
     canGenerateListingPack: !generationBlockedReason,
     canGenerate,
     generationBlockedReason,
+    copyResearchPrompt: () =>
+      promptPackQuery.data
+        ? copyTextToClipboard(
+            promptPackQuery.data.chatGptResearchPromptPack.prompt,
+            "ChatGPT araştırma promptu kopyalandı",
+          )
+        : Promise.resolve(),
+    copySystemPrompt: () =>
+      promptPackQuery.data
+        ? copyTextToClipboard(promptPackQuery.data.systemListingPromptPack.prompt, "Sistem promptu kopyalandı")
+        : Promise.resolve(),
     copyListingPrompt: () =>
       promptPackQuery.data
-        ? copyTextToClipboard(promptPackQuery.data.listingPromptPack.prompt, "Listing prompt kopyalandi")
+        ? copyTextToClipboard(
+            promptPackQuery.data.chatGptResearchPromptPack.prompt,
+            "ChatGPT araştırma promptu kopyalandı",
+          )
         : Promise.resolve(),
     copyImageMainPrompt: () =>
       promptPackQuery.data

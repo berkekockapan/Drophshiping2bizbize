@@ -8,6 +8,7 @@ import { buildEtsyPrepFieldPackageStream } from "../modules/etsyPrep/buildEtsyPr
 import { buildEtsyPrepView } from "../modules/etsyPrep/buildEtsyPrepView";
 import { buildEtsyPromptPackResponse } from "../modules/etsyPrep/prompts/buildEtsyPromptPackResponse";
 import { generateListingPackWithOpenAi } from "../modules/etsyPrep/prompts/generateListingPackWithOpenAi";
+import { InvalidGeneratedListingError } from "../modules/etsyPrep/prompts/validateGeneratedListing";
 import {
   InvalidEtsyPrepDraftPayloadError,
   saveEtsyPrepDraft,
@@ -133,6 +134,18 @@ export function createProductsRouter() {
         return c.json(
           toOpenAiErrorResponse(error),
           error.statusCode as 400 | 401 | 403 | 404 | 409 | 422 | 500 | 502 | 503,
+        );
+      }
+
+      if (error instanceof InvalidGeneratedListingError) {
+        return c.json(
+          {
+            error: {
+              code: "INVALID_LISTING_OUTPUT",
+              message: error.message,
+            },
+          },
+          422,
         );
       }
 

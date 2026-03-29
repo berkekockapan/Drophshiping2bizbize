@@ -444,6 +444,76 @@ describe("etsy prep", () => {
     });
   });
 
+  it("returns 422 when generated listing output violates the contract", async () => {
+    const { env } = createTestEnv();
+    const seeded = await createTrackedProduct(
+      env,
+      { trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1" },
+      {
+        fetchImpl: async () => new Response(productWithVariantsHtml, { status: 200 }),
+        now: new Date("2026-03-23T09:00:00.000Z"),
+      },
+    );
+
+    vi.spyOn(openAiOAuthModule, "resolveActiveOpenAiCredential").mockResolvedValue({
+      profile: {
+        id: "profile_main",
+        label: "OpenAI Workspace",
+        emailMasked: "wo***@company.com",
+        provider: "openai-oauth",
+        isActive: true,
+        status: "connected",
+        lastSeenAt: null,
+        lastValidatedAt: null,
+        lastError: null,
+        connectorStatusSnapshot: null,
+        updatedAt: Date.now(),
+      },
+      accessToken: "token_test",
+      apiKey: null,
+      selectedWorkspaceProjectId: null,
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  title: "Premium Hoodie",
+                  description: "Indirimli fiyat icin Trendyol linkine bakin",
+                  tags: "hoodie, gift",
+                }),
+              },
+            },
+          ],
+          model: "gpt-5-mini",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    const app = createApp();
+    const response = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/etsy-prep/generate-listing-pack`,
+      { method: "POST" },
+      env,
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: "INVALID_LISTING_OUTPUT",
+        }),
+      }),
+    );
+  });
+
   it("keeps prompt-pack available when automatic generation has no active AI profile", async () => {
     const { env } = createTestEnv();
     const seeded = await createTrackedProduct(

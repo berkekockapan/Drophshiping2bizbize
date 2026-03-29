@@ -4,6 +4,7 @@ import type { D1Database, Env } from "../../config/bindings";
 import { OpenAiAuthError, resolveActiveOpenAiCredential } from "../../ai/openAiOAuth";
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildEtsyPromptPackResponse } from "./buildEtsyPromptPackResponse";
+import { buildProductPromptContext } from "./buildProductPromptContext";
 import { parseListingPackResult } from "./parseListingPackResult";
 
 function readApiBaseUrl(env: Env) {
@@ -68,6 +69,7 @@ export async function generateListingPackWithOpenAi(
   detail: EtsyPrepView,
 ): Promise<GenerateListingPackResponse> {
   const promptPack = buildEtsyPromptPackResponse(detail);
+  const validationContext = buildProductPromptContext(detail);
   const credential = await resolveActiveOpenAiCredential(db, env);
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -111,6 +113,6 @@ export async function generateListingPackWithOpenAi(
   return {
     provider: "openai-oauth",
     rulebookVersion: promptPack.rulebookVersion,
-    result: parseListingPackResult(rawText),
+    result: parseListingPackResult(rawText, validationContext),
   };
 }

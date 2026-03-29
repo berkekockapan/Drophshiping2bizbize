@@ -49,11 +49,13 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildImagePromptPack", () => {
-  it("returns one main prompt, seven variations, and product-fidelity guardrails", () => {
+  it("returns a short main prompt, seven variations, and product-fidelity guardrails", () => {
     const pack = buildImagePromptPack(detail);
 
-    expect(pack.mainPrompt).toContain("reference image");
+    expect(pack.mainPrompt).toContain("single source of truth");
+    expect(pack.mainPrompt).not.toMatch(/PRODUCT_CONTEXT|"attributes"|"variants"|"images"|"existingDraft"|https?:\/\/|cdn\./i);
     expect(pack.variations).toHaveLength(7);
-    expect(pack.guardrailSummary).toContain("Urun formunu degistirme");
+    expect(pack.variations.every((variation) => variation.length < 220)).toBe(true);
+    expect(pack.guardrailSummary).toContain("Do not redesign the product.");
   });
 });

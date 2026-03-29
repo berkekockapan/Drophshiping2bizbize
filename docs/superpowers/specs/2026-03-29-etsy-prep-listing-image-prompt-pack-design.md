@@ -40,6 +40,7 @@ Bu yapı teknik olarak çalışsa da kullanıcının yeni ihtiyacı için eksik 
 - ham kaynak açıklama içindeki pazar yeri copu prompta taşınabiliyor
 - görsel URL listeleri listing promptuna sızabiliyor
 - model çıkışı JSON kontratına uysa bile dil, başlık stili ve içerik temizliği istenen kalite seviyesine zorlanmıyor
+- görsel üretim ana promptu gereksiz ürün JSON dump'i içerdiğinde sahne kalitesi düşüyor ve model dikkatini referans görselden uzaklaştırıyor
 
 Kullanıcının istediği deneyim, sohbet hafızasına dayalı "önce sistemi öğret, sonra ürünü ver" yaklaşımı değil; sistem içinde saklanan kurallardan her ürün için güvenilir prompt paketleri üretmektir.
 
@@ -76,6 +77,8 @@ Bu tasarım için aşağıdaki kararlar onaylandı:
 - `Trendyol`, kampanya dili, yorum çağrısı, indirim çağrısı, satıcı CTA'ları, kupon/kargo/taksit metinleri ve benzeri pazar yeri copu prompttan çıkarılacaktır
 - raw görsel URL'leri listing promptu ve image promptu metnine gömülmeyecektir
 - başlıkta tüm varyant matrisini dökme, açıklamada pazar yeri meta bilgisini tekrar etme ve ürün dışı boilerplate taşıma açıkça yasak olacaktır
+- image prompt ana metni içine `attributes`, `variants`, `images`, `existingDraft` veya benzeri ürün JSON blokları gömülmeyecektir
+- image prompt, referans görseli tek hakikat kaynağı kabul eden kısa ve sağlam bir yaratıcı brief olarak üretilecektir
 - prompt kural seti veritabanında serbest düzenlenebilir metin olarak değil, kod içinde denetlenebilir ve review edilebilir şekilde tutulacaktır
 - `etsy_drafts` kalıcı çıktı katmanı olarak kullanılmaya devam edecektir; prompt metinleri varsayılan olarak kalıcı saklanmayacaktır
 
@@ -165,14 +168,14 @@ Seçilen tasarım, mevcut Etsy prep çalışma alanını dört katmanlı bir pro
 1. `Master Rulebook`
 2. `Prompt Context Sanitizer`
 3. `Listing Prompt Builder`
-4. `Image Prompt Builder`
+4. `Image Creative Brief Builder`
 
 Bu katmanların davranışı şöyledir:
 
 - `Master Rulebook`, Etsy SEO ve policy guardrail bilgisini tutar
 - `Prompt Context Sanitizer`, ham ürün verisinden yalnızca satışa uygun, temiz ve doğrulanmış gerçekleri çıkarır
 - `Listing Prompt Builder`, sanitize edilmiş ürün bağlamı + rulebook ile tek seferlik listing prompt üretir
-- `Image Prompt Builder`, sanitize edilmiş ürün bağlamı + referans ürün sadakati kuralı ile görsel prompt paketi üretir
+- `Image Creative Brief Builder`, referans görseli ana doğruluk kaynağı kabul eden kısa ve veri dump'siz görsel prompt paketi üretir
 - `AI ile Üret`, aynı listing promptunu aktif AI sağlayıcısına göndererek JSON sonuç üretir
 - `Promptu Kopyala`, aynı listing promptunu kullanıcıya manuel kullanım için verir
 
@@ -198,6 +201,7 @@ Bu mimari sayesinde prompt mantığı tekil olur; yalnızca tüketim şekli ikiy
 - `listingSeoRules`
 - `imageRole`
 - `imageGuardrails`
+- `imagePromptStructure`
 - `outputContracts`
 - `sourceNotes`
 
@@ -300,13 +304,14 @@ Amacı:
 - referans ürün fotoğrafını bozmadan
 - yeni sahne, ışık ve kompozisyon önerileri üretmek
 - pazarlama/lifestyle görseli için güvenli prompt vermek
+- modele gereksiz ürün datası yüklemeden kısa ve güçlü bir yönlendirme vermek
 
 Bu prompt paketi iki parçadan oluşur:
 
 - `mainPrompt`
 - `variations[7]`
 
-`mainPrompt` tek ve en güçlü yönlendirmeyi verir.
+`mainPrompt` tek ve en güçlü yönlendirmeyi verir. Bu metin bir ürün JSON dump'i olmayacaktır.
 
 `variations[7]` ise kısa varyasyonlar olarak sunulur ve şunları değiştirir:
 
@@ -325,6 +330,25 @@ Ancak şu şeyler değiştirilemez:
 Image prompt çıktısı JSON zorunluluğu taşımaz; düz metin prompt paketi olarak gösterilir. Çünkü hedefi başka bir image modeline veya ChatGPT içindeki görsel üretim arayüzüne yapıştırmaktır.
 
 Ancak image prompt metni içine de raw görsel URL'leri gömülmez. Sistem yalnızca referans görsel bulunduğunu ve kullanıcının bunu manuel sağlayacağını varsayar.
+
+Image promptta özellikle bulunmaması gereken şeyler:
+
+- `PRODUCT_CONTEXT` başlığı altında tam JSON blokları
+- `attributes`, `variants`, `images`, `existingDraft` dump'i
+- garanti süresi, menşei, bakım talimatı gibi görsel kompozisyona katkı sağlamayan metinler
+- `yorumlarını inceleyin`, `indirimli fiyata satın alın` gibi pazar yeri dili
+- fiyat bilgisi, stok durumu, varyant fiyatları
+
+Image promptta bulunabilecek şeyler en fazla şunlardır:
+
+- referans görselin hakikat kaynağı olduğu bilgisi
+- ürünün bozulmaması için sert guardrail'ler
+- istenen sahne tonu
+- ışık yönü
+- kompozisyon talimatı
+- arka plan/styling seviyesinde yaratıcı yönlendirme
+
+Buradaki temel ilke şudur: image modeline ürün bilgisini uzun metin olarak anlatmaya çalışmak yerine, ürünü referans görselden okumasını ve yalnızca sahneyi yeniden kurmasını istemek.
 
 ---
 
@@ -375,6 +399,8 @@ Bu bölümde şunlar bulunur:
 Bu bölüm sistem içinde otomatik görsel üretmek zorunda değildir. V1 davranışı prompt üretmek ve kopyalamaktır. Kullanıcı referans görseli manuel yükler ve promptu tercih ettiği görsel üretim aracında kullanır.
 
 UI ürün görsellerini kullanıcıya referans olarak gösterebilir; ancak bu görsellerin URL'leri prompt metnine düz yazı halinde taşınmaz.
+
+Ana prompt önizlemesi kısa tutulmalıdır. Kullanıcı ekranda dev JSON blokları değil, doğrudan kopyalanabilir net bir creative brief görmelidir.
 
 ### 8.4 Mevcut alanlarla ilişki
 
@@ -524,6 +550,8 @@ Image prompt tarafında şu kurallar sert olmalıdır:
 - baskı/desen uydurma
 - yanıltıcı ürün varyasyonu üretme
 - önemli ürün detaylarını kadraj dışında bırakma
+- gereksiz ürün metadata dump'i ile promptu şişirme
+- görsel modele URL, varyant fiyatı, garanti, menşei gibi sahne dışı veri yükleme
 
 ### 11.3 Fallback davranışı
 
@@ -558,6 +586,7 @@ Sonuç parse edilemezse alanlar sessizce kirlenmemeli; kullanıcıya hata verilm
 - listing prompt builder ürün bağlamını doğru yerleştiriyor mu
 - listing prompt builder ham `Images` ve ham `descriptionRaw` bloklarını prompta gömmüyor mu
 - image prompt builder `main + 7 variation` sözleşmesini sağlıyor mu
+- image prompt builder `PRODUCT_CONTEXT` JSON, raw URL, varyant fiyatı ve gereksiz metadata gömmüyor mu
 - tags string normalizasyonu doğru çalışıyor mu
 
 ### 12.2 Integration test

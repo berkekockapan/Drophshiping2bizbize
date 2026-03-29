@@ -378,9 +378,18 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
 
   await page.getByRole("button", { name: "Etsy'e Yükle" }).click();
 
+  const listingCard = page.getByRole("heading", { name: /listing prompt pack/i }).locator("xpath=ancestor::section[1]");
+  const imageCard = page.getByRole("heading", { name: /gorsel prompt pack/i }).locator("xpath=ancestor::section[1]");
+
   await expect(page.getByRole("heading", { name: /listing prompt pack/i })).toBeVisible();
   await expect(page.getByText(/rulebook: etsy-prompt-pack-v1/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
+  await expect(listingCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();
+  await expect(imageCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();
+  await expect(listingCard.getByText("PRODUCT_CONTEXT")).toHaveCount(0);
+  await expect(listingCard.getByText("https://cdn.example.com/hoodie-1.jpg")).toHaveCount(0);
+  await expect(imageCard.getByText("PRODUCT_CONTEXT")).toHaveCount(0);
+  await expect(imageCard.getByText("https://cdn.example.com/hoodie-1.jpg")).toHaveCount(0);
 
   await page.getByRole("button", { name: /ai ile uret/i }).click();
   await expect(page.getByLabel("Title")).toHaveValue("Handmade Oversize Hoodie");

@@ -13,8 +13,26 @@ interface EtsyPrepWorkspaceProps {
   onBack: () => void;
 }
 
+function formatPromptPackMeta(
+  snapshot:
+    | {
+        attributeCount: number;
+        variantCount: number;
+        imageCount: number;
+      }
+    | null
+    | undefined,
+) {
+  if (!snapshot) {
+    return null;
+  }
+
+  return `${snapshot.attributeCount} özellik • ${snapshot.variantCount} varyant • ${snapshot.imageCount} referans görsel`;
+}
+
 export function EtsyPrepWorkspace({ ownerKey, productId, onBack }: EtsyPrepWorkspaceProps) {
   const workspace = useEtsyPrepWorkspace(ownerKey, productId);
+  const promptPackMeta = formatPromptPackMeta(workspace.promptPack?.productSnapshot);
 
   if (workspace.isLoading) {
     return <p className="text-sm text-slate-500">Hazırlık alanı yükleniyor...</p>;
@@ -64,6 +82,7 @@ export function EtsyPrepWorkspace({ ownerKey, productId, onBack }: EtsyPrepWorks
               <ListingPromptPackCard
                 prompt={workspace.promptPack.listingPromptPack.prompt}
                 rulebookVersion={workspace.promptPack.rulebookVersion}
+                snapshotMeta={promptPackMeta}
                 onCopy={workspace.copyListingPrompt}
                 onGenerate={workspace.generateListingPack}
                 copyMessage={workspace.copyMessage}
@@ -76,6 +95,7 @@ export function EtsyPrepWorkspace({ ownerKey, productId, onBack }: EtsyPrepWorks
                 mainPrompt={workspace.promptPack.imagePromptPack.mainPrompt}
                 variations={workspace.promptPack.imagePromptPack.variations}
                 guardrailSummary={workspace.promptPack.imagePromptPack.guardrailSummary}
+                snapshotMeta={promptPackMeta}
                 onCopyMain={workspace.copyImageMainPrompt}
                 onCopyVariations={workspace.copyImageVariations}
               />

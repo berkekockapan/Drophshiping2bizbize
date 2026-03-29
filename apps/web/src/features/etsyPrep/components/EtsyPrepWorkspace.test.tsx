@@ -56,6 +56,53 @@ function createBootstrapPayload() {
   };
 }
 
+function createPromptPackPayload() {
+  return {
+    rulebookVersion: "etsy-prompt-pack-v1",
+    generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+    productSnapshot: {
+      productId: "prod_1",
+      title: "Oversize Hoodie",
+      brand: "North Apparel",
+      category: "Sweatshirt",
+      attributeCount: 2,
+      variantCount: 1,
+      imageCount: 1,
+    },
+    listingPromptPack: {
+      prompt: [
+        "Role",
+        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+        "",
+        "Language Rules",
+        "- Output English only except brand names and immutable technical proper nouns.",
+        "",
+        "Sanitized Product Facts",
+        "- Source title: Oversize Hoodie",
+        "- Brand: North Apparel",
+        "- Materyal: Pamuk",
+        "- Renk: Siyah",
+        "",
+        "Return ONLY the JSON object.",
+      ].join("\n"),
+      outputContract: { type: "json", fields: ["title", "description", "tags"] },
+    },
+    imagePromptPack: {
+      mainPrompt: "Use the manual reference image as the single source of truth for the product.",
+      variations: [
+        "Bright studio tabletop scene with a clean front angle and minimal props.",
+        "Soft morning window light with a slight top-down camera angle.",
+        "Neutral lifestyle shelf setup with shallow depth and tidy styling.",
+        "Warm gift-table composition with centered framing and soft shadows.",
+        "Editorial catalog shot with crisp side angle and muted backdrop.",
+        "Minimal fabric backdrop with close three-quarter framing.",
+        "Airy home desk setting with natural light and restrained accessories.",
+      ],
+      guardrailSummary: ["Do not redesign the product."],
+    },
+  };
+}
+
 describe("EtsyPrepWorkspace", () => {
   beforeEach(() => {
     installMockLocalStorage();
@@ -82,28 +129,7 @@ describe("EtsyPrepWorkspace", () => {
       }
 
       if (url.includes("/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
-        return jsonResponse({
-          rulebookVersion: "etsy-prompt-pack-v1",
-          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
-          productSnapshot: {
-            productId: "prod_1",
-            title: "Oversize Hoodie",
-            brand: "North Apparel",
-            category: "Sweatshirt",
-            attributeCount: 2,
-            variantCount: 1,
-            imageCount: 1,
-          },
-          listingPromptPack: {
-            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
-            outputContract: { type: "json", fields: ["title", "description", "tags"] },
-          },
-          imagePromptPack: {
-            mainPrompt: "Use the reference image as truth.",
-            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
-            guardrailSummary: ["Urun formunu degistirme"],
-          },
-        });
+        return jsonResponse(createPromptPackPayload());
       }
 
       if (url.endsWith("/ai-profiles/health")) {
@@ -158,7 +184,49 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
     await user.click(await screen.findByRole("button", { name: /^promptu kopyala$/i }));
-    expect(clipboardWrite).toHaveBeenCalledWith(expect.stringContaining("Non-Negotiable Rules"));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      1,
+      [
+        "Role",
+        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+        "",
+        "Language Rules",
+        "- Output English only except brand names and immutable technical proper nouns.",
+        "",
+        "Sanitized Product Facts",
+        "- Source title: Oversize Hoodie",
+        "- Brand: North Apparel",
+        "- Materyal: Pamuk",
+        "- Renk: Siyah",
+        "",
+        "Return ONLY the JSON object.",
+      ].join("\n"),
+    );
+
+    expect(screen.getAllByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: /ana promptu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      2,
+      "Use the manual reference image as the single source of truth for the product.",
+    );
+
+    await user.click(screen.getByRole("button", { name: /7 varyasyonu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      3,
+      [
+        "1. Bright studio tabletop scene with a clean front angle and minimal props.",
+        "2. Soft morning window light with a slight top-down camera angle.",
+        "3. Neutral lifestyle shelf setup with shallow depth and tidy styling.",
+        "4. Warm gift-table composition with centered framing and soft shadows.",
+        "5. Editorial catalog shot with crisp side angle and muted backdrop.",
+        "6. Minimal fabric backdrop with close three-quarter framing.",
+        "7. Airy home desk setting with natural light and restrained accessories.",
+      ].join("\n"),
+    );
+
+    expect(screen.getByText("Use the manual reference image as the single source of truth for the product.")).toBeInTheDocument();
+    expect(screen.queryByText(/PRODUCT_CONTEXT|https:\/\/cdn\.example\.com/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /ai ile uret/i }));
     expect(await screen.findByLabelText(/title/i)).toHaveValue("Handmade Oversize Hoodie");
@@ -182,28 +250,7 @@ describe("EtsyPrepWorkspace", () => {
       }
 
       if (url.includes("/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
-        return jsonResponse({
-          rulebookVersion: "etsy-prompt-pack-v1",
-          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
-          productSnapshot: {
-            productId: "prod_1",
-            title: "Oversize Hoodie",
-            brand: "North Apparel",
-            category: "Sweatshirt",
-            attributeCount: 2,
-            variantCount: 1,
-            imageCount: 1,
-          },
-          listingPromptPack: {
-            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
-            outputContract: { type: "json", fields: ["title", "description", "tags"] },
-          },
-          imagePromptPack: {
-            mainPrompt: "Use the reference image as truth.",
-            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
-            guardrailSummary: ["Urun formunu degistirme"],
-          },
-        });
+        return jsonResponse(createPromptPackPayload());
       }
 
       if (url.endsWith("/ai-profiles/health")) {
@@ -258,7 +305,49 @@ describe("EtsyPrepWorkspace", () => {
     renderWithProviders(<EtsyPrepWorkspace ownerKey="berke" productId="prod_1" onBack={() => undefined} />);
 
     await user.click(await screen.findByRole("button", { name: /^promptu kopyala$/i }));
-    expect(clipboardWrite).toHaveBeenCalledWith(expect.stringContaining("Non-Negotiable Rules"));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      1,
+      [
+        "Role",
+        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+        "",
+        "Language Rules",
+        "- Output English only except brand names and immutable technical proper nouns.",
+        "",
+        "Sanitized Product Facts",
+        "- Source title: Oversize Hoodie",
+        "- Brand: North Apparel",
+        "- Materyal: Pamuk",
+        "- Renk: Siyah",
+        "",
+        "Return ONLY the JSON object.",
+      ].join("\n"),
+    );
+
+    expect(screen.getAllByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: /ana promptu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      2,
+      "Use the manual reference image as the single source of truth for the product.",
+    );
+
+    await user.click(screen.getByRole("button", { name: /7 varyasyonu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      3,
+      [
+        "1. Bright studio tabletop scene with a clean front angle and minimal props.",
+        "2. Soft morning window light with a slight top-down camera angle.",
+        "3. Neutral lifestyle shelf setup with shallow depth and tidy styling.",
+        "4. Warm gift-table composition with centered framing and soft shadows.",
+        "5. Editorial catalog shot with crisp side angle and muted backdrop.",
+        "6. Minimal fabric backdrop with close three-quarter framing.",
+        "7. Airy home desk setting with natural light and restrained accessories.",
+      ].join("\n"),
+    );
+
+    expect(screen.getByText("Use the manual reference image as the single source of truth for the product.")).toBeInTheDocument();
+    expect(screen.queryByText(/PRODUCT_CONTEXT|https:\/\/cdn\.example\.com/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /ai ile uret/i }));
     expect(await screen.findByText(/aktif openai hesabi bulunamadi/i)).toBeInTheDocument();

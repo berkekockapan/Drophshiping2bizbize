@@ -1,40 +1,11 @@
 import type { VariantCostOverrideRow } from "../../db/repositories/productVariantCostOverridesRepo";
-
-import { buildShipentegraEstimate } from "./buildShipentegraEstimate";
+import type { TariffSelectionRow } from "../../db/repositories/tariffSelectionRepo";
+import type { AutoSelectedTariffProfile } from "../tariff/analysis/buildTariffRecommendations";
+import { buildShipentegraEstimate, type ShipentegraEstimate } from "./buildShipentegraEstimate";
 
 export interface ProductCostContextMoney {
   amount: number;
   currency: "USD" | "TRY";
-}
-
-export interface ProductCostContextAutoProfile {
-  catalogId: string;
-  profileName: string;
-  canonicalHs6: string;
-  htsCode10: string | null;
-  combinedDutyRate: number;
-  dutySummary: string;
-  defaultShipentegraUsd: number | null;
-}
-
-export interface ProductCostContextManualProfile {
-  productId: string;
-  ownerKey: string;
-  catalogId: string;
-  canonicalHs6: string;
-  title: string;
-  usProfileId: string | null;
-  selectionSource: string;
-  selectedBy: string;
-  selectedAt: number;
-  analysisRunId: string | null;
-  createdAt: number;
-  updatedAt: number;
-  generalDutyRate: number | null;
-  additionalDutyRate: number | null;
-  combinedDutyRate: number | null;
-  dutySummary: string | null;
-  revisionLabel: string | null;
 }
 
 export interface ProductCostContextVariant {
@@ -42,7 +13,7 @@ export interface ProductCostContextVariant {
   label: string;
   autoProductCost: ProductCostContextMoney;
   manualProductCost: ProductCostContextMoney | null;
-  autoShippingEstimate: ReturnType<typeof buildShipentegraEstimate>;
+  autoShippingEstimate: ShipentegraEstimate;
   manualShippingCost: ProductCostContextMoney | null;
 }
 
@@ -53,7 +24,7 @@ export interface ProductCostContext {
     status: "automatic_confirmed" | "review_required" | "locked";
     label: string;
     lockedReason: string | null;
-    profile: ProductCostContextManualProfile | ProductCostContextAutoProfile | null;
+    profile: TariffSelectionRow | AutoSelectedTariffProfile | null;
   };
 }
 
@@ -73,44 +44,44 @@ export interface BuildProductCostContextInput {
     currentPrice: number | null;
   }>;
   overrides: VariantCostOverrideRow[];
-  manualSelection: ProductCostContextManualProfile | null;
-  latestRun:
-    | {
-        confidenceState?: "high_confidence" | "low_confidence";
-        selectedProfile?: ProductCostContextAutoProfile | null;
-        lockedReason?: string | null;
-      }
-    | null
-    | undefined;
+  latestRun: {
+    confidenceState?: "high_confidence" | "low_confidence";
+    selectedProfile?: AutoSelectedTariffProfile | null;
+    lockedReason?: string | null;
+  } | null;
+  manualSelection: TariffSelectionRow | null;
 }
 
-function toMoney(amount: number | null, currency: "USD" | "TRY"): ProductCostContextMoney {
+function round2(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function toMoney(amount: number | null | undefined, currency: "USD" | "TRY"): ProductCostContextMoney {
   return {
-    amount: amount == null ? 0 : Math.round(amount * 100) / 100,
+    amount: round2(amount ?? 0),
     currency,
   };
 }
 
-export async function buildProductCostContext(input: BuildProductCostContextInput): Promise<ProductCostContext> {
-  const overridesByVariant = new Map(input.overrides.map((row) => [row.variantId, row] as const));
+export function buildProductCostContext(input: BuildProductCostContextInput): ProductCostContext {
+  const overridesByVariant = new Map(input.overrides.map((row) => [row.variantId, row]));
   const selectedVariant = input.variants.find((variant) => variant.currentStockState === "IN_STOCK") ?? input.variants[0] ?? null;
+  const defaultShipentegraUsd = input.latestRun?.selectedProfile?.defaultShipentegraUsd ?? null;
 
   const variants = input.variants.map<ProductCostContextVariant>((variant) => {
     const override = overridesByVariant.get(variant.id);
+    const autoProductCost = toMoney(variant.currentPrice == null ? 0 : variant.currentPrice / 100, "TRY");
     const autoShippingEstimate = buildShipentegraEstimate({
       title: input.product.title,
       category: input.product.category,
       attributes: input.product.attributes,
-      defaultShipentegraUsd:
-        input.manualSelection == null && input.latestRun?.selectedProfile
-          ? input.latestRun.selectedProfile.defaultShipentegraUsd
-          : null,
+      defaultShipentegraUsd,
     });
 
     return {
       variantId: variant.id,
       label: [variant.option1, variant.option2, variant.option3].filter(Boolean).join(" / ") || variant.variantKey,
-      autoProductCost: toMoney(variant.currentPrice == null ? 0 : variant.currentPrice / 100, "TRY"),
+      autoProductCost,
       manualProductCost:
         override?.manualProductCostAmount != null && override.manualProductCostCurrency
           ? toMoney(override.manualProductCostAmount, override.manualProductCostCurrency as "USD" | "TRY")
@@ -144,9 +115,7 @@ export async function buildProductCostContext(input: BuildProductCostContextInpu
           ? {
               status: "locked",
               label: "hesap kilitli",
-              lockedReason:
-                input.latestRun.lockedReason ??
-                "Sistem ABD profilinden yeterince emin degil. Yanlis kesin sonuc gostermemek icin hesap kilitli kalmali.",
+              lockedReason: input.latestRun.lockedReason ?? null,
               profile: null,
             }
           : {

@@ -1,8 +1,13 @@
-import type { D1Database } from '../../../config/bindings';
-import { createTariffAnalysisRepo } from '../../../db/repositories/tariffAnalysisRepo';
-import { createTariffCatalogRepo } from '../../../db/repositories/tariffCatalogRepo';
+import type { D1Database } from "../../../config/bindings";
+import {
+  createTariffAnalysisRepo,
+  type TariffAnalysisConfidenceState,
+  type TariffAnalysisSelectedProfile,
+  type TariffRecommendationSnapshot,
+} from "../../../db/repositories/tariffAnalysisRepo";
+import { createTariffCatalogRepo } from "../../../db/repositories/tariffCatalogRepo";
 
-import { formatTariffDutySummary } from './formatTariffDutySummary';
+import { formatTariffDutySummary } from "./formatTariffDutySummary";
 
 export interface BuildTariffRecommendationsInput {
   ownerKey: string;
@@ -15,38 +20,13 @@ export interface BuildTariffRecommendationsInput {
   aiContext: unknown;
 }
 
-export interface TariffRecommendation {
-  catalogId: string;
-  canonicalHs6: string;
-  profileName: string | null;
-  title: string;
-  rationale: string;
-  score: number;
-  usProfileId: string | null;
-  htsCode10: string | null;
-  generalDutyRate: number;
-  additionalDutyRate: number;
-  combinedDutyRate: number;
-  dutySummary: string;
-  defaultShipentegraUsd: number | null;
-  sourceBadges: string[];
-}
-
-export interface AutoSelectedTariffProfile {
-  catalogId: string;
-  profileName: string;
-  canonicalHs6: string;
-  htsCode10: string | null;
-  combinedDutyRate: number;
-  dutySummary: string;
-  defaultShipentegraUsd: number | null;
-}
+export type TariffRecommendation = TariffRecommendationSnapshot;
 
 export interface BuildTariffRecommendationsResult {
   runId: string;
   usedAi: boolean;
-  confidenceState: "high_confidence" | "low_confidence";
-  selectedProfile: AutoSelectedTariffProfile | null;
+  confidenceState: TariffAnalysisConfidenceState;
+  selectedProfile: TariffAnalysisSelectedProfile | null;
   lockedReason: string | null;
   recommendations: TariffRecommendation[];
 }
@@ -58,8 +38,8 @@ export async function buildTariffRecommendations(
   const catalogRepo = createTariffCatalogRepo(db);
   const analysisRepo = createTariffAnalysisRepo(db);
   const keywordQuery = [input.title, input.descriptionRaw, input.category, ...input.attributes.map((item) => item.value)]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .join(' ');
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ");
 
   const catalogMatches = await catalogRepo.searchCatalog(keywordQuery, 5);
   const recommendations = (
@@ -70,18 +50,18 @@ export async function buildTariffRecommendations(
         return {
           catalogId: match.id,
           canonicalHs6: match.canonicalHs6,
-          profileName: profile?.profileName ?? null,
           title: match.title,
-          rationale: `Urun basligi/aciklamasi ${match.title.toLocaleLowerCase('tr-TR')} sinyali ile eslesti.`,
+          rationale: `Urun basligi/aciklamasi ${match.title.toLocaleLowerCase("tr-TR")} sinyali ile eslesti.`,
           score: Math.max(1, 100 - index * 10 + match.score),
           usProfileId: profile?.id ?? null,
+          profileName: profile?.profileName ?? null,
           htsCode10: profile?.masterEntry?.htsCode10 ?? profile?.htsusCode ?? null,
           generalDutyRate: profile?.generalDutyRate ?? 0,
           additionalDutyRate: profile?.additionalDutyRate ?? 0,
           combinedDutyRate: profile?.combinedDutyRate ?? 0,
           dutySummary: profile?.summaryText ?? formatTariffDutySummary(0, 0),
           defaultShipentegraUsd: profile?.defaultShipentegraUsd ?? null,
-          sourceBadges: ['Kural eslesmesi'],
+          sourceBadges: ["Kural eslesmesi"],
         } satisfies TariffRecommendation;
       }),
     )
@@ -89,10 +69,10 @@ export async function buildTariffRecommendations(
 
   const best = recommendations[0] ?? null;
   const second = recommendations[1] ?? null;
-  const confidenceState =
+  const confidenceState: TariffAnalysisConfidenceState =
     best && best.score >= 140 && (!second || best.score - second.score >= 25) ? "high_confidence" : "low_confidence";
   const selectedProfile =
-    confidenceState === "high_confidence" && best && best.profileName
+    confidenceState === "high_confidence" && best
       ? {
           catalogId: best.catalogId,
           profileName: best.profileName,
@@ -115,7 +95,7 @@ export async function buildTariffRecommendations(
     usedAi: false,
     inputSnapshot: input,
     resultSnapshot: { confidenceState, selectedProfile, lockedReason, recommendations },
-    engineVersion: 'tariff-v2',
+    engineVersion: "tariff-v2",
   });
 
   return {

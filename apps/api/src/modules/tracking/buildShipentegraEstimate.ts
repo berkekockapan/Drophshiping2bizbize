@@ -1,31 +1,39 @@
-export interface ShipentegraEstimateInput {
-  title: string | null;
-  category: string | null;
-  attributes: Array<{ key: string; value: string }>;
-  defaultShipentegraUsd?: number | null;
-}
-
 export interface ShipentegraEstimate {
   amount: number;
   currency: "USD";
   sourceType: "profile_default" | "system_default";
 }
 
-export function buildShipentegraEstimate(input: ShipentegraEstimateInput): ShipentegraEstimate {
-  if (typeof input.defaultShipentegraUsd === "number") {
-    return { amount: input.defaultShipentegraUsd, currency: "USD", sourceType: "profile_default" };
-  }
-
-  const normalized = `${input.title ?? ""} ${input.category ?? ""} ${input.attributes.map((item) => item.value).join(" ")}`
+function normalize(value: string) {
+  return value
     .toLocaleLowerCase("tr-TR")
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[̀-ͯ]/g, "");
+}
+
+export function buildShipentegraEstimate(input: {
+  title: string | null;
+  category: string | null;
+  attributes: Array<{ key: string; value: string }>;
+  defaultShipentegraUsd?: number | null;
+}): ShipentegraEstimate {
+  if (typeof input.defaultShipentegraUsd === "number") {
+    return {
+      amount: Math.round((input.defaultShipentegraUsd + Number.EPSILON) * 100) / 100,
+      currency: "USD",
+      sourceType: "profile_default",
+    };
+  }
+
+  const normalized = normalize(
+    `${input.title ?? ""} ${input.category ?? ""} ${input.attributes.map((item) => item.value).join(" ")}`,
+  );
 
   if (/kolye|kupe|bileklik|aksesuar/.test(normalized)) {
     return { amount: 4.9, currency: "USD", sourceType: "system_default" };
   }
 
-  if (/hoodie|sweat|tisort|tekstil/.test(normalized)) {
+  if (/hoodie|sweat|sweatshirt|tisort|tekstil/.test(normalized)) {
     return { amount: 7.5, currency: "USD", sourceType: "system_default" };
   }
 

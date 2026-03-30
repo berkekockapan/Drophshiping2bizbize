@@ -47,7 +47,7 @@ it("returns variant-aware cost context and accepts override updates", async () =
 
   const app = createApp();
   const detailResponse = await app.request(`http://localhost/owners/berke/products/${seeded.product.id}`, undefined, env);
-  const detail = await detailResponse.json<{
+  const detail = (await detailResponse.json()) as {
     costContext: {
       selectedVariantId: string | null;
       variants: Array<{
@@ -59,7 +59,7 @@ it("returns variant-aware cost context and accepts override updates", async () =
         status: string;
       };
     };
-  }>();
+  };
 
   expect(detail.costContext.selectedVariantId).toBeTruthy();
   expect(detail.costContext.variants[0]?.autoProductCost.currency).toBe("TRY");

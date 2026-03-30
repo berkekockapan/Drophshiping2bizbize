@@ -500,6 +500,11 @@ export interface TariffKnowledgeCandidateResponse {
   status: string;
 }
 
+export interface SaveProductVariantCostOverridePayload {
+  manualProductCost?: { amount: number; currency: "USD" | "TRY" } | null;
+  manualShippingCost?: { amount: number; currency: "USD" | "TRY" } | null;
+}
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 function toApiUrl(path: string) {
@@ -743,6 +748,23 @@ export async function submitTariffKnowledgeCandidate(
   });
 
   return parseJson<TariffKnowledgeCandidateResponse>(response);
+}
+
+export async function saveProductVariantCostOverride(
+  ownerKey: OwnerKey,
+  productId: string,
+  variantId: string,
+  payload: SaveProductVariantCostOverridePayload,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/variants/${variantId}/cost-overrides`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{ override: { variantId: string } }>(response);
 }
 
 export async function setTrackedProductFavorite(ownerKey: OwnerKey, productId: string, isFavorite: boolean) {

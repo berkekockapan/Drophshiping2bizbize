@@ -7,9 +7,8 @@ import { createProductVariantCostOverridesRepo } from "../../db/repositories/pro
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 import { createRefreshAuditRepo } from "../../db/repositories/refreshAuditRepo";
 import { createTariffAnalysisRepo } from "../../db/repositories/tariffAnalysisRepo";
+import { createTariffCatalogRepo, type TariffUsProfileRow } from "../../db/repositories/tariffCatalogRepo";
 import { createTariffSelectionRepo } from "../../db/repositories/tariffSelectionRepo";
-import type { AutoSelectedTariffProfile } from "../tariff/analysis/buildTariffRecommendations";
-import { buildProductCostContext } from "./buildProductCostContext";
 import {
   buildProductChangeTimeline,
   type ContentHistoryRow,
@@ -17,6 +16,7 @@ import {
   type RefreshAuditRow,
   type StockHistoryRow,
 } from "./buildProductChangeTimeline";
+import { buildProductCostContext, type ProductCostContextProfile } from "./buildProductCostContext";
 
 function safeParseJson(value: string | null) {
   if (!value) {
@@ -32,38 +32,6 @@ function safeParseJson(value: string | null) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function parseAutoSelectedProfile(value: unknown): AutoSelectedTariffProfile | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  return {
-    catalogId: typeof value.catalogId === "string" ? value.catalogId : "",
-    profileName: typeof value.profileName === "string" ? value.profileName : "",
-    canonicalHs6: typeof value.canonicalHs6 === "string" ? value.canonicalHs6 : "",
-    htsCode10: typeof value.htsCode10 === "string" ? value.htsCode10 : null,
-    combinedDutyRate: typeof value.combinedDutyRate === "number" ? value.combinedDutyRate : 0,
-    dutySummary: typeof value.dutySummary === "string" ? value.dutySummary : "",
-    defaultShipentegraUsd: typeof value.defaultShipentegraUsd === "number" ? value.defaultShipentegraUsd : null,
-  };
-}
-
-function parseTariffRunSnapshot(value: unknown) {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  return {
-    confidenceState:
-      value.confidenceState === "high_confidence" || value.confidenceState === "low_confidence"
-        ? value.confidenceState
-        : undefined,
-    selectedProfile: parseAutoSelectedProfile(value.selectedProfile),
-    lockedReason: typeof value.lockedReason === "string" ? value.lockedReason : null,
-    recommendations: Array.isArray(value.recommendations) ? value.recommendations : [],
-  };
 }
 
 function normalizeTrendyolUrl(value: unknown, baseUrl: string) {
@@ -89,6 +57,30 @@ function resolveVariantTrendyolUrl(rawPayload: unknown, productUrl: string, fall
   return fallbackUrl ? normalizeTrendyolUrl(fallbackUrl, productUrl) ?? fallbackUrl : null;
 }
 
+function toProductCostProfile(catalogProfile: TariffUsProfileRow | null): ProductCostContextProfile | null {
+  if (!catalogProfile) {
+    return null;
+  }
+
+  return {
+    catalogId: catalogProfile.catalogId,
+    profileName: catalogProfile.profileName ?? null,
+    canonicalHs6: catalogProfile.canonicalHs6,
+    htsCode10: catalogProfile.masterEntry?.htsCode10 ?? catalogProfile.htsusCode ?? null,
+    combinedDutyRate: catalogProfile.combinedDutyRate,
+    dutySummary: catalogProfile.summaryText,
+    defaultShipentegraUsd: catalogProfile.defaultShipentegraUsd ?? null,
+  };
+}
+
+function getTariffRecommendations(latestRun: Awaited<ReturnType<ReturnType<typeof createTariffAnalysisRepo>["getLatestRun"]>>) {
+  if (!latestRun?.resultSnapshot) {
+    return [];
+  }
+
+  return Array.isArray(latestRun.resultSnapshot.recommendations) ? latestRun.resultSnapshot.recommendations : [];
+}
+
 export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey, productId: string) {
   const productsRepo = createProductsRepo(db);
   const historyRepo = createHistoryRepo(db);
@@ -96,7 +88,8 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const refreshAuditRepo = createRefreshAuditRepo(db);
   const tariffAnalysisRepo = createTariffAnalysisRepo(db);
   const tariffSelectionRepo = createTariffSelectionRepo(db);
-  const costOverridesRepo = createProductVariantCostOverridesRepo(db);
+  const overridesRepo = createProductVariantCostOverridesRepo(db);
+  const tariffCatalogRepo = createTariffCatalogRepo(db);
   const detail = await productsRepo.getProductDetail(ownerKey, productId);
 
   if (!detail) {
@@ -118,12 +111,14 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const priceHistory = (await historyRepo.listPriceHistory(productId)) as unknown as PriceHistoryRow[];
   const stockHistory = (await historyRepo.listStockHistory(productId)) as unknown as StockHistoryRow[];
   const latestTariffRun = await tariffAnalysisRepo.getLatestRun(productId);
-  const latestTariffSnapshot = parseTariffRunSnapshot(latestTariffRun?.resultSnapshot);
   const tariffSelection = await tariffSelectionRepo.getSelection(productId);
-  const overrides = await costOverridesRepo.listByProductId(productId);
+  const overrides = await overridesRepo.listByProductId(productId);
   const { userCategoryId, userCategoryName, ...product } = detail.product;
-  const attributes = safeParseJson(detail.product.attributesRaw);
+  const attributes = safeParseJson(detail.product.attributesRaw) ?? [];
   const images = safeParseJson(detail.product.imagesRaw);
+  const manualSelectionProfile = tariffSelection
+    ? toProductCostProfile(await tariffCatalogRepo.getUsProfileByCatalogId(tariffSelection.catalogId))
+    : null;
   const costContext = await buildProductCostContext({
     product: {
       title: detail.product.title,
@@ -132,14 +127,14 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
     },
     variants: detail.variants,
     overrides,
-    latestRun: latestTariffSnapshot
+    latestRun: latestTariffRun?.resultSnapshot
       ? {
-          confidenceState: latestTariffSnapshot.confidenceState,
-          selectedProfile: latestTariffSnapshot.selectedProfile,
-          lockedReason: latestTariffSnapshot.lockedReason,
+          confidenceState: latestTariffRun.resultSnapshot.confidenceState,
+          selectedProfile: latestTariffRun.resultSnapshot.selectedProfile,
+          lockedReason: latestTariffRun.resultSnapshot.lockedReason,
         }
       : null,
-    manualSelection: tariffSelection,
+    manualSelection: manualSelectionProfile,
   });
 
   return {
@@ -167,13 +162,13 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
       variants: detail.variants,
     }),
     notifications: await notificationsRepo.listNotifications(ownerKey, productId),
-    costContext,
     tariffAnalysis: {
       selection: tariffSelection,
       latestRun: latestTariffRun,
-      recommendations: latestTariffSnapshot?.recommendations ?? [],
+      recommendations: getTariffRecommendations(latestTariffRun),
       manualSearchEnabled: true,
       disclaimer: "Planlama amacli GTIP tahminidir; nihai beyan karari degildir.",
     },
+    costContext,
   };
 }

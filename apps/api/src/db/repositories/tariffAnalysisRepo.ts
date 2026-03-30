@@ -1,26 +1,26 @@
 import type { D1Database } from '../../config/bindings';
 import { runWithWriteRetry } from '../runWithWriteRetry';
 
-export interface CreateTariffAnalysisRunInput {
+export interface CreateTariffAnalysisRunInput<TInput = unknown, TResult = unknown> {
   productId: string;
   ownerKey: string;
   status?: string;
   usedAi: boolean;
-  inputSnapshot: unknown;
-  resultSnapshot: unknown;
+  inputSnapshot: TInput;
+  resultSnapshot: TResult;
   engineVersion: string;
   createdAt?: number;
   completedAt?: number;
 }
 
-export interface TariffAnalysisRunRow {
+export interface TariffAnalysisRunRow<TInput = unknown, TResult = unknown> {
   id: string;
   productId: string;
   ownerKey: string;
   status: string;
   usedAi: boolean;
-  inputSnapshot: unknown;
-  resultSnapshot: unknown;
+  inputSnapshot: TInput | null;
+  resultSnapshot: TResult | null;
   engineVersion: string;
   createdAt: number;
   completedAt: number | null;
@@ -38,7 +38,7 @@ function safeParseJson(value: string | null) {
   }
 }
 
-function mapRun(row: {
+function mapRun<TInput = unknown, TResult = unknown>(row: {
   id: string;
   productId: string;
   ownerKey: string;
@@ -49,15 +49,15 @@ function mapRun(row: {
   engineVersion: string;
   createdAt: number;
   completedAt: number | null;
-}): TariffAnalysisRunRow {
+}): TariffAnalysisRunRow<TInput, TResult> {
   return {
     id: row.id,
     productId: row.productId,
     ownerKey: row.ownerKey,
     status: row.status,
     usedAi: Boolean(row.usedAi),
-    inputSnapshot: safeParseJson(row.inputSnapshotJson),
-    resultSnapshot: safeParseJson(row.resultSnapshotJson),
+    inputSnapshot: safeParseJson(row.inputSnapshotJson) as TInput | null,
+    resultSnapshot: safeParseJson(row.resultSnapshotJson) as TResult | null,
     engineVersion: row.engineVersion,
     createdAt: row.createdAt,
     completedAt: row.completedAt,
@@ -66,7 +66,7 @@ function mapRun(row: {
 
 export function createTariffAnalysisRepo(db: D1Database) {
   return {
-    async createRun(input: CreateTariffAnalysisRunInput) {
+    async createRun<TInput = unknown, TResult = unknown>(input: CreateTariffAnalysisRunInput<TInput, TResult>) {
       const id = crypto.randomUUID();
       const createdAt = input.createdAt ?? Date.now();
       const completedAt = input.completedAt ?? createdAt;
@@ -104,9 +104,9 @@ export function createTariffAnalysisRepo(db: D1Database) {
         engineVersion: input.engineVersion,
         createdAt,
         completedAt,
-      } satisfies TariffAnalysisRunRow;
+      } satisfies TariffAnalysisRunRow<TInput, TResult>;
     },
-    async getLatestRun(productId: string) {
+    async getLatestRun<TInput = unknown, TResult = unknown>(productId: string) {
       const row = await db
         .prepare(
           `select id, product_id as productId, owner_key as ownerKey, status, used_ai as usedAi,
@@ -131,7 +131,7 @@ export function createTariffAnalysisRepo(db: D1Database) {
           completedAt: number | null;
         }>();
 
-      return row ? mapRun(row) : null;
+      return row ? mapRun<TInput, TResult>(row) : null;
     },
   };
 }

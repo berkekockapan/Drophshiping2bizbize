@@ -1,7 +1,7 @@
 import type { D1Database } from "../../config/bindings";
 import { runWithWriteRetry } from "../runWithWriteRetry";
 
-export interface VariantCostOverrideRow {
+export interface ProductVariantCostOverrideRow {
   variantId: string;
   productId: string;
   ownerKey: string;
@@ -12,6 +12,8 @@ export interface VariantCostOverrideRow {
   createdAt: number;
   updatedAt: number;
 }
+
+export type VariantCostOverrideRow = ProductVariantCostOverrideRow;
 
 export interface UpsertVariantCostOverrideInput {
   variantId: string;
@@ -74,7 +76,7 @@ export function createProductVariantCostOverridesRepo(db: D1Database) {
            limit 1`,
         )
         .bind(variantId)
-        .first<VariantCostOverrideRow>();
+        .first<ProductVariantCostOverrideRow>();
     },
     async listByProductId(productId: string) {
       const rows = await db
@@ -90,7 +92,7 @@ export function createProductVariantCostOverridesRepo(db: D1Database) {
            order by variant_id asc`,
         )
         .bind(productId)
-        .all<VariantCostOverrideRow>();
+        .all<ProductVariantCostOverrideRow>();
 
       return rows.results;
     },

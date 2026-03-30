@@ -82,15 +82,28 @@ export interface ProductChangeTimelineItem {
 export interface ProductTariffRecommendation {
   catalogId: string;
   canonicalHs6: string;
+  profileName: string | null;
   title: string;
   rationale: string;
   score: number;
   usProfileId: string | null;
+  htsCode10: string | null;
   generalDutyRate: number;
   additionalDutyRate: number;
   combinedDutyRate: number;
   dutySummary: string;
+  defaultShipentegraUsd: number | null;
   sourceBadges: string[];
+}
+
+export interface AutoSelectedTariffProfile {
+  catalogId: string;
+  profileName: string;
+  canonicalHs6: string;
+  htsCode10: string | null;
+  combinedDutyRate: number;
+  dutySummary: string;
+  defaultShipentegraUsd: number | null;
 }
 
 export interface ProductTariffAnalysisRun {
@@ -100,9 +113,14 @@ export interface ProductTariffAnalysisRun {
   status: string;
   usedAi: boolean;
   inputSnapshot: Record<string, unknown>;
-  resultSnapshot: {
-    recommendations: ProductTariffRecommendation[];
-  } | null;
+  resultSnapshot:
+    | {
+        confidenceState?: "high_confidence" | "low_confidence";
+        selectedProfile?: AutoSelectedTariffProfile | null;
+        lockedReason?: string | null;
+        recommendations: ProductTariffRecommendation[];
+      }
+    | null;
   engineVersion: string;
   createdAt: number;
   completedAt: number | null;
@@ -134,6 +152,39 @@ export interface ProductTariffAnalysisSummary {
   recommendations: ProductTariffRecommendation[];
   manualSearchEnabled: boolean;
   disclaimer: string;
+}
+
+export interface ProductCostContextVariant {
+  variantId: string;
+  label: string;
+  autoProductCost: {
+    amount: number;
+    currency: "TRY";
+  };
+  manualProductCost: {
+    amount: number;
+    currency: "USD" | "TRY";
+  } | null;
+  autoShippingEstimate: {
+    amount: number;
+    currency: "USD";
+    sourceType: "profile_default" | "system_default";
+  };
+  manualShippingCost: {
+    amount: number;
+    currency: "USD" | "TRY";
+  } | null;
+}
+
+export interface ProductCostContext {
+  selectedVariantId: string | null;
+  variants: ProductCostContextVariant[];
+  usState: {
+    status: "automatic_confirmed" | "review_required" | "locked";
+    label: string;
+    lockedReason: string | null;
+    profile: ProductTariffSelection | AutoSelectedTariffProfile | null;
+  };
 }
 
 export interface ProductDetailResponse {
@@ -195,6 +246,7 @@ export interface ProductDetailResponse {
   }>;
   changeTimeline: ProductChangeTimelineItem[];
   notifications: NotificationItem[];
+  costContext: ProductCostContext;
   tariffAnalysis: ProductTariffAnalysisSummary;
 }
 
@@ -416,6 +468,9 @@ export interface ManualRefreshRunSummary {
 export interface ProductTariffAnalysisRunResponse {
   runId: string;
   usedAi: boolean;
+  confidenceState: "high_confidence" | "low_confidence";
+  selectedProfile: AutoSelectedTariffProfile | null;
+  lockedReason: string | null;
   recommendations: ProductTariffRecommendation[];
 }
 

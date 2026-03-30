@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 
 import { FeeBreakdownTable } from "./FeeBreakdownTable";
 
-it("renders grouped breakdown labels, source badges, and notes", () => {
+it("renders grouped breakdown labels, source badges, notes, and help icons", () => {
   render(
     <FeeBreakdownTable
       groups={[
@@ -14,12 +14,12 @@ it("renders grouped breakdown labels, source badges, and notes", () => {
           label: "Etsy ucretleri",
           rows: [
             {
-              key: "listing_related_fee",
-              label: "Listeleme ucreti",
-              formattedUsd: "$0.20",
-              formattedTry: "8,00 ₺",
-              badgeLabel: "Resmi varsayilan",
-              note: "Varsayilan siparis basi listeleme varsayimi.",
+              key: "us_duty_fee",
+              label: "Duty",
+              formattedUsd: "$3.20",
+              formattedTry: "128,00 ₺",
+              badgeLabel: "Manuel",
+              note: "Hizli formdaki duty yuzdesi uygulandi.",
             },
           ],
         },
@@ -28,11 +28,11 @@ it("renders grouped breakdown labels, source badges, and notes", () => {
           label: "Kullanici maliyetleri",
           rows: [
             {
-              key: "deposit_fee",
-              label: "Odeme aktarim ucreti",
+              key: "overhead_cost",
+              label: "Genel gider payi",
               formattedUsd: "$1.05",
               formattedTry: "42,00 ₺",
-              badgeLabel: "Kosullu kalem",
+              badgeLabel: "Manuel",
               note: "Aktarim bazli kosullu ucret.",
             },
           ],
@@ -43,7 +43,7 @@ it("renders grouped breakdown labels, source badges, and notes", () => {
   );
 
   expect(screen.getByText(/etsy ucretleri/i)).toBeInTheDocument();
-  expect(screen.getByText(/resmi varsayilan/i)).toBeInTheDocument();
-  expect(screen.getByText(/kosullu kalem/i)).toBeInTheDocument();
+  expect(screen.getByText(/^Duty$/i)).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /yardim/i }).length).toBeGreaterThan(0);
   expect(screen.getByText(/aktarim bazli kosullu ucret/i)).toBeInTheDocument();
 });

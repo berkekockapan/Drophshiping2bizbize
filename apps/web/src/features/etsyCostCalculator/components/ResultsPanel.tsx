@@ -57,7 +57,6 @@ function QuickModeResultsPanel({
   breakEvenPriceUsd,
   targetSafeListPriceUsd,
   recommendedScenario,
-  enteredSalePriceUsd,
   enteredPriceScenario,
 }: {
   activeTab: CalculatorQuickTab;
@@ -68,36 +67,24 @@ function QuickModeResultsPanel({
   enteredSalePriceUsd: number;
   enteredPriceScenario: ScenarioSnapshot | null;
 }) {
-  const activeScenario = activeTab === "analyze_price" ? enteredPriceScenario : recommendedScenario;
+  const activeScenario = activeTab === "analyze_price" ? enteredPriceScenario ?? recommendedScenario : recommendedScenario;
 
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">Sonuc paneli</p>
-      <div className="mt-4 grid gap-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <QuickStat label="Onerilen satis fiyati" value={formatUsd(recommendedSalePriceUsd)} />
-          <QuickStat label="Basa bas fiyat" value={formatUsd(breakEvenPriceUsd)} />
-        </div>
 
-        {activeTab === "analyze_price" ? <QuickStat label="Onerilen guvenli fiyat" value={formatUsd(targetSafeListPriceUsd)} /> : null}
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <QuickStat label="Onerilen Etsy satis fiyati" value={formatUsd(recommendedSalePriceUsd)} />
+        <QuickStat label="Indirimli liste fiyati" value={formatUsd(targetSafeListPriceUsd)} />
+        <QuickStat label="Basa bas fiyat" value={formatUsd(breakEvenPriceUsd)} />
+        <QuickStat label="Tahmini net kar" value={formatUsd(activeScenario?.netProfitUsd ?? 0)} />
+      </div>
 
-        {enteredPriceScenario ? (
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Girilen fiyat kiyasi</p>
-            <p className="mt-2 text-sm font-semibold text-slate-900">{formatUsd(enteredSalePriceUsd)}</p>
-            <p className="mt-2 text-sm text-slate-600">Net kar: {formatUsd(activeScenario?.netProfitUsd ?? enteredPriceScenario.netProfitUsd)}</p>
-            <p className="text-sm text-slate-600">Net marj: %{(activeScenario ?? enteredPriceScenario).netMarginPercent.toFixed(2)}</p>
-          </div>
-        ) : null}
-
-        {activeScenario ? (
-          <div className="rounded-2xl border border-slate-100 p-4 text-sm text-slate-700">
-            <p className="font-semibold text-slate-900">Secili senaryo ozeti</p>
-            <p className="mt-2">Net kar (USD): {formatUsd(activeScenario.netProfitUsd)}</p>
-            <p>Net kar (TRY): {formatTry(activeScenario.netProfitTry)}</p>
-            <p>Net marj: %{activeScenario.netMarginPercent.toFixed(2)}</p>
-          </div>
-        ) : null}
+      <div className="mt-4 rounded-2xl border border-slate-100 p-4 text-sm text-slate-700">
+        <p className="font-semibold text-slate-900">Toplam gider ozeti</p>
+        <p className="mt-2">Operasyonel toplam: {formatUsd(activeScenario?.totalOperationalCostsUsd ?? 0)}</p>
+        <p>Etsy etkisi: {formatUsd(activeScenario?.totalEtsyFeesUsd ?? 0)}</p>
+        <p>Toplam maliyet: {formatUsd((activeScenario?.totalOperationalCostsUsd ?? 0) + (activeScenario?.totalEtsyFeesUsd ?? 0))}</p>
       </div>
 
       {(recommendedScenario ?? enteredPriceScenario)?.warnings.length ? (
@@ -111,16 +98,18 @@ function QuickModeResultsPanel({
   );
 }
 
-export function ResultsPanel(props:
-  | { result: ScenarioResult }
-  | {
-      activeTab: CalculatorQuickTab;
-      recommendedSalePriceUsd: number | null;
-      breakEvenPriceUsd: number | null;
-      targetSafeListPriceUsd: number | null;
-      recommendedScenario: ScenarioSnapshot | null;
-      enteredSalePriceUsd: number;
-      enteredPriceScenario: ScenarioSnapshot | null;
-    }) {
+export function ResultsPanel(
+  props:
+    | { result: ScenarioResult }
+    | {
+        activeTab: CalculatorQuickTab;
+        recommendedSalePriceUsd: number | null;
+        breakEvenPriceUsd: number | null;
+        targetSafeListPriceUsd: number | null;
+        recommendedScenario: ScenarioSnapshot | null;
+        enteredSalePriceUsd: number;
+        enteredPriceScenario: ScenarioSnapshot | null;
+      },
+) {
   return "result" in props ? <LegacyResultsPanel result={props.result} /> : <QuickModeResultsPanel {...props} />;
 }

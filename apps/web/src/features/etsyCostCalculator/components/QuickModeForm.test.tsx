@@ -2,30 +2,39 @@ import "@testing-library/jest-dom/vitest";
 
 import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { expect, it, vi } from "vitest";
 
 import { createDefaultDraft } from "../lib/defaults";
 import { QuickModeForm } from "./QuickModeForm";
 
-it("keeps the quick flow compact and edits optional sale price", async () => {
+it("switches between OTHER and US profiles and only shows manual duty for US", async () => {
   const user = userEvent.setup();
   const onChange = vi.fn();
 
-  render(
-    <QuickModeForm
-      draft={createDefaultDraft()}
-      validationErrors={{}}
-      salePriceLabel="Opsiyonel satis fiyati (USD)"
-      salePriceRequired={false}
-      onChange={onChange}
-    />,
-  );
+  function Harness() {
+    const [draft, setDraft] = useState({ ...createDefaultDraft(), destinationProfile: "OTHER" as const });
 
-  await user.type(screen.getByLabelText(/opsiyonel satis fiyati/i), "39");
+    return (
+      <QuickModeForm
+        draft={draft}
+        validationErrors={{}}
+        salePriceLabel="Opsiyonel satis fiyati (USD)"
+        salePriceRequired={false}
+        onChange={(patch) => {
+          onChange(patch);
+          setDraft((current) => ({ ...current, ...patch }));
+        }}
+      />
+    );
+  }
 
-  expect(onChange).toHaveBeenCalled();
-  expect(screen.getByRole("spinbutton", { name: /urun maliyeti/i })).toBeInTheDocument();
-  expect(screen.getByRole("spinbutton", { name: /gercek kargo/i })).toBeInTheDocument();
-  expect(screen.getByRole("combobox", { name: /hedef kar modu/i })).toBeInTheDocument();
-  expect(screen.getByRole("spinbutton", { name: /hedef kar degeri/i })).toBeInTheDocument();
+  render(<Harness />);
+
+  expect(screen.getByRole("spinbutton", { name: /usd\/try kuru/i })).toBeInTheDocument();
+  expect(screen.queryByRole("spinbutton", { name: /manuel duty %/i })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
+  expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ destinationProfile: "US" }));
+  expect(screen.getByRole("spinbutton", { name: /manuel duty %/i })).toBeInTheDocument();
 });

@@ -20,21 +20,22 @@ const scenario: ScenarioSnapshot = {
   breakdown: [],
 };
 
-it("shows quick mode labels and warning blocks together", () => {
+it("shows summary cards and total cost overview together", () => {
   render(
     <ResultsPanel
       activeTab="analyze_price"
       recommendedSalePriceUsd={49.63}
       breakEvenPriceUsd={31.52}
-      targetSafeListPriceUsd={49.63}
+      targetSafeListPriceUsd={54.8}
       recommendedScenario={scenario}
       enteredSalePriceUsd={39}
       enteredPriceScenario={scenario}
     />,
   );
 
-  expect(screen.getByText(/onerilen satis fiyati/i)).toBeInTheDocument();
-  expect(screen.getByText(/basa bas fiyat/i)).toBeInTheDocument();
-  expect(screen.getByText(/girilen fiyat kiyasi/i)).toBeInTheDocument();
+  expect(screen.getByText(/onerilen etsy satis fiyati/i)).toBeInTheDocument();
+  expect(screen.getByText(/indirimli liste fiyati/i)).toBeInTheDocument();
+  expect(screen.getByText(/tahmini net kar/i)).toBeInTheDocument();
+  expect(screen.getByText(/toplam gider ozeti/i)).toBeInTheDocument();
   expect(screen.getByText(/bu senaryoda net kar negatife dusuyor/i)).toBeInTheDocument();
 });

@@ -122,3 +122,7 @@
 [2m00:12:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/components/ProductCostPanel.tsx[22m
 [2m00:12:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/lib/buildProductCostDraft.ts[22m
 [2m00:13:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/app/api.ts[22m
+C:\Users\berke\Desktop\Projelerim\dropshiping-win\apps\web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @trendyol-etsy/web@0.0.0 dev: `vite`
+Exit status 4294967295
+ ELIFECYCLE  Command failed with exit code 4294967295.

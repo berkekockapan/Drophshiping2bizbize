@@ -1,20 +1,37 @@
 import { MoneyInputField } from "./MoneyInputField";
-import type { CalculatorDraft } from "../lib/types";
+import type { CalculatorDraft, ScenarioSnapshot } from "../lib/types";
 import { HelpTooltip } from "./HelpTooltip";
+
+function formatUsd(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+}
 
 export function QuickModeForm({
   draft,
+  shipentegraPreview,
   validationErrors,
   salePriceLabel,
   salePriceRequired,
   onChange,
 }: {
   draft: CalculatorDraft;
+  shipentegraPreview: ScenarioSnapshot | null;
   validationErrors: Record<string, string>;
   salePriceLabel: string;
   salePriceRequired: boolean;
   onChange: (patch: Partial<CalculatorDraft>) => void;
 }) {
+  const shipentegraSummary =
+    draft.destinationProfile === "US"
+      ? {
+          basisUsd: shipentegraPreview?.shipentegraImportBasisUsd ?? shipentegraPreview?.dutyBaseUsd ?? 0,
+          dutyUsd: shipentegraPreview?.shipentegraDutyUsd ?? 0,
+          additionalDutyUsd: shipentegraPreview?.shipentegraAdditionalDutyUsd ?? 0,
+          carrierFeeUsd: shipentegraPreview?.shipentegraCarrierFeeUsd ?? 0,
+          totalUsd: shipentegraPreview?.shipentegraImportTotalUsd ?? 0,
+        }
+      : null;
+
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">Hizli fiyat formu</p>
@@ -59,26 +76,37 @@ export function QuickModeForm({
         </label>
 
         {draft.destinationProfile === "US" ? (
-          <label className="grid gap-2 text-sm text-slate-700">
-            <span className="inline-flex items-center gap-2">
-              Manuel duty %
-              <HelpTooltip
-                label="Duty"
-                description="ABD'ye giriste urune uygulanabilecek ithalat vergi etkisi. Hizli formda bu alani yuzde olarak sen belirlersin."
+          <>
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="inline-flex items-center gap-2">
+                Gumruk vergisi orani (%)
+                <HelpTooltip
+                  label="Gumruk vergisi orani"
+                  description="ShipEntegra ithalat modeli icin tek manuel ithalat girdisi budur. Matrah indirim ve kupon sonrasi urun geliridir."
+                />
+              </span>
+              <input
+                aria-label="Gumruk vergisi orani (%)"
+                aria-invalid={Boolean(validationErrors.manualDutyPercent)}
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={draft.manualDutyPercent}
+                onChange={(event) => onChange({ manualDutyPercent: Number(event.target.value) })}
+                className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
               />
-            </span>
-            <input
-              aria-label="Manuel duty %"
-              aria-invalid={Boolean(validationErrors.manualDutyPercent)}
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              value={draft.manualDutyPercent}
-              onChange={(event) => onChange({ manualDutyPercent: Number(event.target.value) })}
-              className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
-            />
-          </label>
+            </label>
+
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">ShipEntegra ithalat masrafi</p>
+              <p className="mt-2">Matrah (indirim sonrasi urun fiyati): {formatUsd(shipentegraSummary?.basisUsd ?? 0)}</p>
+              <p>Gumruk vergisi tutari: {formatUsd(shipentegraSummary?.dutyUsd ?? 0)}</p>
+              <p>Ek vergi tutari (%15): {formatUsd(shipentegraSummary?.additionalDutyUsd ?? 0)}</p>
+              <p>Tasiyici islem bedeli: {formatUsd(shipentegraSummary?.carrierFeeUsd ?? 0)}</p>
+              <p className="font-medium text-slate-900">Toplam ithalat masrafi: {formatUsd(shipentegraSummary?.totalUsd ?? 0)}</p>
+            </div>
+          </>
         ) : null}
 
         <label className="grid gap-2 text-sm text-slate-700">

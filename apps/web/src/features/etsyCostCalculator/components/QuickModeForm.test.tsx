@@ -5,20 +5,33 @@ import { render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { expect, it, vi } from "vitest";
 
+import { calculateScenario } from "../lib/calculateScenario";
 import { createDefaultDraft } from "../lib/defaults";
 import type { CalculatorDraft } from "../lib/types";
 import { QuickModeForm } from "./QuickModeForm";
 
-it("switches between OTHER and US profiles and only shows manual duty for US", async () => {
+it("switches between OTHER and US profiles and shows the ShipEntegra summary for US", async () => {
   const user = userEvent.setup();
   const onChange = vi.fn();
+  const shipentegraPreview = calculateScenario({
+    ...createDefaultDraft(),
+    destinationProfile: "US",
+    manualDutyPercent: 10,
+    salePriceUsd: 50,
+    saleDiscountPercent: 20,
+    coupon: { type: "fixed_usd", value: 4 },
+  });
 
   function Harness() {
-    const [draft, setDraft] = useState<CalculatorDraft>(() => createDefaultDraft());
+    const [draft, setDraft] = useState<CalculatorDraft>(() => ({
+      ...createDefaultDraft(),
+      manualDutyPercent: 10,
+    }));
 
     return (
       <QuickModeForm
         draft={draft}
+        shipentegraPreview={shipentegraPreview}
         validationErrors={{}}
         salePriceLabel="Opsiyonel satis fiyati (USD)"
         salePriceRequired={false}
@@ -33,7 +46,7 @@ it("switches between OTHER and US profiles and only shows manual duty for US", a
   render(<Harness />);
 
   expect(screen.getByRole("spinbutton", { name: /usd\/try kuru/i })).toBeInTheDocument();
-  expect(screen.queryByRole("spinbutton", { name: /manuel duty %/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("spinbutton", { name: /gumruk vergisi orani/i })).not.toBeInTheDocument();
   expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
   expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();
   expect(screen.getByLabelText("Ekstra tahsilat (USD)")).toBeInTheDocument();
@@ -41,5 +54,8 @@ it("switches between OTHER and US profiles and only shows manual duty for US", a
 
   await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
   expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ destinationProfile: "US" }));
-  expect(screen.getByRole("spinbutton", { name: /manuel duty %/i })).toBeInTheDocument();
+  expect(screen.getByRole("spinbutton", { name: /gumruk vergisi orani \(%\)/i })).toBeInTheDocument();
+  expect(screen.getByText(/shipentegra ithalat masrafi/i)).toBeInTheDocument();
+  expect(screen.getByText(/ek vergi tutari \(%15\)/i)).toBeInTheDocument();
+  expect(screen.getByText(/toplam ithalat masrafi: \$10\.00/i)).toBeInTheDocument();
 });

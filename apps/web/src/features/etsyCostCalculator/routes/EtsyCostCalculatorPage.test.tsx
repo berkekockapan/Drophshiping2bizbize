@@ -60,7 +60,8 @@ describe("EtsyCostCalculatorPage", () => {
     );
   });
 
-  it("renders US/OTHER quick-form controls without the GTIP block", async () => {
+  it("renders the ShipEntegra quick-form summary when the US profile is active", async () => {
+    const user = userEvent.setup();
     const settings = {
       id: "default",
       refreshIntervalHours: 5,
@@ -88,7 +89,6 @@ describe("EtsyCostCalculatorPage", () => {
     });
 
     expect(await screen.findByRole("button", { name: /abd hedef profili/i })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /abd ithalat vergisi/i })).not.toBeInTheDocument();
     expect(screen.getByText(/^Onerilen liste fiyati$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Indirim sonrasi satis fiyati$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Toplam tahsilat: /i)).toBeInTheDocument();
@@ -96,5 +96,12 @@ describe("EtsyCostCalculatorPage", () => {
     expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
     expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();
     expect(screen.getByLabelText("Ekstra tahsilat (USD)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
+
+    expect(screen.getByRole("spinbutton", { name: /gumruk vergisi orani \(%\)/i })).toBeInTheDocument();
+    expect(screen.getByText(/^ShipEntegra ithalat masrafi$/i)).toBeInTheDocument();
+    expect(screen.getByText(/ek vergi tutari \(%15\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Tasiyici islem bedeli: \$1\.00$/i)).toBeInTheDocument();
   });
 });

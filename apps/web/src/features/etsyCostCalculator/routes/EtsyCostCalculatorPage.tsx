@@ -36,6 +36,10 @@ export function EtsyCostCalculatorPage() {
   const [activeTab, setActiveTab] = useState<CalculatorQuickTab>("target_price");
   const [presetOpen, setPresetOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const quickFormPreview =
+    activeTab === "analyze_price"
+      ? calculator.quickMode.enteredPriceScenario ?? calculator.quickMode.recommendedScenario ?? calculator.result
+      : calculator.quickMode.recommendedScenario ?? calculator.result;
 
   if (settingsQuery.isLoading) {
     return <p className="text-sm text-slate-500">Hesaplayici yukleniyor...</p>;
@@ -86,6 +90,7 @@ export function EtsyCostCalculatorPage() {
           <div className="space-y-6">
             <QuickModeForm
               draft={calculator.draft}
+              shipentegraPreview={quickFormPreview}
               validationErrors={calculator.validationErrors}
               salePriceLabel={activeTab === "analyze_price" ? "Mevcut satis fiyati (USD)" : "Opsiyonel satis fiyati (USD)"}
               salePriceRequired={activeTab === "analyze_price"}

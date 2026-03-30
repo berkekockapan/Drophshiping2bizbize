@@ -21,6 +21,11 @@ it("returns confidence state, selected profile, and lock reason", async () => {
   });
 
   expect(["high_confidence", "low_confidence"]).toContain(result.confidenceState);
-  expect(result.selectedProfile?.profileName ?? null).not.toBeUndefined();
-  expect(typeof result.lockedReason === "string" || result.lockedReason === null).toBe(true);
+  expect(result.selectedProfile).not.toBeNull();
+  expect(result.selectedProfile?.profileName).toBeTruthy();
+  if (result.confidenceState === "high_confidence") {
+    expect(result.lockedReason).toBeNull();
+  } else {
+    expect(result.lockedReason).toMatch(/emin degil|bulunamadi/i);
+  }
 });

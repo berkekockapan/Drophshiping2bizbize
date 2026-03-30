@@ -114,11 +114,18 @@ export function buildProductCostContext(input: BuildProductCostContextInput): Pr
           lockedReason: null,
           profile: input.manualSelection,
         }
+      : input.latestRun?.selectedProfile && input.latestRun.confidenceState === "high_confidence"
+        ? {
+          status: "automatic_confirmed",
+          label: "otomatik dogrulandi",
+          lockedReason: null,
+          profile: input.latestRun.selectedProfile,
+        }
       : input.latestRun?.selectedProfile
         ? {
-            status: "automatic_confirmed",
-            label: "otomatik dogrulandi",
-            lockedReason: null,
+            status: "review_required",
+            label: "inceleme gerekli",
+            lockedReason: input.latestRun.lockedReason ?? null,
             profile: input.latestRun.selectedProfile,
           }
         : input.latestRun?.confidenceState === "low_confidence"

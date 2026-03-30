@@ -71,23 +71,22 @@ export async function buildTariffRecommendations(
   const second = recommendations[1] ?? null;
   const confidenceState: TariffAnalysisConfidenceState =
     best && best.score >= 140 && (!second || best.score - second.score >= 25) ? "high_confidence" : "low_confidence";
-  const selectedProfile =
-    confidenceState === "high_confidence" && best
-      ? {
-          catalogId: best.catalogId,
-          profileName: best.profileName,
-          canonicalHs6: best.canonicalHs6,
-          htsCode10: best.htsCode10,
-          combinedDutyRate: best.combinedDutyRate,
-          dutySummary: best.dutySummary,
-          defaultShipentegraUsd: best.defaultShipentegraUsd,
-        }
-      : null;
+  const selectedProfile = best
+    ? {
+        catalogId: best.catalogId,
+        profileName: best.profileName,
+        canonicalHs6: best.canonicalHs6,
+        htsCode10: best.htsCode10,
+        combinedDutyRate: best.combinedDutyRate,
+        dutySummary: best.dutySummary,
+        defaultShipentegraUsd: best.defaultShipentegraUsd,
+      }
+    : null;
   const lockedReason = selectedProfile
-    ? null
-    : best
-      ? "Sistem ABD profilinden yeterince emin degil. Yanlis kesin sonuc gostermemek icin hesap kilitli kalmali."
-      : "Bu urun icin kullanilabilir ABD profili bulunamadi.";
+    ? confidenceState === "high_confidence"
+      ? null
+      : "Sistem ABD profilinden yeterince emin degil. Sonuc inceleme gerektiriyor."
+    : "Bu urun icin kullanilabilir ABD profili bulunamadi.";
 
   const run = await analysisRepo.createRun({
     ownerKey: input.ownerKey,

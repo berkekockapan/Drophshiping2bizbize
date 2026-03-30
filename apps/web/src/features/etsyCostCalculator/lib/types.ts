@@ -96,6 +96,13 @@ export interface ScenarioWarning {
 }
 
 export interface ScenarioSnapshot {
+  listedSalePriceUsd?: number;
+  discountedSalePriceUsd?: number;
+  productRevenueUsd?: number;
+  collectedShippingUsd?: number;
+  collectedExtrasUsd?: number;
+  totalCollectedUsd?: number;
+  dutyBaseUsd?: number;
   normalizedRevenueUsd: number;
   normalizedRevenueTry: number;
   totalEtsyFeesUsd: number;
@@ -123,7 +130,7 @@ export interface FormattedBreakdownRow extends BreakdownRow {
 }
 
 export interface BreakdownGroup {
-  key: "etsy_fees" | "user_costs" | "summary";
+  key: "revenue" | "etsy_fees" | "operational_costs" | "user_costs" | "summary";
   label: string;
   rows: Array<
     FormattedBreakdownRow | {

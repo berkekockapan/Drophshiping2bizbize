@@ -17,6 +17,12 @@ describe("calculateScenario", () => {
     };
 
     const result = calculateScenario(draft);
+    expect(result.listedSalePriceUsd).toBe(50);
+    expect(result.discountedSalePriceUsd).toBe(50);
+    expect(result.productRevenueUsd).toBe(50);
+    expect(result.collectedShippingUsd).toBe(10);
+    expect(result.collectedExtrasUsd).toBe(0);
+    expect(result.totalCollectedUsd).toBe(60);
     expect(result.normalizedRevenueUsd).toBe(60);
     expect(result.totalEtsyFeesUsd).toBe(11.65);
     expect(result.totalOperationalCostsUsd).toBe(28);
@@ -53,6 +59,12 @@ describe("calculateScenario", () => {
     };
 
     const result = calculateScenario(draft);
+    expect(result.listedSalePriceUsd).toBe(100);
+    expect(result.discountedSalePriceUsd).toBe(90);
+    expect(result.productRevenueUsd).toBe(85);
+    expect(result.collectedShippingUsd).toBe(0);
+    expect(result.collectedExtrasUsd).toBe(5);
+    expect(result.totalCollectedUsd).toBe(90);
     expect(result.normalizedRevenueUsd).toBe(90);
     expect(result.totalEtsyFeesUsd).toBe(30.56);
     expect(result.totalOperationalCostsUsd).toBe(57);
@@ -81,18 +93,28 @@ describe("calculateScenario", () => {
     expect(depositResult.breakdown.find((row) => row.key === "deposit_fee")?.amountTry).toBe(42);
   });
 
-  it("applies duty only for the US destination profile and tags the source correctly", () => {
+  it("uses post-discount post-coupon product revenue as the US duty base", () => {
     const us = calculateScenario({
       ...createDefaultDraft(),
       destinationProfile: "US",
       manualDutyPercent: 15,
       valueSources: { duty: "manual_override" },
       salePriceUsd: 50,
+      buyerPaidShippingUsd: 10,
+      buyerPaidExtrasUsd: 5,
+      buyerTaxCollectedByEtsyUsd: 7,
+      saleDiscountPercent: 20,
+      coupon: { type: "fixed_usd", value: 4 },
       productCost: { amount: 18, currency: "USD" },
     });
 
-    expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.amountUsd).toBeGreaterThan(0);
+    expect(us.productRevenueUsd).toBe(36);
+    expect(us.totalCollectedUsd).toBe(51);
+    expect(us.dutyBaseUsd).toBe(36);
+    expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.amountUsd).toBe(5.4);
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.sourceType).toBe("manual_override");
+    expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.note).toMatch(/urun geliridir/i);
+    expect(us.warnings.find((warning) => warning.key === "us_duty")?.message).toMatch(/urun geliridir/i);
 
     const other = calculateScenario({
       ...createDefaultDraft(),
@@ -101,6 +123,7 @@ describe("calculateScenario", () => {
       salePriceUsd: 50,
     });
 
+    expect(other.dutyBaseUsd).toBe(0);
     expect(other.breakdown.find((row) => row.key === "us_duty_fee")).toBeUndefined();
   });
 });

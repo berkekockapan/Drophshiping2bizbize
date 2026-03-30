@@ -51,21 +51,23 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     ...(draft.feeProfileOverrides ?? {}),
   };
 
-  const discountedSubtotalUsd = round2(draft.salePriceUsd * (1 - draft.saleDiscountPercent / 100));
-  const couponUsd = resolveCouponUsd(discountedSubtotalUsd, draft);
-  const productRevenueUsd = round2(Math.max(0, discountedSubtotalUsd - couponUsd));
-  const buyerPaidShippingUsd = draft.freeShipping ? 0 : draft.buyerPaidShippingUsd;
-  const revenueExcludingTaxUsd = round2(productRevenueUsd + buyerPaidShippingUsd + draft.buyerPaidExtrasUsd);
-  const processingBaseUsd = round2(revenueExcludingTaxUsd + draft.buyerTaxCollectedByEtsyUsd);
+  const listedSalePriceUsd = round2(draft.salePriceUsd);
+  const discountedSalePriceUsd = round2(listedSalePriceUsd * (1 - draft.saleDiscountPercent / 100));
+  const couponUsd = resolveCouponUsd(discountedSalePriceUsd, draft);
+  const productRevenueUsd = round2(Math.max(0, discountedSalePriceUsd - couponUsd));
+  const collectedShippingUsd = round2(draft.freeShipping ? 0 : draft.buyerPaidShippingUsd);
+  const collectedExtrasUsd = round2(draft.buyerPaidExtrasUsd);
+  const totalCollectedUsd = round2(productRevenueUsd + collectedShippingUsd + collectedExtrasUsd);
+  const processingBaseUsd = round2(totalCollectedUsd + draft.buyerTaxCollectedByEtsyUsd);
 
   const listingRelatedFeeUsd = round2(feeProfile.listingRelatedFeeUsd);
-  const transactionFeeUsd = round2(revenueExcludingTaxUsd * feeProfile.transactionFeeRate);
+  const transactionFeeUsd = round2(totalCollectedUsd * feeProfile.transactionFeeRate);
   const processingFeeUsd = round2(
     processingBaseUsd * feeProfile.processingFeeRate + feeProfile.processingFixedTry / draft.usdTryRate,
   );
-  const regulatoryFeeUsd = round2(revenueExcludingTaxUsd * feeProfile.regulatoryFeeRate);
+  const regulatoryFeeUsd = round2(totalCollectedUsd * feeProfile.regulatoryFeeRate);
   const currencyConversionFeeUsd = draft.currencyConversionEnabled
-    ? round2(revenueExcludingTaxUsd * feeProfile.currencyConversionFeeRate)
+    ? round2(totalCollectedUsd * feeProfile.currencyConversionFeeRate)
     : 0;
 
   const offsiteAdsRate =
@@ -76,9 +78,9 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
         : draft.offsiteAdsMode === "rate_12"
           ? 0.12
           : 0.15;
-  const offsiteAdsFeeUsd = offsiteAdsRate > 0 ? round2(Math.min(revenueExcludingTaxUsd * offsiteAdsRate, 100)) : 0;
+  const offsiteAdsFeeUsd = offsiteAdsRate > 0 ? round2(Math.min(totalCollectedUsd * offsiteAdsRate, 100)) : 0;
 
-  const revenueTry = toTry(revenueExcludingTaxUsd, draft.usdTryRate);
+  const revenueTry = toTry(totalCollectedUsd, draft.usdTryRate);
   const depositFeeTry =
     draft.includeDepositFee &&
     revenueTry >= feeProfile.depositMinimumTry &&
@@ -93,7 +95,8 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
         ? draft.resolvedDutyPercent
         : draft.manualDutyPercent
       : 0;
-  const usDutyUsd = appliedDutyPercent > 0 ? round2(revenueExcludingTaxUsd * (appliedDutyPercent / 100)) : 0;
+  const dutyBaseUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  const usDutyUsd = appliedDutyPercent > 0 ? round2(dutyBaseUsd * (appliedDutyPercent / 100)) : 0;
 
   const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
   const vatFeeRows: Array<[string, number]> = [
@@ -156,11 +159,11 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       key: "us_duty",
       message:
         typeof draft.resolvedDutyPercent === "number"
-          ? "ABD duty secili urun tipi profili ile otomatik uygulandi."
-          : "ABD duty hizli formda girilen manuel yuzde ile uygulandi.",
+          ? "ABD duty secili urun tipi profili ile otomatik uygulandi; taban yalnizca indirim ve kupon sonrasi urun geliridir."
+          : "ABD duty hizli formda girilen manuel yuzde ile uygulandi; taban yalnizca indirim ve kupon sonrasi urun geliridir.",
     });
   }
-  if (round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
+  if (round2(totalCollectedUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
     warnings.push({ key: "negative_profit", message: "Bu senaryoda net kar negatife dusuyor." });
   }
 
@@ -263,8 +266,8 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
         draft.valueSources.duty ?? (typeof draft.resolvedDutyPercent === "number" ? "analysis_selected" : "manual_override"),
       note:
         typeof draft.resolvedDutyPercent === "number"
-          ? "Secili urun tipi profili ve analiz kilidine gore otomatik uygulandi."
-          : "Hizli formda girilen manuel duty yuzdesi uygulandi.",
+          ? "Secili urun tipi profili ve analiz kilidine gore otomatik uygulandi; taban indirim ve kupon sonrasi urun geliridir."
+          : "Hizli formda girilen manuel duty yuzdesi uygulandi; taban indirim ve kupon sonrasi urun geliridir.",
     });
   }
 
@@ -290,11 +293,18 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     });
   }
 
-  const netProfitUsd = round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd);
+  const netProfitUsd = round2(totalCollectedUsd - totalEtsyFeesUsd - operationalCostsUsd);
   const netProfitTry = toTry(netProfitUsd, draft.usdTryRate);
 
   return {
-    normalizedRevenueUsd: revenueExcludingTaxUsd,
+    listedSalePriceUsd,
+    discountedSalePriceUsd,
+    productRevenueUsd,
+    collectedShippingUsd,
+    collectedExtrasUsd,
+    totalCollectedUsd,
+    dutyBaseUsd,
+    normalizedRevenueUsd: totalCollectedUsd,
     normalizedRevenueTry: revenueTry,
     totalEtsyFeesUsd,
     totalEtsyFeesTry: toTry(totalEtsyFeesUsd, draft.usdTryRate),
@@ -302,7 +312,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     totalOperationalCostsTry: toTry(operationalCostsUsd, draft.usdTryRate),
     netProfitUsd,
     netProfitTry,
-    netMarginPercent: revenueExcludingTaxUsd > 0 ? round2((netProfitUsd / revenueExcludingTaxUsd) * 100) : 0,
+    netMarginPercent: totalCollectedUsd > 0 ? round2((netProfitUsd / totalCollectedUsd) * 100) : 0,
     breakdown,
     warnings,
   };

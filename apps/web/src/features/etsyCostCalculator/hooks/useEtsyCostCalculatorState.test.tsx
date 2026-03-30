@@ -126,7 +126,14 @@ describe("useEtsyCostCalculatorState", () => {
     initialStorage.draft = {
       ...initialStorage.draft,
       usdTryRate: 40,
+      destinationProfile: "US",
+      manualDutyPercent: 10,
       salePriceUsd: 39,
+      saleDiscountPercent: 10,
+      coupon: { type: "fixed_usd", value: 2 },
+      buyerPaidShippingUsd: 4,
+      buyerPaidExtrasUsd: 1,
+      buyerTaxCollectedByEtsyUsd: 3,
       productCost: { amount: 18, currency: "USD" },
       actualShippingCost: { amount: 5, currency: "USD" },
       targetProfitMode: "net_profit_usd",
@@ -141,9 +148,15 @@ describe("useEtsyCostCalculatorState", () => {
       }),
     );
 
-    expect(result.current.quickMode.recommendedSalePriceUsd).not.toBeNull();
+    expect(result.current.quickMode.recommendedSalePriceUsd).toBe(48.43);
+    expect(result.current.quickMode.breakEvenPriceUsd).toBe(32.93);
+    expect(result.current.quickMode.recommendedScenario?.listedSalePriceUsd).toBe(48.43);
+    expect(result.current.quickMode.recommendedScenario?.discountedSalePriceUsd).toBe(43.59);
+    expect(result.current.quickMode.recommendedScenario?.productRevenueUsd).toBe(41.59);
+    expect(result.current.quickMode.recommendedScenario?.dutyBaseUsd).toBe(41.59);
     expect(result.current.quickMode.recommendedScenario?.netProfitUsd).toBeGreaterThanOrEqual(10);
-    expect(result.current.recommendedBreakdownGroups[0]?.label).toMatch(/etsy ucret/i);
-    expect(result.current.analysisBreakdownGroups[2]?.rows.map((row) => row.label)).toContain("Net kar");
+    expect(result.current.quickMode.enteredPriceScenario?.productRevenueUsd).toBe(33.1);
+    expect(result.current.recommendedBreakdownGroups.map((group) => group.label)).toContain("Etsy ucretleri");
+    expect(result.current.analysisBreakdownGroups.at(-1)?.rows.map((row) => row.label)).toContain("Net kar");
   });
 });

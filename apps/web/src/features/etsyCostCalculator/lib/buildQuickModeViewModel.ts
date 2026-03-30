@@ -10,14 +10,16 @@ export function buildQuickModeViewModel(draft: CalculatorDraft): QuickModeViewMo
   });
   const targetSafeListPriceUsd = solveTargetPrice(draft);
   const recommendedSalePriceUsd = targetSafeListPriceUsd ?? breakEvenPriceUsd;
+  const recommendedScenario =
+    recommendedSalePriceUsd == null ? null : calculateScenario({ ...draft, salePriceUsd: recommendedSalePriceUsd });
+  const enteredPriceScenario = draft.salePriceUsd > 0 ? calculateScenario(draft) : null;
 
   return {
     recommendedSalePriceUsd,
     breakEvenPriceUsd,
     targetSafeListPriceUsd,
-    recommendedScenario:
-      recommendedSalePriceUsd == null ? null : calculateScenario({ ...draft, salePriceUsd: recommendedSalePriceUsd }),
-    enteredPriceScenario: draft.salePriceUsd > 0 ? calculateScenario(draft) : null,
+    recommendedScenario,
+    enteredPriceScenario,
     hasEnteredSalePrice: draft.salePriceUsd > 0,
   };
 }

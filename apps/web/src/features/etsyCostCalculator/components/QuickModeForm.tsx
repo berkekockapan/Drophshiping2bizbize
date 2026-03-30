@@ -56,7 +56,7 @@ export function QuickModeForm({
             onChange={(event) => onChange({ usdTryRate: Number(event.target.value) })}
             className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
           />
-        </label>
+          </label>
 
         {draft.destinationProfile === "US" ? (
           <label className="grid gap-2 text-sm text-slate-700">
@@ -80,6 +80,65 @@ export function QuickModeForm({
             />
           </label>
         ) : null}
+
+        <label className="grid gap-2 text-sm text-slate-700">
+          <span className="inline-flex items-center gap-2">
+            İndirim %
+            <HelpTooltip
+              label="İndirim"
+              description="Liste fiyatına uygulanacak kampanya indirimi. Örnek: %30 indirim."
+            />
+          </span>
+          <input
+            aria-label="İndirim %"
+            aria-invalid={Boolean(validationErrors.saleDiscountPercent)}
+            type="number"
+            min={0}
+            max={99.99}
+            step="0.01"
+            value={draft.saleDiscountPercent}
+            onChange={(event) => onChange({ saleDiscountPercent: Number(event.target.value) })}
+            className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm text-slate-700">
+          <span className="inline-flex items-center gap-2">
+            Alıcıdan alınan kargo (USD)
+            <HelpTooltip
+              label="Buyer shipping"
+              description="Müşteriden ayrıca tahsil edilen kargo tutarı. Hedef fiyat hesabına eklenir."
+            />
+          </span>
+          <input
+            aria-label="Alıcıdan alınan kargo (USD)"
+            type="number"
+            min={0}
+            step="0.01"
+            value={draft.buyerPaidShippingUsd}
+            onChange={(event) => onChange({ buyerPaidShippingUsd: Number(event.target.value) })}
+            className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm text-slate-700">
+          <span className="inline-flex items-center gap-2">
+            Ekstra tahsilat (USD)
+            <HelpTooltip
+              label="Ekstra tahsilat"
+              description="Ürün bedeline ek olarak müşteriden alınan ekstra tutar. Hedef kar çözümünde dikkate alınır."
+            />
+          </span>
+          <input
+            aria-label="Ekstra tahsilat (USD)"
+            type="number"
+            min={0}
+            step="0.01"
+            value={draft.buyerPaidExtrasUsd}
+            onChange={(event) => onChange({ buyerPaidExtrasUsd: Number(event.target.value) })}
+            className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
+          />
+        </label>
 
         <MoneyInputField
           label="Urun maliyeti"

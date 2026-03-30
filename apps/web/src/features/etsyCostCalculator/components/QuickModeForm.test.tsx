@@ -34,6 +34,10 @@ it("switches between OTHER and US profiles and only shows manual duty for US", a
 
   expect(screen.getByRole("spinbutton", { name: /usd\/try kuru/i })).toBeInTheDocument();
   expect(screen.queryByRole("spinbutton", { name: /manuel duty %/i })).not.toBeInTheDocument();
+  expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
+  expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();
+  expect(screen.getByLabelText("Ekstra tahsilat (USD)")).toBeInTheDocument();
+  expect(screen.getByLabelText("Hedef kar degeri")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
   expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ destinationProfile: "US" }));

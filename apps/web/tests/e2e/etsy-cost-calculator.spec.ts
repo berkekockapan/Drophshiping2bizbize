@@ -53,6 +53,9 @@ test("loads quick mode, saves a preset, opens advanced settings, and switches an
 
   await page.getByRole("button", { name: /abd hedef profili/i }).click();
   await expect(page.getByLabel(/manuel duty %/i)).toBeVisible();
+  await page.getByLabel("İndirim %").fill("30");
+  await page.getByLabel("Alıcıdan alınan kargo (USD)").fill("0");
+  await page.getByLabel("Ekstra tahsilat (USD)").fill("0");
   await page.getByLabel(/^Urun maliyeti$/i).fill("18");
   await page.getByLabel(/^Gercek kargo$/i).fill("5");
   await page.getByLabel(/manuel duty %/i).fill("11");

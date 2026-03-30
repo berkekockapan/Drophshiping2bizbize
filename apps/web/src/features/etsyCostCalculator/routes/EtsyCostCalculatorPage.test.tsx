@@ -90,5 +90,8 @@ describe("EtsyCostCalculatorPage", () => {
     expect(await screen.findByRole("button", { name: /abd hedef profili/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /abd ithalat vergisi/i })).not.toBeInTheDocument();
     expect(screen.getByText(/toplam gider ozeti/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
+    expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ekstra tahsilat (USD)")).toBeInTheDocument();
   });
 });

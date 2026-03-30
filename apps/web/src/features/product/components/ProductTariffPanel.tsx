@@ -76,8 +76,15 @@ export function ProductTariffPanel({ ownerKey, productId, analysis }: ProductTar
     return runMutation.data?.recommendations ?? analysis.recommendations;
   }, [analysis.recommendations, manualResults, runMutation.data?.recommendations]);
 
-  const currentSelection = selectionOverride ?? analysis.selection;
-  const staleRevision = currentSelection?.revisionLabel && !currentSelection.revisionLabel.includes("2026 Revision 4");
+  const persistedSelection = selectionOverride ?? analysis.selection;
+  const autoSuggestedSelection = persistedSelection
+    ? null
+    : analysis.latestRun?.resultSnapshot?.selectedProfile
+      ? analysis.latestRun.resultSnapshot.selectedProfile
+      : displayedRecommendations[0] ?? null;
+  const bannerCode = persistedSelection?.canonicalHs6 ?? autoSuggestedSelection?.canonicalHs6 ?? null;
+  const bannerPrefix = bannerCode ? "Bu urun icin secilen GTIP" : null;
+  const staleRevision = persistedSelection?.revisionLabel && !persistedSelection.revisionLabel.includes("2026 Revision 4");
 
   function handleSelect(recommendation: ProductTariffRecommendation) {
     selectMutation.mutate({
@@ -126,9 +133,9 @@ export function ProductTariffPanel({ ownerKey, productId, analysis }: ProductTar
         </button>
       </div>
 
-      {currentSelection ? (
+      {bannerCode ? (
         <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Bu urun icin secilen GTIP: {currentSelection.canonicalHs6}
+          {bannerPrefix}: {bannerCode}
         </p>
       ) : null}
       {staleRevision ? (

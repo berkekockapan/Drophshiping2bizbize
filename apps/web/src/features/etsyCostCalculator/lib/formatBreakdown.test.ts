@@ -10,21 +10,28 @@ describe("formatBreakdown", () => {
         label: "Transaction fee",
         amountUsd: 3.9,
         amountTry: 156,
-        sourceType: "official_default",
+        sourceType: "system_default",
       },
       {
         key: "processing_fee",
         label: "Processing fee",
         amountUsd: 4.25,
         amountTry: 170,
-        sourceType: "official_override",
+        sourceType: "manual_override",
       },
       {
         key: "shipentegra",
         label: "ShipEntegra",
         amountUsd: 2,
         amountTry: 80,
-        sourceType: "user_input",
+        sourceType: "profile_default",
+      },
+      {
+        key: "duty",
+        label: "Duty",
+        amountUsd: 5,
+        amountTry: 200,
+        sourceType: "analysis_selected",
       },
       {
         key: "deposit_fee",
@@ -36,10 +43,11 @@ describe("formatBreakdown", () => {
     ]);
 
     expect(rows.map((row) => row.badgeLabel)).toEqual([
-      "Resmi varsayilan",
-      "Ozellestirilmis",
-      "Kullanici girdisi",
-      "Kosullu kalem",
+      "Sistem",
+      "Manuel",
+      "Profil",
+      "Analiz",
+      "Kosullu",
     ]);
   });
 });

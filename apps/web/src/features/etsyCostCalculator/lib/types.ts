@@ -1,4 +1,5 @@
 export type CurrencyCode = "USD" | "TRY";
+export type DestinationProfile = "US" | "OTHER";
 
 export interface MoneyInput {
   amount: number;
@@ -32,18 +33,33 @@ export interface FeeProfileOverrides {
   vatApplicableFeeKeys?: string[];
 }
 
+export type BreakdownSourceType =
+  | "system_default"
+  | "manual_override"
+  | "profile_default"
+  | "analysis_selected"
+  | "conditional";
+
 export interface CalculatorDraft {
+  destinationProfile: DestinationProfile;
+  manualDutyPercent: number;
+  resolvedDutyPercent: number | null;
+  dutyLabel: string | null;
+  linkedVariantId: string | null;
+  valueSources: Partial<
+    Record<"productCost" | "actualShippingCost" | "duty", Exclude<BreakdownSourceType, "conditional"> | null>
+  >;
   usdTryRate: number;
   salePriceUsd: number;
   buyerPaidShippingUsd: number;
   buyerPaidExtrasUsd: number;
   buyerTaxCollectedByEtsyUsd: number;
-  linkedOwnerKey: string | null;
-  linkedProductId: string | null;
-  selectedTariffCode: string | null;
-  importDutyEnabled: boolean;
-  importDutyRate: number | null;
-  importDutyLabel: string | null;
+  linkedOwnerKey?: string | null;
+  linkedProductId?: string | null;
+  selectedTariffCode?: string | null;
+  importDutyEnabled?: boolean;
+  importDutyRate?: number | null;
+  importDutyLabel?: string | null;
   saleDiscountPercent: number;
   coupon: CouponInput;
   freeShipping: boolean;
@@ -65,8 +81,6 @@ export interface CalculatorDraft {
   feeProfileOverrides: FeeProfileOverrides | null;
 }
 
-export type BreakdownSourceType = "official_default" | "official_override" | "user_input" | "conditional";
-
 export interface BreakdownRow {
   key: string;
   label: string;
@@ -82,6 +96,18 @@ export interface ScenarioWarning {
 }
 
 export interface ScenarioSnapshot {
+  listedSalePriceUsd?: number;
+  discountedSalePriceUsd?: number;
+  productRevenueUsd?: number;
+  collectedShippingUsd?: number;
+  collectedExtrasUsd?: number;
+  totalCollectedUsd?: number;
+  dutyBaseUsd?: number;
+  shipentegraImportBasisUsd?: number;
+  shipentegraDutyUsd?: number;
+  shipentegraAdditionalDutyUsd?: number;
+  shipentegraCarrierFeeUsd?: number;
+  shipentegraImportTotalUsd?: number;
   normalizedRevenueUsd: number;
   normalizedRevenueTry: number;
   totalEtsyFeesUsd: number;
@@ -109,7 +135,7 @@ export interface FormattedBreakdownRow extends BreakdownRow {
 }
 
 export interface BreakdownGroup {
-  key: "etsy_fees" | "user_costs" | "summary";
+  key: "revenue" | "etsy_fees" | "operational_costs" | "user_costs" | "summary";
   label: string;
   rows: Array<
     FormattedBreakdownRow | {

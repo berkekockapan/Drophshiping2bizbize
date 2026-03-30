@@ -60,7 +60,8 @@ describe("EtsyCostCalculatorPage", () => {
     );
   });
 
-  it("loads selected GTIP context from the linked product", async () => {
+  it("renders the ShipEntegra quick-form summary when the US profile is active", async () => {
+    const user = userEvent.setup();
     const settings = {
       id: "default",
       refreshIntervalHours: 5,
@@ -80,69 +81,6 @@ describe("EtsyCostCalculatorPage", () => {
         return new Response(JSON.stringify(settings), { status: 200, headers: { "Content-Type": "application/json" } });
       }
 
-      if (url.includes("/owners/berke/products/prod_1")) {
-        return new Response(
-          JSON.stringify({
-            product: {
-              id: "prod_1",
-              ownerKey: "berke",
-              trendyolUrl: "https://www.trendyol.com/example",
-              sourceProductId: "123",
-              title: "Deri bileklik",
-              brand: "North Apparel",
-              category: "Aksesuar",
-              userCategory: null,
-              descriptionRaw: "El yapimi urun",
-              attributes: [],
-              images: [],
-              status: "ACTIVE",
-              parseStatus: "OK",
-              lastCheckedAt: Date.now(),
-            },
-            currentState: {
-              currentPrice: 44990,
-              minPrice: 34990,
-              maxPrice: 44990,
-              inStockVariantCount: 2,
-              totalVariantCount: 3,
-              lastChangeAt: Date.now(),
-              lastCheckedAt: Date.now(),
-            },
-            variants: [],
-            priceHistory: [],
-            stockHistory: [],
-            changeTimeline: [],
-            notifications: [],
-            tariffAnalysis: {
-              selection: {
-                productId: "prod_1",
-                ownerKey: "berke",
-                catalogId: "catalog_711790",
-                canonicalHs6: "711790",
-                title: "Imitation jewelry",
-                usProfileId: "us_711790_2026r4",
-                selectionSource: "recommended",
-                selectedBy: "berke",
-                selectedAt: Date.now(),
-                analysisRunId: "run_1",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                generalDutyRate: 0.11,
-                additionalDutyRate: 0,
-                combinedDutyRate: 0.11,
-                dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
-                revisionLabel: "USITC HTS 2026 Revision 4",
-              },
-              latestRun: null,
-              recommendations: [],
-              manualSearchEnabled: true,
-              disclaimer: "Planlama",
-            },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      }
-
       throw new Error(`Unhandled request: ${url}`);
     });
 
@@ -150,7 +88,20 @@ describe("EtsyCostCalculatorPage", () => {
       route: "/etsy-cost-calculator?ownerKey=berke&productId=prod_1",
     });
 
-    expect(await screen.findByRole("heading", { name: /abd ithalat vergisi/i })).toBeInTheDocument();
-    expect(screen.getByText(/gtip 711790/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /abd hedef profili/i })).toBeInTheDocument();
+    expect(screen.getByText(/^Onerilen liste fiyati$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Indirim sonrasi satis fiyati$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Toplam tahsilat: /i)).toBeInTheDocument();
+    expect(screen.getByText(/toplam gider ozeti/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
+    expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ekstra tahsilat (USD)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
+
+    expect(screen.getByRole("spinbutton", { name: /gumruk vergisi orani \(%\)/i })).toBeInTheDocument();
+    expect(screen.getByText(/^ShipEntegra ithalat masrafi$/i)).toBeInTheDocument();
+    expect(screen.getByText(/ek vergi tutari \(%15\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Tasiyici islem bedeli: \$1\.00$/i)).toBeInTheDocument();
   });
 });

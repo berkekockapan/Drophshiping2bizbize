@@ -84,15 +84,28 @@ export interface ProductChangeTimelineItem {
 export interface ProductTariffRecommendation {
   catalogId: string;
   canonicalHs6: string;
+  profileName: string | null;
   title: string;
   rationale: string;
   score: number;
   usProfileId: string | null;
+  htsCode10: string | null;
   generalDutyRate: number;
   additionalDutyRate: number;
   combinedDutyRate: number;
   dutySummary: string;
+  defaultShipentegraUsd: number | null;
   sourceBadges: string[];
+}
+
+export interface AutoSelectedTariffProfile {
+  catalogId: string;
+  profileName: string | null;
+  canonicalHs6: string;
+  htsCode10: string | null;
+  combinedDutyRate: number;
+  dutySummary: string;
+  defaultShipentegraUsd: number | null;
 }
 
 export interface ProductTariffAnalysisRun {
@@ -102,9 +115,14 @@ export interface ProductTariffAnalysisRun {
   status: string;
   usedAi: boolean;
   inputSnapshot: Record<string, unknown>;
-  resultSnapshot: {
-    recommendations: ProductTariffRecommendation[];
-  } | null;
+  resultSnapshot:
+    | {
+        confidenceState?: "high_confidence" | "low_confidence";
+        selectedProfile?: AutoSelectedTariffProfile | null;
+        lockedReason?: string | null;
+        recommendations: ProductTariffRecommendation[];
+      }
+    | null;
   engineVersion: string;
   createdAt: number;
   completedAt: number | null;
@@ -174,6 +192,39 @@ export interface EtsyPromptPackResponse {
   };
 }
 
+export interface ProductCostContextVariant {
+  variantId: string;
+  label: string;
+  autoProductCost: {
+    amount: number;
+    currency: "TRY";
+  };
+  manualProductCost: {
+    amount: number;
+    currency: "USD" | "TRY";
+  } | null;
+  autoShippingEstimate: {
+    amount: number;
+    currency: "USD";
+    sourceType: "profile_default" | "system_default";
+  };
+  manualShippingCost: {
+    amount: number;
+    currency: "USD" | "TRY";
+  } | null;
+}
+
+export interface ProductCostContext {
+  selectedVariantId: string | null;
+  variants: ProductCostContextVariant[];
+  usState: {
+    status: "automatic_confirmed" | "review_required" | "locked";
+    label: string;
+    lockedReason: string | null;
+    profile: ProductTariffSelection | AutoSelectedTariffProfile | null;
+  };
+}
+
 export interface ProductDetailResponse {
   product: {
     id: string;
@@ -233,6 +284,7 @@ export interface ProductDetailResponse {
   }>;
   changeTimeline: ProductChangeTimelineItem[];
   notifications: NotificationItem[];
+  costContext: ProductCostContext;
   tariffAnalysis: ProductTariffAnalysisSummary;
 }
 
@@ -481,6 +533,9 @@ export interface ManualRefreshRunSummary {
 export interface ProductTariffAnalysisRunResponse {
   runId: string;
   usedAi: boolean;
+  confidenceState: "high_confidence" | "low_confidence";
+  selectedProfile: AutoSelectedTariffProfile | null;
+  lockedReason: string | null;
   recommendations: ProductTariffRecommendation[];
 }
 
@@ -508,6 +563,11 @@ export interface TariffKnowledgeCandidatePayload {
 export interface TariffKnowledgeCandidateResponse {
   candidateId: string;
   status: string;
+}
+
+export interface SaveProductVariantCostOverridePayload {
+  manualProductCost?: { amount: number; currency: "USD" | "TRY" } | null;
+  manualShippingCost?: { amount: number; currency: "USD" | "TRY" } | null;
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
@@ -758,6 +818,23 @@ export async function submitTariffKnowledgeCandidate(
   });
 
   return parseJson<TariffKnowledgeCandidateResponse>(response);
+}
+
+export async function saveProductVariantCostOverride(
+  ownerKey: OwnerKey,
+  productId: string,
+  variantId: string,
+  payload: SaveProductVariantCostOverridePayload,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/variants/${variantId}/cost-overrides`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{ override: { variantId: string } }>(response);
 }
 
 export async function setTrackedProductFavorite(ownerKey: OwnerKey, productId: string, isFavorite: boolean) {

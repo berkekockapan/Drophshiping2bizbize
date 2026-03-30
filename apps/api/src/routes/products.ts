@@ -3,6 +3,8 @@ import { ownerKeySchema, type OwnerKey } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
 import { OpenAiAuthError } from "../modules/ai/openAiOAuth";
+import { createProductVariantCostOverridesRepo } from "../db/repositories/productVariantCostOverridesRepo";
+import { createProductsRepo } from "../db/repositories/productsRepo";
 import { buildEtsyPrepAnalysis } from "../modules/etsyPrep/buildEtsyPrepAnalysis";
 import { buildEtsyPrepFieldPackageStream } from "../modules/etsyPrep/buildEtsyPrepFieldPackage";
 import { buildEtsyPrepView } from "../modules/etsyPrep/buildEtsyPrepView";
@@ -235,6 +237,49 @@ export function createProductsRouter() {
     }
 
     return c.json(detail);
+  });
+
+  app.put("/:productId/variants/:variantId/cost-overrides", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const productsRepo = createProductsRepo(c.env.DB);
+    const detail = await productsRepo.getProductDetail(ownerKey, c.req.param("productId"));
+    if (!detail) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const variantId = c.req.param("variantId");
+    const variant = detail.variants.find((item) => item.id === variantId);
+    if (!variant) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req
+      .json<{
+        manualProductCost?: { amount: number; currency: "USD" | "TRY" } | null;
+        manualShippingCost?: { amount: number; currency: "USD" | "TRY" } | null;
+      }>()
+      .catch(() => null);
+
+    if (!body) {
+      return c.json({ error: "Invalid JSON payload" }, 400);
+    }
+
+    const override = await createProductVariantCostOverridesRepo(c.env.DB).upsert({
+      ownerKey,
+      productId: c.req.param("productId"),
+      variantId,
+      manualProductCostAmount: body.manualProductCost?.amount ?? null,
+      manualProductCostCurrency: body.manualProductCost?.currency ?? null,
+      manualShippingCostAmount: body.manualShippingCost?.amount ?? null,
+      manualShippingCostCurrency: body.manualShippingCost?.currency ?? null,
+      updatedAt: Date.now(),
+    });
+
+    return c.json({ override });
   });
 
   app.get("/:productId/tariff-analysis", async (c) => {

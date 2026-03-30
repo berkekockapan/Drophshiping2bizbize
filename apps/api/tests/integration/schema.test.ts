@@ -41,6 +41,8 @@ describe("schema integration", () => {
         { name: "product_refresh_audits" },
         { name: "product_content_history" },
         { name: "product_categories" },
+        { name: "tariff_master_us_entries" },
+        { name: "product_variant_cost_overrides" },
       ]),
     );
     expect(columns).toEqual(
@@ -90,6 +92,14 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "ai_target_label" }),
         expect.objectContaining({ name: "ai_target_api_key" }),
         expect.objectContaining({ name: "etsy_cost_calculator_json" }),
+      ]),
+    );
+    expect(database.prepare("pragma table_info(tariff_classification_catalog)").all()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "profile_name" }),
+        expect.objectContaining({ name: "confidence_mode" }),
+        expect.objectContaining({ name: "master_entry_id" }),
+        expect.objectContaining({ name: "default_shipentegra_usd" }),
       ]),
     );
   });

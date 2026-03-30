@@ -41,8 +41,8 @@ function resolveOverheadUsd(draft: CalculatorDraft) {
   return round2(totalOverheadUsd / draft.overheadExpectedOrderCount);
 }
 
-function sourceTypeForOfficial(overrideValue: number | undefined) {
-  return typeof overrideValue === "number" ? "official_override" : "official_default";
+function sourceTypeForFee(overrideValue: number | undefined) {
+  return typeof overrideValue === "number" ? "manual_override" : "system_default";
 }
 
 export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
@@ -86,10 +86,14 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       ? feeProfile.depositFeeTry
       : 0;
   const depositFeeUsd = round2(depositFeeTry / draft.usdTryRate);
-  const importDutyUsd =
-    draft.importDutyEnabled && typeof draft.importDutyRate === "number"
-      ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+
+  const appliedDutyPercent =
+    draft.destinationProfile === "US"
+      ? typeof draft.resolvedDutyPercent === "number"
+        ? draft.resolvedDutyPercent
+        : draft.manualDutyPercent
       : 0;
+  const usDutyUsd = appliedDutyPercent > 0 ? round2(revenueExcludingTaxUsd * (appliedDutyPercent / 100)) : 0;
 
   const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
   const vatFeeRows: Array<[string, number]> = [
@@ -112,7 +116,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       toUsd(draft.actualShippingCost, draft.usdTryRate) +
       toUsd(draft.packagingCost, draft.usdTryRate) +
       toUsd(draft.shipentegraOperationCost, draft.usdTryRate) +
-      importDutyUsd +
+      usDutyUsd +
       draft.customCosts.filter((line) => line.enabled).reduce((sum, line) => sum + toUsd(line.value, draft.usdTryRate), 0) +
       resolveOverheadUsd(draft),
   );
@@ -147,10 +151,13 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       message: "Para donusumu kapali. Odeme para birimi farkliysa gercek ucret daha yuksek olabilir.",
     });
   }
-  if (draft.importDutyEnabled && typeof draft.importDutyRate === "number") {
+  if (draft.destinationProfile === "US" && usDutyUsd > 0) {
     warnings.push({
-      key: "import_duty",
-      message: "ABD ithalat vergisi secili GTIP oranina gore tahmini olarak eklendi.",
+      key: "us_duty",
+      message:
+        typeof draft.resolvedDutyPercent === "number"
+          ? "ABD duty secili urun tipi profili ile otomatik uygulandi."
+          : "ABD duty hizli formda girilen manuel yuzde ile uygulandi.",
     });
   }
   if (round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
@@ -163,7 +170,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Listeleme ucreti",
       amountUsd: listingRelatedFeeUsd,
       amountTry: toTry(listingRelatedFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.listingRelatedFeeUsd),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.listingRelatedFeeUsd),
       note: "Varsayilan siparis basi listeleme varsayimi.",
     },
     {
@@ -171,45 +178,42 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Islem ucreti",
       amountUsd: transactionFeeUsd,
       amountTry: toTry(transactionFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.transactionFeeRate),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.transactionFeeRate),
     },
     {
       key: "processing_fee",
       label: "Odeme isleme ucreti",
       amountUsd: processingFeeUsd,
       amountTry: toTry(processingFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.processingFeeRate),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.processingFeeRate),
     },
     {
       key: "regulatory_operating_fee",
       label: "Yasal isletim ucreti",
       amountUsd: regulatoryFeeUsd,
       amountTry: toTry(regulatoryFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.regulatoryFeeRate),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.regulatoryFeeRate),
     },
     {
       key: "currency_conversion_fee",
       label: "Para donusum ucreti",
       amountUsd: currencyConversionFeeUsd,
       amountTry: toTry(currencyConversionFeeUsd, draft.usdTryRate),
-      sourceType: draft.currencyConversionEnabled
-        ? sourceTypeForOfficial(draft.feeProfileOverrides?.currencyConversionFeeRate)
-        : "conditional",
+      sourceType: draft.currencyConversionEnabled ? sourceTypeForFee(draft.feeProfileOverrides?.currencyConversionFeeRate) : "conditional",
     },
     {
       key: "offsite_ads_fee",
       label: "Site disi reklam ucreti",
       amountUsd: offsiteAdsFeeUsd,
       amountTry: toTry(offsiteAdsFeeUsd, draft.usdTryRate),
-      sourceType:
-        draft.offsiteAdsMode === "off" ? "conditional" : sourceTypeForOfficial(draft.feeProfileOverrides?.offsiteAdsRate),
+      sourceType: draft.offsiteAdsMode === "off" ? "conditional" : sourceTypeForFee(draft.feeProfileOverrides?.offsiteAdsRate),
     },
     {
       key: "seller_fee_vat",
       label: "Satici ucretleri KDV'si",
       amountUsd: sellerFeeVatUsd,
       amountTry: toTry(sellerFeeVatUsd, draft.usdTryRate),
-      sourceType: draft.vatMode === "vat_id_provided" ? "conditional" : sourceTypeForOfficial(draft.feeProfileOverrides?.vatRate),
+      sourceType: draft.vatMode === "vat_id_provided" ? "conditional" : sourceTypeForFee(draft.feeProfileOverrides?.vatRate),
     },
     {
       key: "deposit_fee",
@@ -224,41 +228,43 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Urun maliyeti",
       amountUsd: toUsd(draft.productCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.productCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: draft.valueSources.productCost ?? "manual_override",
     },
     {
       key: "actual_shipping_cost",
       label: "Gercek kargo maliyeti",
       amountUsd: toUsd(draft.actualShippingCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.actualShippingCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: draft.valueSources.actualShippingCost ?? "manual_override",
     },
     {
       key: "packaging_cost",
       label: "Paketleme maliyeti",
       amountUsd: toUsd(draft.packagingCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.packagingCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     },
     {
       key: "shipentegra_operation_cost",
       label: "ShipEntegra operasyon maliyeti",
       amountUsd: toUsd(draft.shipentegraOperationCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.shipentegraOperationCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     },
   ];
 
-  if (draft.importDutyEnabled && typeof draft.importDutyRate === "number") {
+  if (draft.destinationProfile === "US" && usDutyUsd > 0) {
     breakdown.push({
-      key: "import_duty_fee",
-      label: draft.importDutyLabel ?? "ABD ithalat vergisi",
-      amountUsd: importDutyUsd,
-      amountTry: toTry(importDutyUsd, draft.usdTryRate),
-      sourceType: "conditional",
-      note: draft.selectedTariffCode
-        ? `Secili GTIP ${draft.selectedTariffCode} icin hesaplandi.`
-        : "GTIP secimi olmadan uygulanmaz.",
+      key: "us_duty_fee",
+      label: draft.dutyLabel ?? "Duty",
+      amountUsd: usDutyUsd,
+      amountTry: toTry(usDutyUsd, draft.usdTryRate),
+      sourceType:
+        draft.valueSources.duty ?? (typeof draft.resolvedDutyPercent === "number" ? "analysis_selected" : "manual_override"),
+      note:
+        typeof draft.resolvedDutyPercent === "number"
+          ? "Secili urun tipi profili ve analiz kilidine gore otomatik uygulandi."
+          : "Hizli formda girilen manuel duty yuzdesi uygulandi.",
     });
   }
 
@@ -269,7 +275,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: line.label || "Ozel gider",
       amountUsd: lineUsd,
       amountTry: toTry(lineUsd, draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     });
   }
 
@@ -280,7 +286,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Genel gider payi",
       amountUsd: overheadUsd,
       amountTry: toTry(overheadUsd, draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     });
   }
 

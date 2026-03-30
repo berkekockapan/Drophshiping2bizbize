@@ -80,4 +80,27 @@ describe("calculateScenario", () => {
 
     expect(depositResult.breakdown.find((row) => row.key === "deposit_fee")?.amountTry).toBe(42);
   });
+
+  it("applies duty only for the US destination profile and tags the source correctly", () => {
+    const us = calculateScenario({
+      ...createDefaultDraft(),
+      destinationProfile: "US",
+      manualDutyPercent: 15,
+      valueSources: { duty: "manual_override" },
+      salePriceUsd: 50,
+      productCost: { amount: 18, currency: "USD" },
+    });
+
+    expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.amountUsd).toBeGreaterThan(0);
+    expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.sourceType).toBe("manual_override");
+
+    const other = calculateScenario({
+      ...createDefaultDraft(),
+      destinationProfile: "OTHER",
+      manualDutyPercent: 15,
+      salePriceUsd: 50,
+    });
+
+    expect(other.breakdown.find((row) => row.key === "us_duty_fee")).toBeUndefined();
+  });
 });

@@ -5,6 +5,7 @@ import { createDefaultCalculatorStorage } from "../lib/defaults";
 import { formatBreakdown } from "../lib/formatBreakdown";
 import { buildQuickModeViewModel } from "../lib/buildQuickModeViewModel";
 import { groupBreakdownRows } from "../lib/groupBreakdownRows";
+import { migrateCalculatorStorage } from "../lib/migrateCalculatorStorage";
 import { solveTargetPrice } from "../lib/solveTargetPrice";
 import { validateDraft } from "../lib/validation";
 import type { CalculatorDraft, EtsyCostCalculatorStorage } from "../lib/types";
@@ -31,25 +32,29 @@ export function useEtsyCostCalculatorState({
   autosaveDelayMs?: number;
 }) {
   const fallbackStorage = useMemo(() => createDefaultCalculatorStorage(), []);
-  const [storage, setStorage] = useState<EtsyCostCalculatorStorage>(() => initialStorage ?? fallbackStorage);
+  const normalizedInitialStorage = useMemo(
+    () => (typeof initialStorage === "undefined" ? initialStorage : migrateCalculatorStorage(initialStorage)),
+    [initialStorage],
+  );
+  const [storage, setStorage] = useState<EtsyCostCalculatorStorage>(() => normalizedInitialStorage ?? fallbackStorage);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [presetName, setPresetName] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
 
-  const hasHydratedRef = useRef(typeof initialStorage !== "undefined");
-  const persistedSnapshotRef = useRef(JSON.stringify(initialStorage ?? fallbackStorage));
+  const hasHydratedRef = useRef(typeof normalizedInitialStorage !== "undefined");
+  const persistedSnapshotRef = useRef(JSON.stringify(normalizedInitialStorage ?? fallbackStorage));
 
   useEffect(() => {
-    if (typeof initialStorage === "undefined" || hasHydratedRef.current) {
+    if (typeof normalizedInitialStorage === "undefined" || hasHydratedRef.current) {
       return;
     }
 
-    const nextStorage = initialStorage ?? fallbackStorage;
+    const nextStorage = normalizedInitialStorage ?? fallbackStorage;
     setStorage(nextStorage);
     persistedSnapshotRef.current = JSON.stringify(nextStorage);
     hasHydratedRef.current = true;
-  }, [fallbackStorage, initialStorage]);
+  }, [fallbackStorage, normalizedInitialStorage]);
 
   const updateStorage = useCallback((updater: (current: EtsyCostCalculatorStorage) => EtsyCostCalculatorStorage) => {
     setStorage((current) => touchStorage(updater(current)));

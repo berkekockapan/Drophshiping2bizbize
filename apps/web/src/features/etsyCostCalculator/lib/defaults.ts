@@ -29,6 +29,12 @@ function createMoney(currency: MoneyInput["currency"] = "USD"): MoneyInput {
 
 export function createDefaultDraft(): CalculatorDraft {
   return {
+    destinationProfile: "OTHER",
+    manualDutyPercent: 0,
+    resolvedDutyPercent: null,
+    dutyLabel: null,
+    linkedVariantId: null,
+    valueSources: {},
     usdTryRate: 40,
     salePriceUsd: 0,
     buyerPaidShippingUsd: 0,

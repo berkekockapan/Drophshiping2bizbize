@@ -31,6 +31,10 @@ export function validateDraft(draft: CalculatorDraft): ValidationErrors {
     errors.saleDiscountPercent = "Indirim orani %0 ile %99.99 arasinda olmali.";
   }
 
+  if (draft.manualDutyPercent < 0 || draft.manualDutyPercent > 100) {
+    errors.manualDutyPercent = "Duty orani %0 ile %100 arasinda olmali.";
+  }
+
   const discountedSubtotalUsd = draft.salePriceUsd * (1 - draft.saleDiscountPercent / 100);
   if (draft.coupon.type === "fixed_usd" && draft.coupon.value > discountedSubtotalUsd) {
     errors.coupon = "Sabit kupon, indirim sonrasi urun ara toplamini asamaz.";

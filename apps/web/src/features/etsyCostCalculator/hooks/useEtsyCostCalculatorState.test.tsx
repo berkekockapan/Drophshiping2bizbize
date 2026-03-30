@@ -51,29 +51,40 @@ describe("useEtsyCostCalculatorState", () => {
     expect(result.current.draft.feeProfileOverrides).toBeNull();
   });
 
-  it("tracks import duty fields and adds the breakdown row when enabled", () => {
+  it("hydrates legacy duty fields into destination profiles and adds the US duty row", () => {
     const onPersist = vi.fn().mockResolvedValue(undefined);
+    const initialStorage = {
+      version: 1,
+      profileVersion: "etsy-tr-2026-03-28",
+      draft: {
+        usdTryRate: 40,
+        salePriceUsd: 0,
+        importDutyEnabled: true,
+        importDutyRate: 0.11,
+        importDutyLabel: "ABD GTIP vergisi",
+      },
+      presets: [],
+      updatedAt: 1,
+    } as const;
+
     const { result } = renderHook(() =>
       useEtsyCostCalculatorState({
-        initialStorage: createDefaultCalculatorStorage(),
+        initialStorage,
         onPersist,
         autosaveDelayMs: 0,
       }),
     );
 
-    expect(result.current.draft.importDutyEnabled).toBe(false);
+    expect(result.current.draft.destinationProfile).toBe("US");
+    expect(result.current.draft.manualDutyPercent).toBe(11);
 
     act(() => {
       result.current.updateDraft({
         salePriceUsd: 50,
-        importDutyEnabled: true,
-        importDutyRate: 0.11,
-        importDutyLabel: "ABD GTIP vergisi",
-        selectedTariffCode: "711790",
       });
     });
 
-    expect(result.current.result.breakdown.map((row) => row.key)).toContain("import_duty_fee");
+    expect(result.current.result.breakdown.map((row) => row.key)).toContain("us_duty_fee");
   });
 
   it("creates, updates, loads and deletes presets explicitly", () => {

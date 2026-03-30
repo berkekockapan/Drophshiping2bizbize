@@ -64,6 +64,33 @@ const productDetailPayload = {
     },
   ],
   notifications: [],
+  costContext: {
+    selectedVariantId: "var_1",
+    variants: [
+      {
+        variantId: "var_1",
+        label: "L / Siyah",
+        autoProductCost: { amount: 449.9, currency: "TRY" },
+        manualProductCost: null,
+        autoShippingEstimate: { amount: 7.5, currency: "USD", sourceType: "profile_default" },
+        manualShippingCost: null,
+      },
+      {
+        variantId: "var_2",
+        label: "M / Siyah",
+        autoProductCost: { amount: 429.9, currency: "TRY" },
+        manualProductCost: null,
+        autoShippingEstimate: { amount: 7.1, currency: "USD", sourceType: "profile_default" },
+        manualShippingCost: null,
+      },
+    ],
+    usState: {
+      status: "locked",
+      label: "hesap kilitli",
+      lockedReason: "Sistem ABD profilinden yeterince emin degil.",
+      profile: null,
+    },
+  },
   tariffAnalysis: {
     selection: null,
     latestRun: {
@@ -78,14 +105,17 @@ const productDetailPayload = {
           {
             catalogId: "catalog_711790",
             canonicalHs6: "711790",
+            profileName: "Deri aksesuar",
             title: "Imitation jewelry",
             rationale: "Deri aksesuar sinyali ile eslesti.",
             score: 97,
             usProfileId: "us_711790_2026r4",
+            htsCode10: "7117.90.7500",
             generalDutyRate: 0.11,
             additionalDutyRate: 0,
             combinedDutyRate: 0.11,
             dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
+            defaultShipentegraUsd: 7.5,
             sourceBadges: ["Kural eslesmesi"],
           },
         ],
@@ -98,14 +128,17 @@ const productDetailPayload = {
       {
         catalogId: "catalog_711790",
         canonicalHs6: "711790",
+        profileName: "Deri aksesuar",
         title: "Imitation jewelry",
         rationale: "Deri aksesuar sinyali ile eslesti.",
         score: 97,
         usProfileId: "us_711790_2026r4",
+        htsCode10: "7117.90.7500",
         generalDutyRate: 0.11,
         additionalDutyRate: 0,
         combinedDutyRate: 0.11,
         dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
+        defaultShipentegraUsd: 7.5,
         sourceBadges: ["Kural eslesmesi"],
       },
     ],
@@ -116,6 +149,18 @@ const productDetailPayload = {
 
 const categoriesPayload = {
   items: [{ id: "cat_bardak", name: "Bardak" }],
+};
+
+const settingsPayload = {
+  id: "default",
+  refreshIntervalHours: 5,
+  promptPreferences: null,
+  connectorHealthcheckEnabled: true,
+  aiTargetBaseUrl: "https://clip.example.com",
+  aiTargetManagementKey: "mgmt_live_123",
+  aiTargetLabel: "Windows",
+  aiTargetApiKey: "api_live_123",
+  etsyCostCalculator: null,
 };
 
 function jsonResponse(payload: unknown) {
@@ -148,6 +193,10 @@ describe("ProductDetailPage", () => {
         return jsonResponse(categoriesPayload);
       }
 
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
+      }
+
       if (url.includes("/owners/berke/products/prod_1")) {
         return jsonResponse(productDetailPayload);
       }
@@ -160,7 +209,10 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
+    expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
+    expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
+    expect(screen.getByText(/varyasyon matrisi/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products/prod_1"), expect.anything());
   });
@@ -174,6 +226,10 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/categories")) {
         return jsonResponse(categoriesPayload);
+      }
+
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1")) {
@@ -249,16 +305,7 @@ describe("ProductDetailPage", () => {
       }
 
       if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: "mgmt_live_123",
-          aiTargetLabel: "Windows",
-          aiTargetApiKey: "api_live_123",
-        });
+        return jsonResponse(settingsPayload);
       }
 
       if (url === "https://clip.example.com/health") {
@@ -304,6 +351,10 @@ describe("ProductDetailPage", () => {
         return jsonResponse(categoriesPayload);
       }
 
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
+      }
+
       if (url.includes("/owners/berke/products/prod_1/category") && init?.method === "PATCH") {
         return jsonResponse({ productId: "prod_1", userCategory: { id: "cat_bardak", name: "Bardak" } });
       }
@@ -329,7 +380,7 @@ describe("ProductDetailPage", () => {
     );
   });
 
-  it("mounts the tariff panel and saves a selected recommendation", async () => {
+  it("mounts the product cost panel with the tariff panel and saves a selected recommendation", async () => {
     installMockLocalStorage();
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -337,6 +388,10 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/categories")) {
         return jsonResponse(categoriesPayload);
+      }
+
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1/tariff-selection") && init?.method === "PUT") {
@@ -375,7 +430,9 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
+    expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
+    expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /bu kodu sec/i }));
 
     await waitFor(() =>

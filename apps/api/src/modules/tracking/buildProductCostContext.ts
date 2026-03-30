@@ -1,6 +1,4 @@
 import type { VariantCostOverrideRow } from "../../db/repositories/productVariantCostOverridesRepo";
-import type { TariffSelectionRow } from "../../db/repositories/tariffSelectionRepo";
-import type { AutoSelectedTariffProfile } from "../tariff/analysis/buildTariffRecommendations";
 import { buildShipentegraEstimate, type ShipentegraEstimate } from "./buildShipentegraEstimate";
 
 export interface ProductCostContextMoney {
@@ -17,6 +15,18 @@ export interface ProductCostContextVariant {
   manualShippingCost: ProductCostContextMoney | null;
 }
 
+export interface ProductCostContextProfile {
+  catalogId: string;
+  profileName: string | null;
+  canonicalHs6: string;
+  htsCode10: string | null;
+  combinedDutyRate: number;
+  dutySummary: string;
+  defaultShipentegraUsd: number | null;
+}
+
+export type AutoSelectedTariffProfile = ProductCostContextProfile;
+
 export interface ProductCostContext {
   selectedVariantId: string | null;
   variants: ProductCostContextVariant[];
@@ -24,7 +34,7 @@ export interface ProductCostContext {
     status: "automatic_confirmed" | "review_required" | "locked";
     label: string;
     lockedReason: string | null;
-    profile: TariffSelectionRow | AutoSelectedTariffProfile | null;
+    profile: ProductCostContextProfile | null;
   };
 }
 
@@ -49,7 +59,7 @@ export interface BuildProductCostContextInput {
     selectedProfile?: AutoSelectedTariffProfile | null;
     lockedReason?: string | null;
   } | null;
-  manualSelection: TariffSelectionRow | null;
+  manualSelection: ProductCostContextProfile | null;
 }
 
 function round2(value: number) {

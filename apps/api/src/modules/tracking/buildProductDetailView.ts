@@ -9,6 +9,7 @@ import { createRefreshAuditRepo } from "../../db/repositories/refreshAuditRepo";
 import { createTariffAnalysisRepo } from "../../db/repositories/tariffAnalysisRepo";
 import { createTariffCatalogRepo, type TariffUsProfileRow } from "../../db/repositories/tariffCatalogRepo";
 import { createTariffSelectionRepo } from "../../db/repositories/tariffSelectionRepo";
+import type { TariffAnalysisRunResultSnapshot, TariffAnalysisRunRow } from "../../db/repositories/tariffAnalysisRepo";
 import {
   buildProductChangeTimeline,
   type ContentHistoryRow,
@@ -73,7 +74,9 @@ function toProductCostProfile(catalogProfile: TariffUsProfileRow | null): Produc
   };
 }
 
-function getTariffRecommendations(latestRun: Awaited<ReturnType<ReturnType<typeof createTariffAnalysisRepo>["getLatestRun"]>>) {
+type LatestTariffRun = TariffAnalysisRunRow<unknown, TariffAnalysisRunResultSnapshot> | null;
+
+function getTariffRecommendations(latestRun: LatestTariffRun) {
   if (!latestRun?.resultSnapshot) {
     return [];
   }
@@ -110,7 +113,9 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const contentHistory = (await refreshAuditRepo.listContentHistory(productId)) as unknown as ContentHistoryRow[];
   const priceHistory = (await historyRepo.listPriceHistory(productId)) as unknown as PriceHistoryRow[];
   const stockHistory = (await historyRepo.listStockHistory(productId)) as unknown as StockHistoryRow[];
-  const latestTariffRun = await tariffAnalysisRepo.getLatestRun(productId);
+  const latestTariffRun: LatestTariffRun = await tariffAnalysisRepo.getLatestRun<unknown, TariffAnalysisRunResultSnapshot>(
+    productId,
+  );
   const tariffSelection = await tariffSelectionRepo.getSelection(productId);
   const overrides = await overridesRepo.listByProductId(productId);
   const { userCategoryId, userCategoryName, ...product } = detail.product;

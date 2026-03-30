@@ -1,6 +1,42 @@
 import type { D1Database } from '../../config/bindings';
 import { runWithWriteRetry } from '../runWithWriteRetry';
 
+export type TariffAnalysisConfidenceState = "high_confidence" | "low_confidence";
+
+export interface TariffAnalysisSelectedProfile {
+  catalogId: string;
+  profileName: string | null;
+  canonicalHs6: string;
+  htsCode10: string | null;
+  combinedDutyRate: number;
+  dutySummary: string;
+  defaultShipentegraUsd: number | null;
+}
+
+export interface TariffRecommendationSnapshot {
+  catalogId: string;
+  canonicalHs6: string;
+  title: string;
+  rationale: string;
+  score: number;
+  usProfileId: string | null;
+  profileName: string | null;
+  htsCode10: string | null;
+  generalDutyRate: number;
+  additionalDutyRate: number;
+  combinedDutyRate: number;
+  dutySummary: string;
+  defaultShipentegraUsd: number | null;
+  sourceBadges: string[];
+}
+
+export interface TariffAnalysisRunResultSnapshot {
+  confidenceState: TariffAnalysisConfidenceState;
+  selectedProfile: TariffAnalysisSelectedProfile | null;
+  lockedReason: string | null;
+  recommendations: TariffRecommendationSnapshot[];
+}
+
 export interface CreateTariffAnalysisRunInput<TInput = unknown, TResult = unknown> {
   productId: string;
   ownerKey: string;

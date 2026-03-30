@@ -17,10 +17,19 @@ describe("tariff repositories", () => {
     expect(matches[0]?.canonicalHs6).toBe("711790");
 
     const profile = await catalogRepo.getUsProfileByCatalogId("catalog_711790");
+    if (!profile) {
+      throw new Error("profile missing");
+    }
+
     expect(profile?.profileName).toBe("925 gumus kolye");
     expect(profile?.confidenceMode).toBe("high_confidence");
-    expect(profile?.masterEntry.htsCode10).toBe("7117.90.7500");
-    expect(profile?.defaultShipentegraUsd).toBeGreaterThan(0);
+    const masterEntry = profile.masterEntry;
+    if (!masterEntry) {
+      throw new Error("masterEntry missing");
+    }
+
+    expect(masterEntry.htsCode10).toBe("7117.90.7500");
+    expect(profile?.defaultShipentegraUsd ?? 0).toBeGreaterThan(0);
 
     await overridesRepo.upsert({
       productId: "prod_1",

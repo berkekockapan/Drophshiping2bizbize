@@ -6,6 +6,7 @@ import { useState } from "react";
 import { expect, it, vi } from "vitest";
 
 import { createDefaultDraft } from "../lib/defaults";
+import type { CalculatorDraft } from "../lib/types";
 import { QuickModeForm } from "./QuickModeForm";
 
 it("switches between OTHER and US profiles and only shows manual duty for US", async () => {
@@ -13,7 +14,7 @@ it("switches between OTHER and US profiles and only shows manual duty for US", a
   const onChange = vi.fn();
 
   function Harness() {
-    const [draft, setDraft] = useState({ ...createDefaultDraft(), destinationProfile: "OTHER" as const });
+    const [draft, setDraft] = useState<CalculatorDraft>(() => createDefaultDraft());
 
     return (
       <QuickModeForm

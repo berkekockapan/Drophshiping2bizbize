@@ -65,7 +65,7 @@ export async function buildTariffRecommendations(
         } satisfies TariffRecommendation;
       }),
     )
-  ).sort((left, right) => right.score - left.score);
+  ).sort((left: TariffRecommendation, right: TariffRecommendation) => right.score - left.score);
 
   const best = recommendations[0] ?? null;
   const second = recommendations[1] ?? null;

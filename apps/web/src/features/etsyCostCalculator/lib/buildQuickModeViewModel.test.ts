@@ -24,18 +24,24 @@ describe("buildQuickModeViewModel", () => {
 
     const view = buildQuickModeViewModel(draft);
 
-    expect(view.breakEvenPriceUsd).toBe(32.93);
-    expect(view.targetSafeListPriceUsd).toBe(48.43);
-    expect(view.recommendedSalePriceUsd).toBe(48.43);
-    expect(view.recommendedScenario?.listedSalePriceUsd).toBe(48.43);
-    expect(view.recommendedScenario?.discountedSalePriceUsd).toBe(43.59);
-    expect(view.recommendedScenario?.productRevenueUsd).toBe(41.59);
-    expect(view.recommendedScenario?.totalCollectedUsd).toBe(46.59);
-    expect(view.recommendedScenario?.dutyBaseUsd).toBe(41.59);
+    expect(view.breakEvenPriceUsd).toBe(43.02);
+    expect(view.targetSafeListPriceUsd).toBe(62.62);
+    expect(view.recommendedSalePriceUsd).toBe(62.62);
+    expect(view.recommendedScenario?.listedSalePriceUsd).toBe(62.62);
+    expect(view.recommendedScenario?.discountedSalePriceUsd).toBe(56.36);
+    expect(view.recommendedScenario?.productRevenueUsd).toBe(54.36);
+    expect(view.recommendedScenario?.shipentegraImportBasisUsd).toBe(54.36);
+    expect(view.recommendedScenario?.shipentegraDutyUsd).toBe(5.44);
+    expect(view.recommendedScenario?.shipentegraAdditionalDutyUsd).toBe(8.15);
+    expect(view.recommendedScenario?.shipentegraCarrierFeeUsd).toBe(1);
+    expect(view.recommendedScenario?.shipentegraImportTotalUsd).toBe(14.59);
+    expect(view.recommendedScenario?.totalCollectedUsd).toBe(59.36);
+    expect(view.recommendedScenario?.dutyBaseUsd).toBe(54.36);
     expect(view.recommendedScenario?.netProfitUsd).toBeGreaterThanOrEqual(10);
     expect(view.enteredPriceScenario?.listedSalePriceUsd).toBe(39);
     expect(view.enteredPriceScenario?.discountedSalePriceUsd).toBe(35.1);
     expect(view.enteredPriceScenario?.productRevenueUsd).toBe(33.1);
+    expect(view.enteredPriceScenario?.shipentegraImportTotalUsd).toBe(9.28);
     expect(view.enteredPriceScenario?.totalCollectedUsd).toBe(38.1);
     expect(view.enteredPriceScenario?.dutyBaseUsd).toBe(33.1);
     expect(view.hasEnteredSalePrice).toBe(true);

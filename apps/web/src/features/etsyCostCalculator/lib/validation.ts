@@ -32,7 +32,7 @@ export function validateDraft(draft: CalculatorDraft): ValidationErrors {
   }
 
   if (draft.manualDutyPercent < 0 || draft.manualDutyPercent > 100) {
-    errors.manualDutyPercent = "Duty orani %0 ile %100 arasinda olmali.";
+    errors.manualDutyPercent = "Gumruk vergisi orani %0 ile %100 arasinda olmali.";
   }
 
   const discountedSubtotalUsd = draft.salePriceUsd * (1 - draft.saleDiscountPercent / 100);

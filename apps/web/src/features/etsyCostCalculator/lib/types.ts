@@ -103,6 +103,11 @@ export interface ScenarioSnapshot {
   collectedExtrasUsd?: number;
   totalCollectedUsd?: number;
   dutyBaseUsd?: number;
+  shipentegraImportBasisUsd?: number;
+  shipentegraDutyUsd?: number;
+  shipentegraAdditionalDutyUsd?: number;
+  shipentegraCarrierFeeUsd?: number;
+  shipentegraImportTotalUsd?: number;
   normalizedRevenueUsd: number;
   normalizedRevenueTry: number;
   totalEtsyFeesUsd: number;

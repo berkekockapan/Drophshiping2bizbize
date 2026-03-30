@@ -114,7 +114,7 @@ describe("calculateScenario", () => {
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.amountUsd).toBe(5.4);
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.sourceType).toBe("manual_override");
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.note).toMatch(/urun geliridir/i);
-    expect(us.warnings.find((warning) => warning.key === "us_duty")?.message).toMatch(/urun geliridir/i);
+    expect(us.warnings.find((warning) => warning.key === "shipentegra_import")?.message).toMatch(/ShipEntegra ithalat modeli/i);
 
     const other = calculateScenario({
       ...createDefaultDraft(),
@@ -125,5 +125,34 @@ describe("calculateScenario", () => {
 
     expect(other.dutyBaseUsd).toBe(0);
     expect(other.breakdown.find((row) => row.key === "us_duty_fee")).toBeUndefined();
+  });
+
+  it("models ShipEntegra import costs as separate operational rows for US scenarios", () => {
+    const result = calculateScenario({
+      ...createDefaultDraft(),
+      usdTryRate: 40,
+      destinationProfile: "US",
+      salePriceUsd: 50,
+      saleDiscountPercent: 20,
+      coupon: { type: "fixed_usd", value: 4 },
+      manualDutyPercent: 10,
+      valueSources: { duty: "manual_override" },
+      productCost: { amount: 18, currency: "USD" },
+      actualShippingCost: { amount: 5, currency: "USD" },
+      packagingCost: { amount: 1, currency: "USD" },
+      shipentegraOperationCost: { amount: 2, currency: "USD" },
+    });
+
+    expect(result.shipentegraImportBasisUsd).toBe(36);
+    expect(result.shipentegraDutyUsd).toBe(3.6);
+    expect(result.shipentegraAdditionalDutyUsd).toBe(5.4);
+    expect(result.shipentegraCarrierFeeUsd).toBe(1);
+    expect(result.shipentegraImportTotalUsd).toBe(10);
+    expect(result.totalOperationalCostsUsd).toBe(36);
+    expect(result.breakdown.find((row) => row.key === "us_duty_fee")?.label).toBe("ShipEntegra gumruk vergisi");
+    expect(result.breakdown.find((row) => row.key === "shipentegra_additional_duty_fee")?.amountUsd).toBe(5.4);
+    expect(result.breakdown.find((row) => row.key === "shipentegra_carrier_fee")?.amountUsd).toBe(1);
+    expect(result.breakdown.find((row) => row.key === "shipentegra_import_total")?.amountUsd).toBe(10);
+    expect(result.warnings.find((warning) => warning.key === "shipentegra_import")?.message).toMatch(/ShipEntegra ithalat modeli/i);
   });
 });

@@ -1,4 +1,5 @@
 import { ETSY_TR_DEFAULT_FEE_PROFILE } from "./defaults";
+import { calculateShipentegraCarrierFee } from "./calculateShipentegraCarrierFee";
 import type { BreakdownRow, CalculatorDraft, FeeProfileOverrides, MoneyInput, ScenarioSnapshot } from "./types";
 
 function round2(value: number) {
@@ -95,8 +96,17 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
         ? draft.resolvedDutyPercent
         : draft.manualDutyPercent
       : 0;
-  const dutyBaseUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
-  const usDutyUsd = appliedDutyPercent > 0 ? round2(dutyBaseUsd * (appliedDutyPercent / 100)) : 0;
+  const shipentegraImportBasisUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  const shipentegraDutyUsd =
+    shipentegraImportBasisUsd > 0 && appliedDutyPercent > 0
+      ? round2(shipentegraImportBasisUsd * (appliedDutyPercent / 100))
+      : 0;
+  const shipentegraAdditionalDutyUsd = shipentegraImportBasisUsd > 0 ? round2(shipentegraImportBasisUsd * 0.15) : 0;
+  const shipentegraCarrierFeeUsd =
+    draft.destinationProfile === "US" ? calculateShipentegraCarrierFee(shipentegraImportBasisUsd) : 0;
+  const shipentegraImportTotalUsd = round2(
+    shipentegraDutyUsd + shipentegraAdditionalDutyUsd + shipentegraCarrierFeeUsd,
+  );
 
   const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
   const vatFeeRows: Array<[string, number]> = [
@@ -119,7 +129,9 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       toUsd(draft.actualShippingCost, draft.usdTryRate) +
       toUsd(draft.packagingCost, draft.usdTryRate) +
       toUsd(draft.shipentegraOperationCost, draft.usdTryRate) +
-      usDutyUsd +
+      shipentegraDutyUsd +
+      shipentegraAdditionalDutyUsd +
+      shipentegraCarrierFeeUsd +
       draft.customCosts.filter((line) => line.enabled).reduce((sum, line) => sum + toUsd(line.value, draft.usdTryRate), 0) +
       resolveOverheadUsd(draft),
   );
@@ -154,13 +166,13 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       message: "Para donusumu kapali. Odeme para birimi farkliysa gercek ucret daha yuksek olabilir.",
     });
   }
-  if (draft.destinationProfile === "US" && usDutyUsd > 0) {
+  if (draft.destinationProfile === "US" && shipentegraImportTotalUsd > 0) {
     warnings.push({
-      key: "us_duty",
+      key: "shipentegra_import",
       message:
         typeof draft.resolvedDutyPercent === "number"
-          ? "ABD duty secili urun tipi profili ile otomatik uygulandi; taban yalnizca indirim ve kupon sonrasi urun geliridir."
-          : "ABD duty hizli formda girilen manuel yuzde ile uygulandi; taban yalnizca indirim ve kupon sonrasi urun geliridir.",
+          ? "ShipEntegra ithalat modeli secili profil ile uygulandi; matrah indirim ve kupon sonrasi urun geliridir."
+          : "ShipEntegra ithalat modeli hizli formdaki gumruk vergisi orani ile uygulandi; matrah indirim ve kupon sonrasi urun geliridir.",
     });
   }
   if (round2(totalCollectedUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
@@ -256,19 +268,45 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     },
   ];
 
-  if (draft.destinationProfile === "US" && usDutyUsd > 0) {
-    breakdown.push({
-      key: "us_duty_fee",
-      label: draft.dutyLabel ?? "Duty",
-      amountUsd: usDutyUsd,
-      amountTry: toTry(usDutyUsd, draft.usdTryRate),
-      sourceType:
-        draft.valueSources.duty ?? (typeof draft.resolvedDutyPercent === "number" ? "analysis_selected" : "manual_override"),
-      note:
-        typeof draft.resolvedDutyPercent === "number"
-          ? "Secili urun tipi profili ve analiz kilidine gore otomatik uygulandi; taban indirim ve kupon sonrasi urun geliridir."
-          : "Hizli formda girilen manuel duty yuzdesi uygulandi; taban indirim ve kupon sonrasi urun geliridir.",
-    });
+  if (draft.destinationProfile === "US" && shipentegraImportTotalUsd > 0) {
+    breakdown.push(
+      {
+        key: "us_duty_fee",
+        label: "ShipEntegra gumruk vergisi",
+        amountUsd: shipentegraDutyUsd,
+        amountTry: toTry(shipentegraDutyUsd, draft.usdTryRate),
+        sourceType:
+          draft.valueSources.duty ?? (typeof draft.resolvedDutyPercent === "number" ? "analysis_selected" : "manual_override"),
+        note:
+          typeof draft.resolvedDutyPercent === "number"
+            ? "Secili profil oranina gore hesaplandi; matrah indirim ve kupon sonrasi urun geliridir."
+            : "Hizli formdaki gumruk vergisi orani ile hesaplandi; matrah indirim ve kupon sonrasi urun geliridir.",
+      },
+      {
+        key: "shipentegra_additional_duty_fee",
+        label: "ShipEntegra ek vergi (%15)",
+        amountUsd: shipentegraAdditionalDutyUsd,
+        amountTry: toTry(shipentegraAdditionalDutyUsd, draft.usdTryRate),
+        sourceType: "system_default",
+        note: "Turkiye cikisli gonderiler icin sabit %15 ek vergi.",
+      },
+      {
+        key: "shipentegra_carrier_fee",
+        label: "ShipEntegra tasiyici islem bedeli",
+        amountUsd: shipentegraCarrierFeeUsd,
+        amountTry: toTry(shipentegraCarrierFeeUsd, draft.usdTryRate),
+        sourceType: "system_default",
+        note: "Ilk surumde kullanici is kurali ile sabitlenen 1 USD tasiyici islem bedeli.",
+      },
+      {
+        key: "shipentegra_import_total",
+        label: "ShipEntegra toplam ithalat masrafi",
+        amountUsd: shipentegraImportTotalUsd,
+        amountTry: toTry(shipentegraImportTotalUsd, draft.usdTryRate),
+        sourceType: "system_default",
+        note: "Gumruk vergisi + ek vergi + tasiyici islem bedeli toplami.",
+      },
+    );
   }
 
   for (const line of draft.customCosts.filter((cost) => cost.enabled)) {
@@ -303,7 +341,12 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     collectedShippingUsd,
     collectedExtrasUsd,
     totalCollectedUsd,
-    dutyBaseUsd,
+    dutyBaseUsd: shipentegraImportBasisUsd,
+    shipentegraImportBasisUsd,
+    shipentegraDutyUsd,
+    shipentegraAdditionalDutyUsd,
+    shipentegraCarrierFeeUsd,
+    shipentegraImportTotalUsd,
     normalizedRevenueUsd: totalCollectedUsd,
     normalizedRevenueTry: revenueTry,
     totalEtsyFeesUsd,

@@ -22,4 +22,16 @@ describe("validateDraft", () => {
       overheadExpectedOrderCount: expect.stringMatching(/siparis/i),
     });
   });
+
+  it("describes manual duty as a gumruk vergisi rate", () => {
+    expect(
+      validateDraft({
+        ...createDefaultDraft(),
+        destinationProfile: "US",
+        manualDutyPercent: 101,
+      }),
+    ).toMatchObject({
+      manualDutyPercent: expect.stringMatching(/gumruk vergisi/i),
+    });
+  });
 });

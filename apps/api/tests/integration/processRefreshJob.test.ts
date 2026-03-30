@@ -95,7 +95,8 @@ const envoyWinnerPriceHtml = `
                   "discountedPrice": { "value": 47.4, "text": "47,40 TL" },
                   "sellingPrice": { "value": 49.9, "text": "49,90 TL" },
                   "originalPrice": { "value": 49.9, "text": "49,90 TL" },
-                  "couponApplicablePrice": { "value": 47.4, "text": "47,40 TL" }
+                  "couponApplicablePrice": { "value": 47.4, "text": "47,40 TL" },
+                  "tyPlusCouponApplicablePrice": { "value": 46.8, "text": "46,80 TL" }
                 },
                 "inStock": true
               },
@@ -142,8 +143,8 @@ const envoyWinnerPriceHtml = `
   </html>
 `;
 const envoyWinnerPriceRaisedHtml = envoyWinnerPriceHtml
-  .replaceAll('"value": 49.9', '"value": 59.9')
-  .replaceAll('"text": "49,90 TL"', '"text": "59,90 TL"');
+  .replaceAll('"value": 46.8', '"value": 56.8')
+  .replaceAll('"text": "46,80 TL"', '"text": "56,80 TL"');
 
 describe("processRefreshJob", () => {
   it("writes a NO_CHANGE audit without content rows when tracked fields stay the same", async () => {
@@ -309,7 +310,7 @@ describe("processRefreshJob", () => {
     expect(product.imagesRaw).toContain("mug-1.jpg");
   });
 
-  it("prefers winner selling price over mismatched product variant price during refresh", async () => {
+  it("prefers winner basket price over mismatched product variant price during refresh", async () => {
     const { env, sqlite } = createTestEnv();
     const seeded = await createTrackedProduct(
       env,
@@ -337,9 +338,9 @@ describe("processRefreshJob", () => {
       .get(seeded.product.id, "1163720857") as { currentPrice: number };
 
     expect(response.product.parseStatus).toBe("OK");
-    expect(response.product.currentPrice).toBe(4990);
-    expect(currentState).toEqual({ currentPrice: 4990 });
-    expect(variant).toEqual({ currentPrice: 4990 });
+    expect(response.product.currentPrice).toBe(4680);
+    expect(currentState).toEqual({ currentPrice: 4680 });
+    expect(variant).toEqual({ currentPrice: 4680 });
   });
 
   it("writes variant price history rows with refresh audit links when a variant price changes", async () => {
@@ -381,8 +382,8 @@ describe("processRefreshJob", () => {
       expect.arrayContaining([
         expect.objectContaining({
           variantId: expect.any(String),
-          previousPrice: 4990,
-          newPrice: 5990,
+          previousPrice: 4680,
+          newPrice: 5680,
           refreshAuditId: expect.any(String),
         }),
       ]),

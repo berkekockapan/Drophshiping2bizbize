@@ -48,6 +48,8 @@ test("loads quick mode, saves a preset, opens advanced settings, and switches an
   await expect(page.getByRole("heading", { name: /etsy maliyet hesaplayici/i })).toBeVisible();
   await expect(page.getByRole("tab", { name: /hedef kar icin satis fiyati bul/i })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("button", { name: /abd hedef profili/i })).toBeVisible();
+  await expect(page.getByText(/onerilen liste fiyati/i)).toBeVisible();
+  await expect(page.getByText(/indirim sonrasi satis fiyati/i)).toBeVisible();
   await expect(page.getByText(/toplam gider ozeti/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /abd ithalat vergisi/i })).toHaveCount(0);
 
@@ -61,8 +63,8 @@ test("loads quick mode, saves a preset, opens advanced settings, and switches an
   await page.getByLabel(/manuel duty %/i).fill("11");
   await page.getByLabel(/hedef kar degeri/i).fill("10");
 
-  await expect(page.getByText(/onerilen etsy satis fiyati/i)).toBeVisible();
-  await expect(page.getByText(/indirimli liste fiyati/i)).toBeVisible();
+  await expect(page.getByText(/onerilen liste fiyati/i)).toBeVisible();
+  await expect(page.getByText(/indirim sonrasi satis fiyati/i)).toBeVisible();
 
   await page.getByLabel(/opsiyonel satis fiyati/i).fill("39");
 

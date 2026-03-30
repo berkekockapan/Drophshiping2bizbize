@@ -96,6 +96,7 @@ export function EtsyCostCalculatorPage() {
 
           <ResultsPanel
             activeTab={activeTab}
+            draft={calculator.draft}
             recommendedSalePriceUsd={calculator.quickMode.recommendedSalePriceUsd}
             breakEvenPriceUsd={calculator.quickMode.breakEvenPriceUsd}
             targetSafeListPriceUsd={calculator.quickMode.targetSafeListPriceUsd}

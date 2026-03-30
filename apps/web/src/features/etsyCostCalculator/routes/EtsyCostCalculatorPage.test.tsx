@@ -89,6 +89,9 @@ describe("EtsyCostCalculatorPage", () => {
 
     expect(await screen.findByRole("button", { name: /abd hedef profili/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /abd ithalat vergisi/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/^Onerilen liste fiyati$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Indirim sonrasi satis fiyati$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Toplam tahsilat: /i)).toBeInTheDocument();
     expect(screen.getByText(/toplam gider ozeti/i)).toBeInTheDocument();
     expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
     expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();

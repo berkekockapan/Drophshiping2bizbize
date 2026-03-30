@@ -10,30 +10,43 @@ it("renders grouped breakdown labels, source badges, notes, and help icons", () 
     <FeeBreakdownTable
       groups={[
         {
-          key: "etsy_fees",
-          label: "Etsy ucretleri",
+          key: "revenue",
+          label: "Gelir",
           rows: [
             {
-              key: "us_duty_fee",
-              label: "Duty",
-              formattedUsd: "$3.20",
-              formattedTry: "128,00 ₺",
-              badgeLabel: "Manuel",
-              note: "Hizli formdaki duty yuzdesi uygulandi.",
+              key: "total_collected",
+              label: "Toplam tahsilat",
+              formattedUsd: "$60.00",
+              formattedTry: "2.400,00 ₺",
+              badgeLabel: "Gelir",
             },
           ],
         },
         {
-          key: "user_costs",
-          label: "Kullanici maliyetleri",
+          key: "etsy_fees",
+          label: "Etsy ucretleri",
           rows: [
             {
-              key: "overhead_cost",
-              label: "Genel gider payi",
+              key: "listing_related_fee",
+              label: "Listeleme ucreti",
+              formattedUsd: "$3.20",
+              formattedTry: "128,00 ₺",
+              badgeLabel: "Manuel",
+              note: "Hizli formdaki listing ucreti uygulandi.",
+            },
+          ],
+        },
+        {
+          key: "operational_costs",
+          label: "Operasyonel maliyetler",
+          rows: [
+            {
+              key: "us_duty_fee",
+              label: "ABD duty",
               formattedUsd: "$1.05",
               formattedTry: "42,00 ₺",
               badgeLabel: "Manuel",
-              note: "Aktarim bazli kosullu ucret.",
+              note: "ABD ithalat vergisi etkisi.",
             },
           ],
         },
@@ -42,8 +55,9 @@ it("renders grouped breakdown labels, source badges, notes, and help icons", () 
     />,
   );
 
+  expect(screen.getByRole("heading", { name: /^Gelir$/i })).toBeInTheDocument();
   expect(screen.getByText(/etsy ucretleri/i)).toBeInTheDocument();
-  expect(screen.getByText(/^Duty$/i)).toBeInTheDocument();
+  expect(screen.getByText(/^ABD duty$/i)).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: /yardim/i }).length).toBeGreaterThan(0);
-  expect(screen.getByText(/aktarim bazli kosullu ucret/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/abd ithalat vergisi etkisi/i)).toHaveLength(2);
 });

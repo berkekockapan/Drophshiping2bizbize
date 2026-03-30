@@ -11,7 +11,9 @@ type LegacyRow = {
 };
 
 const HELP_COPY: Record<string, string> = {
-  us_duty_fee: "ABD'ye giriste urune uygulanabilecek ithalat vergi etkisi.",
+  total_collected: "Musteriden toplanan toplam tutar.",
+  product_revenue: "Urun satisindan gelen gelir.",
+  us_duty_fee: "ABD ithalat vergisi etkisi.",
   summary_net_profit: "Tum giderlerden sonra elinde kalan net kazanc.",
   overhead_cost: "Siparis basina dagitilan genel gider payi.",
 };

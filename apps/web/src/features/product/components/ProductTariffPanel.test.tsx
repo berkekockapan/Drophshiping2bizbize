@@ -98,6 +98,7 @@ describe("ProductTariffPanel", () => {
     );
 
     expect(screen.getByRole("heading", { name: /gtip \/ abd vergi analizi/i })).toBeInTheDocument();
+    expect(screen.getByText(/bu urun icin secilen gtip: 711790/i)).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /bu kodu sec/i }));
 
     await waitFor(() =>

@@ -49,10 +49,18 @@ function renderPanel() {
             },
           ],
           usState: {
-            status: "locked",
-            label: "hesap kilitli",
+            status: "review_required",
+            label: "inceleme gerekli",
             lockedReason: "Sistem ABD profilinden yeterince emin degil.",
-            profile: null,
+            profile: {
+              catalogId: "catalog_711790",
+              profileName: "Taklit taki",
+              canonicalHs6: "711790",
+              htsCode10: "7117.90.7500",
+              combinedDutyRate: 0.11,
+              dutySummary: "%11.0 temel vergi + %0.0 ek tarife = toplam %11.0",
+              defaultShipentegraUsd: 4.9,
+            },
           },
         }}
       />
@@ -99,7 +107,7 @@ it("renders product cost cards, keeps US result locked, and saves overrides for 
   expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
   expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
   expect(screen.getByText(/abd toplam maliyet/i)).toBeInTheDocument();
-  expect(screen.getByText(/hesap kilitli/i)).toBeInTheDocument();
+  expect(screen.getByText(/en uygun abd profili otomatik secildi/i)).toBeInTheDocument();
 
   await user.selectOptions(screen.getByLabelText(/secili varyant/i), "var_2");
   await user.clear(screen.getByLabelText(/urun maliyeti override/i));

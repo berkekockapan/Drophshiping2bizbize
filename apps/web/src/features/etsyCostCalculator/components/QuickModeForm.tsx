@@ -56,7 +56,7 @@ export function QuickModeForm({
             onChange={(event) => onChange({ usdTryRate: Number(event.target.value) })}
             className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
           />
-          </label>
+        </label>
 
         {draft.destinationProfile === "US" ? (
           <label className="grid gap-2 text-sm text-slate-700">

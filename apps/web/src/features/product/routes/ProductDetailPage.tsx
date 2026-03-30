@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import type { AutoSelectedTariffProfile } from "../../../app/api";
 import { fetchProductCategories, fetchProductDetail, setTrackedProductCategory } from "../../../app/api";
 import { EtsyPrepWorkspace } from "../../etsyPrep/components/EtsyPrepWorkspace";
 import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
@@ -86,6 +87,51 @@ export function ProductDetailPage() {
     setMode("prep");
   }
 
+  const displayedCostContext = useMemo(() => {
+    if (!detailQuery.data) {
+      return null;
+    }
+
+    const existingProfile = detailQuery.data.costContext.usState.profile;
+    const recommendedProfile = existingProfile
+      ? null
+      : detailQuery.data.tariffAnalysis.latestRun?.resultSnapshot?.selectedProfile
+        ? detailQuery.data.tariffAnalysis.latestRun.resultSnapshot.selectedProfile
+        : detailQuery.data.tariffAnalysis.recommendations[0]
+          ? ({
+              catalogId: detailQuery.data.tariffAnalysis.recommendations[0].catalogId,
+              profileName: detailQuery.data.tariffAnalysis.recommendations[0].profileName,
+              canonicalHs6: detailQuery.data.tariffAnalysis.recommendations[0].canonicalHs6,
+              htsCode10: detailQuery.data.tariffAnalysis.recommendations[0].htsCode10,
+              combinedDutyRate: detailQuery.data.tariffAnalysis.recommendations[0].combinedDutyRate,
+              dutySummary: detailQuery.data.tariffAnalysis.recommendations[0].dutySummary,
+              defaultShipentegraUsd: detailQuery.data.tariffAnalysis.recommendations[0].defaultShipentegraUsd,
+            } satisfies AutoSelectedTariffProfile)
+          : null;
+
+    const profile = existingProfile ?? recommendedProfile;
+    if (!profile) {
+      return detailQuery.data.costContext;
+    }
+
+    const status: "automatic_confirmed" | "review_required" =
+      detailQuery.data.costContext.usState.status === "automatic_confirmed" ? "automatic_confirmed" : "review_required";
+
+    return {
+      ...detailQuery.data.costContext,
+      usState: {
+        status,
+        label: status === "automatic_confirmed" ? "otomatik dogrulandi" : "inceleme gerekli",
+        lockedReason:
+          status === "automatic_confirmed"
+            ? null
+            : detailQuery.data.costContext.usState.lockedReason ??
+              "En uygun ABD profili otomatik secildi. Dilersen GTIP panelinden degistirebilirsin.",
+        profile,
+      },
+    };
+  }, [detailQuery.data]);
+
   return (
     <div className="space-y-6">
       <LiveSyncStatus
@@ -119,7 +165,7 @@ export function ProductDetailPage() {
             }
           />
 
-          <ProductCostPanel ownerKey={ownerKey} productId={productId} costContext={detailQuery.data.costContext} />
+          <ProductCostPanel ownerKey={ownerKey} productId={productId} costContext={displayedCostContext ?? detailQuery.data.costContext} />
 
           <ProductTariffPanel ownerKey={ownerKey} productId={productId} analysis={detailQuery.data.tariffAnalysis} />
 

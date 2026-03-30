@@ -200,7 +200,7 @@ export function ProductCostPanel({ ownerKey, productId, costContext }: ProductCo
   }, [baseDraft, costContext.usState, effectiveVariant]);
 
   const usScenario = useMemo(() => {
-    if (!effectiveVariant || costContext.usState.status !== "automatic_confirmed") {
+    if (!effectiveVariant || costContext.usState.status === "locked" || !costContext.usState.profile) {
       return null;
     }
 
@@ -309,7 +309,13 @@ export function ProductCostPanel({ ownerKey, productId, costContext }: ProductCo
         <ProductCostMetricCard
           title="ABD toplam maliyet"
           value={usScenario ? formatMoney(totalScenarioCost(usScenario), "USD") : costContext.usState.label}
-          note={usScenario ? costContext.usState.profile?.dutySummary ?? null : costContext.usState.lockedReason}
+          note={
+            usScenario
+              ? costContext.usState.status === "review_required"
+                ? "En uygun ABD profili otomatik secildi. GTIP panelinden degistirebilirsin."
+                : costContext.usState.profile?.dutySummary ?? null
+              : costContext.usState.lockedReason
+          }
         />
         <ProductCostMetricCard
           title="Guncel urun maliyeti"

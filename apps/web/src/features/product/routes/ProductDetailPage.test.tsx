@@ -118,6 +118,22 @@ const productDetailPayload = {
             defaultShipentegraUsd: 7.5,
             sourceBadges: ["Kural eslesmesi"],
           },
+          {
+            catalogId: "catalog_611120",
+            canonicalHs6: "611120",
+            profileName: "Pamuklu ust giysi",
+            title: "Textile apparel",
+            rationale: "Pamuklu giyim sinyali ile eslesti.",
+            score: 74,
+            usProfileId: "us_611120_2026r4",
+            htsCode10: "6111.20.0000",
+            generalDutyRate: 0.16,
+            additionalDutyRate: 0,
+            combinedDutyRate: 0.16,
+            dutySummary: "%16 temel vergi + %0 ek tarife = toplam %16",
+            defaultShipentegraUsd: 6.2,
+            sourceBadges: ["Kural eslesmesi"],
+          },
         ],
       },
       engineVersion: "tariff-v1",
@@ -139,6 +155,22 @@ const productDetailPayload = {
         combinedDutyRate: 0.11,
         dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
         defaultShipentegraUsd: 7.5,
+        sourceBadges: ["Kural eslesmesi"],
+      },
+      {
+        catalogId: "catalog_611120",
+        canonicalHs6: "611120",
+        profileName: "Pamuklu ust giysi",
+        title: "Textile apparel",
+        rationale: "Pamuklu giyim sinyali ile eslesti.",
+        score: 74,
+        usProfileId: "us_611120_2026r4",
+        htsCode10: "6111.20.0000",
+        generalDutyRate: 0.16,
+        additionalDutyRate: 0,
+        combinedDutyRate: 0.16,
+        dutySummary: "%16 temel vergi + %0 ek tarife = toplam %16",
+        defaultShipentegraUsd: 6.2,
         sourceBadges: ["Kural eslesmesi"],
       },
     ],
@@ -395,6 +427,33 @@ describe("ProductDetailPage", () => {
       }
 
       if (url.includes("/owners/berke/products/prod_1/tariff-selection") && init?.method === "PUT") {
+        const body = init.body ? JSON.parse(String(init.body)) : {};
+        const selectedCatalogId = body.catalogId ?? "catalog_711790";
+
+        if (selectedCatalogId === "catalog_611120") {
+          return jsonResponse({
+            selection: {
+              productId: "prod_1",
+              ownerKey: "berke",
+              catalogId: "catalog_611120",
+              canonicalHs6: "611120",
+              title: "Textile apparel",
+              usProfileId: "us_611120_2026r4",
+              selectionSource: "recommended",
+              selectedBy: "berke",
+              selectedAt: Date.now(),
+              analysisRunId: "run_1",
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              generalDutyRate: 0.16,
+              additionalDutyRate: 0,
+              combinedDutyRate: 0.16,
+              dutySummary: "%16 temel vergi + %0 ek tarife = toplam %16",
+              revisionLabel: "USITC HTS 2026 Revision 4",
+            },
+          });
+        }
+
         return jsonResponse({
           selection: {
             productId: "prod_1",
@@ -432,8 +491,9 @@ describe("ProductDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
     expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
-    expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /bu kodu sec/i }));
+    expect(screen.getByText(/en uygun abd profili otomatik secildi/i)).toBeInTheDocument();
+    expect(screen.getByText(/bu urun icin secilen gtip: 711790/i)).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: /bu kodu sec/i })[1]);
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -441,5 +501,6 @@ describe("ProductDetailPage", () => {
         expect.objectContaining({ method: "PUT" }),
       ),
     );
+    expect(await screen.findByText(/bu urun icin secilen gtip: 611120/i)).toBeInTheDocument();
   });
 });

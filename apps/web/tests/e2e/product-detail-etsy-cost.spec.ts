@@ -210,7 +210,8 @@ test("product detail updates cost cards when the variant and overrides change", 
   });
 
   await expect(page.getByRole("heading", { name: /urun maliyet gorunumu/i })).toBeVisible();
-  await expect(page.getByText(/hesap kilitli/i)).toBeVisible();
+  await expect(page.getByText(/en uygun abd profili otomatik secildi/i)).toBeVisible();
+  await expect(page.getByText(/bu urun icin secilen gtip: 611030/i)).toBeVisible();
 
   await page.getByLabel(/secili varyant/i).selectOption("var_2");
   await page.getByLabel(/urun maliyeti override/i).fill("399");

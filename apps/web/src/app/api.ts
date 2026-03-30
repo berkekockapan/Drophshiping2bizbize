@@ -98,7 +98,7 @@ export interface ProductTariffRecommendation {
 
 export interface AutoSelectedTariffProfile {
   catalogId: string;
-  profileName: string;
+  profileName: string | null;
   canonicalHs6: string;
   htsCode10: string | null;
   combinedDutyRate: number;

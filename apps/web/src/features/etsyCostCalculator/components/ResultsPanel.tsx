@@ -42,6 +42,18 @@ function buildQuickModeRevenueMetrics(draft: CalculatorDraft, salePriceUsd: numb
   };
 }
 
+type ShipentegraScenarioSnapshot = ScenarioSnapshot & {
+  shipentegraImportTotalUsd?: number;
+};
+
+function getBreakdownAmount(snapshot: ScenarioSnapshot | null, key: string) {
+  return snapshot?.breakdown.find((row) => row.key === key)?.amountUsd ?? 0;
+}
+
+function getShipentegraImportTotalUsd(snapshot: ScenarioSnapshot | null) {
+  return (snapshot as ShipentegraScenarioSnapshot | null)?.shipentegraImportTotalUsd ?? null;
+}
+
 function LegacyResultsPanel({ result }: { result: ScenarioResult }) {
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -113,6 +125,8 @@ function QuickModeResultsPanel({
       : recommendedSalePriceUsd;
   const revenueMetrics = buildQuickModeRevenueMetrics(draft, displayedSalePriceUsd);
   const activeWarnings = activeScenario?.warnings ?? [];
+  const actualShippingCostUsd = getBreakdownAmount(activeScenario, "actual_shipping_cost");
+  const shipentegraImportTotalUsd = getShipentegraImportTotalUsd(activeScenario);
 
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -129,6 +143,8 @@ function QuickModeResultsPanel({
         <p className="font-semibold text-slate-900">Toplam gider ozeti</p>
         <p className="mt-2">Toplam tahsilat: {formatUsd(revenueMetrics.totalCollectedUsd)}</p>
         <p>Urun geliri: {formatUsd(revenueMetrics.productRevenueUsd)}</p>
+        <p>Gercek tasima maliyeti: {formatUsd(actualShippingCostUsd)}</p>
+        {shipentegraImportTotalUsd != null ? <p>ShipEntegra ithalat masrafi: {formatUsd(shipentegraImportTotalUsd)}</p> : null}
         <p>Toplam Etsy ucreti: {formatUsd(activeScenario?.totalEtsyFeesUsd ?? 0)}</p>
         <p>Toplam operasyonel maliyet: {formatUsd(activeScenario?.totalOperationalCostsUsd ?? 0)}</p>
         <p>Toplam gider: {formatUsd((activeScenario?.totalOperationalCostsUsd ?? 0) + (activeScenario?.totalEtsyFeesUsd ?? 0))}</p>

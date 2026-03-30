@@ -13,7 +13,10 @@ type LegacyRow = {
 const HELP_COPY: Record<string, string> = {
   total_collected: "Musteriden toplanan toplam tutar.",
   product_revenue: "Urun satisindan gelen gelir.",
-  us_duty_fee: "ABD ithalat vergisi etkisi.",
+  us_duty_fee: "ShipEntegra modelindeki gumruk vergisi tutari.",
+  shipentegra_additional_duty_fee: "Turkiye cikisli gonderiler icin sabit %15 ek vergi tutari.",
+  shipentegra_carrier_fee: "Ilk surumde sabitlenen 1 USD tasiyici islem bedeli.",
+  shipentegra_import_total: "Gumruk vergisi, ek vergi ve tasiyici islem bedelinin toplami.",
   summary_net_profit: "Tum giderlerden sonra elinde kalan net kazanc.",
   overhead_cost: "Siparis basina dagitilan genel gider payi.",
 };

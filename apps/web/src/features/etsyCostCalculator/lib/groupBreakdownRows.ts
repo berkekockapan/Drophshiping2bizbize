@@ -48,7 +48,10 @@ function isOperationalCostKey(key: string) {
     key === "shipentegra_operation_cost" ||
     key.startsWith("custom_cost_") ||
     key === "overhead_cost" ||
-    key === "us_duty_fee"
+    key === "us_duty_fee" ||
+    key === "shipentegra_additional_duty_fee" ||
+    key === "shipentegra_carrier_fee" ||
+    key === "shipentegra_import_total"
   );
 }
 

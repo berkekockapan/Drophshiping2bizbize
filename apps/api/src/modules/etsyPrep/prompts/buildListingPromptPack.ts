@@ -41,6 +41,9 @@ export function buildListingPromptPack(detail: EtsyPrepView): ListingPromptPack 
       "Tags must contain exactly 13 unique entries separated by commas.",
       "Return ONLY the JSON object.",
     ].join("\n"),
-    outputContract: etsyMasterRulebook.outputContracts.listing,
+    outputContract: {
+      type: etsyMasterRulebook.outputContracts.listing.type,
+      fields: [...etsyMasterRulebook.outputContracts.listing.fields] as ["title", "description", "tags"],
+    },
   };
 }

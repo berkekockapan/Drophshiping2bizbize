@@ -1,5 +1,5 @@
 export const etsyMasterRulebook = {
-  version: "etsy-prompt-pack-v1",
+  version: "etsy-prompt-pack-v2",
   inputSanitizationRules: [
     "Strip marketplace CTA, discount, shipping, installment, and coupon copy.",
     "Remove raw URLs, CDN links, and platform traces.",
@@ -44,22 +44,75 @@ export const etsyMasterRulebook = {
     "Replace weak tags such as neutral outfit bag, brunch outfit bag, city day accessory, or womens cream bag with stronger shopper-query phrases.",
     "Use competitor research to avoid overused weak phrasing and choose a sharper buyer-intent angle that still stays truthful to the product facts.",
   ],
-  imageRole:
-    "You write safe marketing and lifestyle prompts for an existing product reference image.",
-  imageGuardrails: [
-    "Do not redesign the product.",
-    "Do not change color, material feel, print, or structural parts.",
-    "Do not add new accessories or misleading product variations.",
-    "Do not hide important product details outside the frame.",
-    "Do not include URLs, prices, warranties, origin text, or raw product JSON dumps.",
-  ],
-  imagePromptStructure: {
-    mainPromptSections: [
-      "Treat the manual reference image as the single source of truth for product identity.",
-      "Only vary the scene, lighting, camera angle, crop, and styling around the same product.",
-      "Keep the brief short, visual, and production-ready.",
+  researchPrompt: {
+    role: "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
+    requiredResearch: [
+      "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+      "Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
+      "Use the research only as internal reasoning and never reveal handbook notes, competitor notes, or a research summary in the final answer.",
+      "Silently choose exactly 1 primary keyword angle and exactly 2 supporting keyword angles before drafting.",
+      "Keep the title, description, and tags aligned to the same buyer-intent positioning instead of mixing multiple weak directions.",
+      "Treat any source brand or seller name as internal-only context. Never mention any brand name or seller name in the final answer.",
+    ],
+    titleRules: [
+      "Lead with the clearest main buyer query.",
+      "Pair the core product type with the strongest fact-supported differentiator.",
+      "Do not stack near-synonyms or pile raw attribute fragments at the end.",
+      "Reject any title draft that feels catalog-like, empty, or overextended.",
+      "Reject any title draft that repeats the same product type through multiple near-synonyms.",
+    ],
+    descriptionRules: [
+      "Write exactly 3 shopper-facing paragraphs.",
+      "Paragraph 1 must establish the main search intent and product promise clearly.",
+      "Paragraph 2 must explain why this is a stronger choice than weak competing listings using only supported facts.",
+      "Paragraph 3 must cover styling fit, pairing ideas, or use-case versatility.",
+      "Naturally distribute the chosen tag logic across the description instead of dumping keywords.",
+      "Reject any description draft that is too short, too generic, or fails to naturally distribute the chosen tag logic.",
+      "Reject generic template headings, empty praise language, and surface-level filler.",
+      "Mild emoji is allowed only inside the description and only when it adds warmth without feeling gimmicky.",
+    ],
+    tagRules: [
+      "Generate exactly 13 unique English tags.",
+      "Keep every tag within Etsy's 20-character limit.",
+      "Spread tags across product type, differentiator, use case, and shopper query angles.",
+      "Do not let one generic root word dominate most of the set.",
+      "Silently replace the weakest 3 tags if they sound editorial, vague, or repetitive.",
+    ],
+    selfRejectLoop: [
+      "Reject outputs with a catalog-like title.",
+      "Reject outputs with a description that is too short or too generic.",
+      "Reject outputs where the chosen keyword logic is not naturally woven into the description.",
+      "Reject outputs where the tags overuse the same root noun.",
+      "Before finalizing, silently reject outputs that copy weak competitor patterns.",
     ],
   },
+  imageRole:
+    "You write safe Etsy merchandising prompts for an existing product reference image.",
+  imageVisualObjectives: [
+    "Think like an Etsy thumbnail or listing-gallery image, not a random stock photo.",
+    "Make the product readable even at thumbnail size.",
+    "Keep the scene attention-grabbing, clean, and commercial without stealing focus from the product.",
+    "Let the presentation feel premium, trustworthy, and consistent with the product's likely Etsy positioning.",
+  ],
+  imageGuardrails: [
+    "Do not redesign, reinterpret, embellish, or reconstruct the product.",
+    "Do not change form, color, material feel, pattern, print, stitching, hardware, proportions, or structural parts.",
+    "Do not invent missing details or add accessories that alter what the customer thinks is included.",
+    "Do not hide core product details behind props, crops, blur, hands, or effects.",
+    "Do not make the product look like a different colorway, material, finish, or variant.",
+    "Do not include URLs, prices, marketplace badges, origin claims, warranties, or raw product JSON dumps.",
+  ],
+  imageQualityGate: [
+    "Before finalizing, silently confirm the product still matches the reference image.",
+    "Silently reject any scene where props, styling, or crop overpower the product.",
+    "Silently reject any composition where the product is not clearly readable at Etsy thumbnail size.",
+    "Silently reject any result that feels clicky but misleading, untrustworthy, or generically stock-photo-like.",
+  ],
+  imageCreativeDirection: [
+    "Use lighting, camera angle, crop, background simplicity, and restrained props to support the product instead of overpowering it.",
+    "Keep prop density low and supportive.",
+    "Prefer clean Etsy-friendly composition over cinematic excess.",
+  ],
   outputContracts: {
     listing: {
       type: "json",

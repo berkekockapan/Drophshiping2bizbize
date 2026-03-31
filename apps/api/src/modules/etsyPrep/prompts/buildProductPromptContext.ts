@@ -8,6 +8,18 @@ import {
   stripBrandFromText,
 } from "./promptSanitizers";
 
+type SourceAttribute = {
+  key: string | null;
+  value: string | null;
+};
+
+type SourceVariant = {
+  variantKey: string;
+  option1: string | null;
+  option2: string | null;
+  option3: string | null;
+};
+
 export interface ProductPromptContext {
   sourceTitle: string;
   brand: string | null;
@@ -62,23 +74,23 @@ export function buildProductPromptContext(detail: EtsyPrepView): ProductPromptCo
   const listingSourceTitle = stripBrandFromText(sourceTitle, brand) || sanitizeFactText(detail.product.category) || "Untitled product";
   const category = sanitizeFactText(detail.product.category) || null;
 
-  const attributes = (detail.product.attributes ?? [])
+  const attributes = ((detail.product.attributes ?? []) as SourceAttribute[])
     .filter((attribute) => isUsefulAttribute(attribute.key))
-    .map((attribute) => {
+    .map((attribute: SourceAttribute) => {
       const key = sanitizeFactText(attribute.key);
       const value = sanitizeFactText(attribute.value);
       return key && value ? { key, value } : null;
     })
     .filter((attribute): attribute is { key: string; value: string } => Boolean(attribute));
 
-  const variants = (detail.variants ?? []).map((variant) => ({
+  const variants = ((detail.variants ?? []) as SourceVariant[]).map((variant: SourceVariant) => ({
     variantKey: sanitizeFactText(variant.variantKey) || variant.variantKey,
     option1: sanitizeFactText(variant.option1) || null,
     option2: sanitizeFactText(variant.option2) || null,
     option3: sanitizeFactText(variant.option3) || null,
   }));
 
-  const images = (detail.product.images ?? []).map((_, index) => `reference-image-${index + 1}`);
+  const images = (detail.product.images ?? []).map((_: string, index: number) => `reference-image-${index + 1}`);
   const existingDraftTags = (detail.draft.tags ?? [])
     .map((tag) => stripBrandFromText(tag, brand))
     .filter(Boolean);
@@ -92,7 +104,7 @@ export function buildProductPromptContext(detail: EtsyPrepView): ProductPromptCo
     category ? `Category: ${category}` : null,
     ...sourceFacts,
     ...attributes
-      .map((attribute) => stripBrandFromText(`${attribute.key}: ${attribute.value}`, brand))
+      .map((attribute: { key: string; value: string }) => stripBrandFromText(`${attribute.key}: ${attribute.value}`, brand))
       .filter(Boolean),
     summarizeVariants(detail),
     existingDraftTitle ? `Existing draft title: ${existingDraftTitle}` : null,
@@ -120,7 +132,7 @@ export function buildProductPromptContext(detail: EtsyPrepView): ProductPromptCo
         `Product title: ${sourceTitle}`,
         brand ? `Brand: ${brand}` : null,
         category ? `Category: ${category}` : null,
-        ...attributes.slice(0, 4).map((attribute) => `${attribute.key}: ${attribute.value}`),
+        ...attributes.slice(0, 4).map((attribute: { key: string; value: string }) => `${attribute.key}: ${attribute.value}`),
         summarizeVariants(detail),
       ]),
     },

@@ -56,14 +56,27 @@ function createBootstrapPayload() {
   };
 }
 
+const imageVariations = [
+  "Same exact product from the reference image. Etsy hero clean product shot. Centered composition with the product dominant in frame and strong thumbnail readability.",
+  "Same exact product from the reference image. Etsy hero clean product shot. Close three-quarter framing that keeps the full silhouette readable.",
+  "Same exact product from the reference image. Etsy hero clean product shot. Front-biased tabletop angle with generous breathing room around the product.",
+  "Same exact product from the reference image. Etsy hero clean product shot. Tight but complete framing that highlights the main silhouette and key surface detail.",
+  "Same exact product from the reference image. Lifestyle scene. Natural in-context framing with the product still dominant in frame.",
+  "Same exact product from the reference image. Lifestyle scene. Shelf or surface setup with balanced negative space and a readable silhouette.",
+  "Same exact product from the reference image. Lifestyle scene. Medium framing that shows the product clearly before any surrounding context.",
+  "Same exact product from the reference image. Lifestyle scene. Readable contextual composition with the product still owning the center of attention.",
+  "Same exact product from the reference image. Editorial attention-grabber. Refined product-first composition with stronger visual hierarchy.",
+  "Same exact product from the reference image. Editorial attention-grabber. Sophisticated close framing that keeps defining details obvious.",
+];
+
 function createPromptPackPayload() {
   const researchPrompt = [
     "Role",
-    "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+    "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
     "",
     "Research First",
-    "- Inspect Etsy Seller Handbook guidance.",
-    "- Review competing listings for this product category.",
+    "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+    "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
     "",
     "Output",
     "1. Title",
@@ -80,8 +93,8 @@ function createPromptPackPayload() {
   ].join("\n");
 
   return {
-    rulebookVersion: "etsy-prompt-pack-v1",
-    generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+    rulebookVersion: "etsy-prompt-pack-v2",
+    generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
     productSnapshot: {
       productId: "prod_1",
       title: "Oversize Hoodie",
@@ -102,17 +115,15 @@ function createPromptPackPayload() {
       expectedSections: ["title", "description", "tags"],
     },
     imagePromptPack: {
-      mainPrompt: "Use the manual reference image as the single source of truth for the product.",
-      variations: [
-        "Bright studio tabletop scene with a clean front angle and minimal props.",
-        "Soft morning window light with a slight top-down camera angle.",
-        "Neutral lifestyle shelf setup with shallow depth and tidy styling.",
-        "Warm gift-table composition with centered framing and soft shadows.",
-        "Editorial catalog shot with crisp side angle and muted backdrop.",
-        "Minimal fabric backdrop with close three-quarter framing.",
-        "Airy home desk setting with natural light and restrained accessories.",
-      ],
-      guardrailSummary: ["Do not redesign the product."],
+      mainPrompt: [
+        "Reference Truth",
+        "- The manual reference image is the single source of truth for the exact product.",
+        "",
+        "Etsy Visual Objective",
+        "- Make the product readable even at thumbnail size.",
+      ].join("\n"),
+      variations: imageVariations,
+      guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
     },
   };
 }
@@ -166,7 +177,7 @@ describe("EtsyPrepWorkspace", () => {
       if (url.includes("/products/prod_1/etsy-prep/generate-listing-pack") && init?.method === "POST") {
         return jsonResponse({
           provider: "openai-oauth",
-          rulebookVersion: "etsy-prompt-pack-v1",
+          rulebookVersion: "etsy-prompt-pack-v2",
           result: {
             title: "Handmade Oversize Hoodie",
             description: "Soft cotton hoodie for everyday wear.",
@@ -205,11 +216,11 @@ describe("EtsyPrepWorkspace", () => {
       1,
       [
         "Role",
-        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+        "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
         "",
         "Research First",
-        "- Inspect Etsy Seller Handbook guidance.",
-        "- Review competing listings for this product category.",
+        "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+        "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
         "",
         "Output",
         "1. Title",
@@ -235,24 +246,22 @@ describe("EtsyPrepWorkspace", () => {
     await user.click(screen.getByRole("button", { name: /ana promptu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
       3,
-      "Use the manual reference image as the single source of truth for the product.",
-    );
-
-    await user.click(screen.getByRole("button", { name: /7 varyasyonu kopyala/i }));
-    expect(clipboardWrite).toHaveBeenNthCalledWith(
-      4,
       [
-        "1. Bright studio tabletop scene with a clean front angle and minimal props.",
-        "2. Soft morning window light with a slight top-down camera angle.",
-        "3. Neutral lifestyle shelf setup with shallow depth and tidy styling.",
-        "4. Warm gift-table composition with centered framing and soft shadows.",
-        "5. Editorial catalog shot with crisp side angle and muted backdrop.",
-        "6. Minimal fabric backdrop with close three-quarter framing.",
-        "7. Airy home desk setting with natural light and restrained accessories.",
+        "Reference Truth",
+        "- The manual reference image is the single source of truth for the exact product.",
+        "",
+        "Etsy Visual Objective",
+        "- Make the product readable even at thumbnail size.",
       ].join("\n"),
     );
 
-    expect(screen.getByText("Use the manual reference image as the single source of truth for the product.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /10 varyasyonu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      4,
+      imageVariations.map((variation, index) => `${index + 1}. ${variation}`).join("\n"),
+    );
+
+    expect(screen.getByText(/reference truth/i)).toBeInTheDocument();
     expect(screen.queryByText(/PRODUCT_CONTEXT|https:\/\/cdn\.example\.com/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /ai ile uret/i }));
@@ -336,11 +345,11 @@ describe("EtsyPrepWorkspace", () => {
       1,
       [
         "Role",
-        "You are an Etsy listing strategist, Etsy copywriter, and policy-aware SEO assistant.",
+        "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
         "",
         "Research First",
-        "- Inspect Etsy Seller Handbook guidance.",
-        "- Review competing listings for this product category.",
+        "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+        "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
         "",
         "Output",
         "1. Title",
@@ -366,24 +375,22 @@ describe("EtsyPrepWorkspace", () => {
     await user.click(screen.getByRole("button", { name: /ana promptu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
       3,
-      "Use the manual reference image as the single source of truth for the product.",
-    );
-
-    await user.click(screen.getByRole("button", { name: /7 varyasyonu kopyala/i }));
-    expect(clipboardWrite).toHaveBeenNthCalledWith(
-      4,
       [
-        "1. Bright studio tabletop scene with a clean front angle and minimal props.",
-        "2. Soft morning window light with a slight top-down camera angle.",
-        "3. Neutral lifestyle shelf setup with shallow depth and tidy styling.",
-        "4. Warm gift-table composition with centered framing and soft shadows.",
-        "5. Editorial catalog shot with crisp side angle and muted backdrop.",
-        "6. Minimal fabric backdrop with close three-quarter framing.",
-        "7. Airy home desk setting with natural light and restrained accessories.",
+        "Reference Truth",
+        "- The manual reference image is the single source of truth for the exact product.",
+        "",
+        "Etsy Visual Objective",
+        "- Make the product readable even at thumbnail size.",
       ].join("\n"),
     );
 
-    expect(screen.getByText("Use the manual reference image as the single source of truth for the product.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /10 varyasyonu kopyala/i }));
+    expect(clipboardWrite).toHaveBeenNthCalledWith(
+      4,
+      imageVariations.map((variation, index) => `${index + 1}. ${variation}`).join("\n"),
+    );
+
+    expect(screen.getByText(/reference truth/i)).toBeInTheDocument();
     expect(screen.queryByText(/PRODUCT_CONTEXT|https:\/\/cdn\.example\.com/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /ai ile uret/i }));

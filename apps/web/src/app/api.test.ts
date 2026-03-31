@@ -138,7 +138,7 @@ describe("app api", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          rulebookVersion: "etsy-prompt-pack-v1",
+          rulebookVersion: "etsy-prompt-pack-v2",
           generatedAt: 1774742400000,
           productSnapshot: {
             productId: "prod_1",
@@ -150,13 +150,24 @@ describe("app api", () => {
             imageCount: 1,
           },
           listingPromptPack: {
-            prompt: "Return ONLY valid JSON.",
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
             outputContract: { type: "json", fields: ["title", "description", "tags"] },
           },
+          systemListingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          chatGptResearchPromptPack: {
+            prompt:
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
+            outputFormat: "sectioned-text",
+            researchMode: "required",
+            expectedSections: ["title", "description", "tags"],
+          },
           imagePromptPack: {
-            mainPrompt: "Use the reference image.",
-            variations: ["a", "b", "c", "d", "e", "f", "g"],
-            guardrailSummary: ["Urun formunu degistirme"],
+            mainPrompt: "Reference Truth\n- The manual reference image is the single source of truth for the exact product.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"],
+            guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
           },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -170,7 +181,8 @@ describe("app api", () => {
       "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.imagePromptPack.variations).toHaveLength(7);
+    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v2");
+    expect(result.imagePromptPack.variations).toHaveLength(10);
   });
 
   it("posts to generate-listing-pack and returns the parsed result", async () => {

@@ -338,8 +338,8 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
         return jsonResponse({
-          rulebookVersion: "etsy-prompt-pack-v1",
-          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+          rulebookVersion: "etsy-prompt-pack-v2",
+          generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
           productSnapshot: {
             productId: "prod_1",
             title: "Oversize Hoodie",
@@ -353,10 +353,20 @@ describe("ProductDetailPage", () => {
             prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
             outputContract: { type: "json", fields: ["title", "description", "tags"] },
           },
+          systemListingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          chatGptResearchPromptPack: {
+            prompt: "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+            outputFormat: "sectioned-text",
+            researchMode: "required",
+            expectedSections: ["title", "description", "tags"],
+          },
           imagePromptPack: {
-            mainPrompt: "Use the reference image as truth.",
-            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
-            guardrailSummary: ["Urun formunu degistirme"],
+            mainPrompt: "Reference Truth\n- The manual reference image is the single source of truth for the exact product.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"],
+            guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
           },
         });
       }

@@ -138,7 +138,7 @@ describe("app api", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          rulebookVersion: "etsy-prompt-pack-v4",
+          rulebookVersion: "etsy-prompt-pack-v6",
           generatedAt: 1774742400000,
           productSnapshot: {
             productId: "prod_1",
@@ -159,7 +159,7 @@ describe("app api", () => {
           },
           chatGptResearchPromptPack: {
             prompt:
-              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nUse truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.\nDo not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.\nReject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
             outputFormat: "sectioned-text",
             researchMode: "required",
             expectedSections: ["title", "description", "tags"],
@@ -181,7 +181,7 @@ describe("app api", () => {
       "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v4");
+    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v6");
     expect(result.imagePromptPack.variations).toHaveLength(10);
   });
 

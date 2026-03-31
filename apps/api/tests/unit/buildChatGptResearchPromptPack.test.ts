@@ -59,8 +59,28 @@ describe("buildChatGptResearchPromptPack", () => {
     expect(pack.prompt).toContain("Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.");
     expect(pack.prompt).toContain("Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.");
     expect(pack.prompt).toContain("Reject tags that combine a raw measurement with a generic noun unless the phrase sounds like a real Etsy buyer search.");
+    expect(pack.prompt).toContain(
+      "Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+    );
+    expect(pack.prompt).toContain("Do not reject a tag only because it is broad.");
+    expect(pack.prompt).toContain(
+      "Keep broader material or color tags only when they add distinct search intent not already covered by stronger product-type tags.",
+    );
+    expect(pack.prompt).toContain(
+      "Do not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.",
+    );
+    expect(pack.prompt).toContain(
+      "Gift-intent tags should use a clear recipient or occasion when supported by product facts; avoid vague material-plus-gift phrasing.",
+    );
     expect(pack.prompt).toContain("Replace the weakest 3 tags before finalizing.");
     expect(pack.prompt).toContain("Reject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.");
+    expect(pack.prompt).toContain(
+      "Reject any tag set where more than 2 tags rely on generic fallback nouns such as jewelry or accessory.",
+    );
+    expect(pack.prompt).toContain(
+      "Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+    );
+    expect(pack.prompt).toContain("Reject a broad tag only when it adds no distinct buyer intent beyond stronger tags already in the set.");
     expect(pack.prompt).toContain("Reject any tag set where more than 2 tags are minor rewrites of each other.");
     expect(pack.prompt).toContain(
       "Reject any tag set that misses recipient, use-case, or differentiator coverage when supported by product facts.",

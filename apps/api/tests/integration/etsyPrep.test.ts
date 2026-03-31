@@ -342,7 +342,7 @@ describe("etsy prep", () => {
     const payload = await response.json();
     expect(payload).toEqual(
       expect.objectContaining({
-        rulebookVersion: "etsy-prompt-pack-v4",
+        rulebookVersion: "etsy-prompt-pack-v6",
         systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
@@ -375,6 +375,13 @@ describe("etsy prep", () => {
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
       "Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain("Do not reject a tag only because it is broad.");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
     );
     expect(payload.imagePromptPack.mainPrompt).toContain("Silent Quality Gate");
     expect(payload.imagePromptPack.variations).toHaveLength(10);

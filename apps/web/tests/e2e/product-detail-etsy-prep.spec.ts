@@ -247,7 +247,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        rulebookVersion: "etsy-prompt-pack-v4",
+        rulebookVersion: "etsy-prompt-pack-v6",
         generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
         productSnapshot: {
           productId: "prod_1",
@@ -268,7 +268,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
         },
         chatGptResearchPromptPack: {
           prompt:
-            "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nUse truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.\nDo not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.\nReject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.",
+            "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
           outputFormat: "sectioned-text",
           researchMode: "required",
           expectedSections: ["title", "description", "tags"],
@@ -362,7 +362,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         provider: "openai-oauth",
-        rulebookVersion: "etsy-prompt-pack-v4",
+        rulebookVersion: "etsy-prompt-pack-v6",
         result: {
           title: "Handmade Oversize Hoodie",
           description: "Soft cotton hoodie for everyday wear.",
@@ -416,13 +416,13 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
   const imageCard = page.getByRole("heading", { name: /gorsel prompt pack/i }).locator("xpath=ancestor::section[1]");
 
   await expect(page.getByRole("heading", { name: /listing prompt pack/i })).toBeVisible();
-  await expect(page.getByText(/rulebook: etsy-prompt-pack-v4/i)).toBeVisible();
+  await expect(page.getByText(/rulebook: etsy-prompt-pack-v6/i)).toBeVisible();
   await expect(page.getByText(/chatgpt research mode/i)).toBeVisible();
   await expect(page.getByText(/system generate mode/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /chatgpt arastirma promptunu kopyala/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /sistem promptunu kopyala/i })).toBeVisible();
   await expect(page.getByText(/generate 30 candidate etsy search phrases first/i)).toBeVisible();
-  await expect(page.getByText(/do not call an item vintage unless the product facts explicitly confirm etsy-vintage eligibility/i)).toBeVisible();
+  await expect(page.getByText(/treat size tags as optional/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /10 varyasyonu kopyala/i })).toBeVisible();
   await expect(listingCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();

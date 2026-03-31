@@ -86,6 +86,10 @@ const researchPromptLines = [
   "- No more than 4 tags may use the same main noun root.",
   "- No more than 5 tags may repeat the same adjective root.",
   "- Reject tags that combine a raw measurement with a generic noun unless the phrase sounds like a real Etsy buyer search.",
+  "- Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+  "- Do not reject a tag only because it is broad.",
+  "- Keep broader material or color tags only when they add distinct search intent not already covered by stronger product-type tags.",
+  "- Do not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.",
   "- Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.",
   "- Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.",
   "- Replace the weakest 3 tags before finalizing.",
@@ -95,6 +99,10 @@ const researchPromptLines = [
   "- Reject any tag set where color repetition crowds out other buyer intents.",
   "- Reject any tag set where more than 2 tags feel like minor rewrites.",
   "- Reject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.",
+  "- Reject any tag set where a size-based tag survives even though stronger material, style, recipient, or use-case tags are available.",
+  "- Reject a broad tag only when it adds no distinct buyer intent beyond stronger tags already in the set.",
+  "- Reject any tag set where more than 2 tags rely on generic fallback nouns such as jewelry or accessory.",
+  "- Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
   "- Reject any output that uses vintage language without explicit proof that the item qualifies as vintage on Etsy.",
   "",
   "Output",
@@ -115,7 +123,7 @@ function createPromptPackPayload() {
   ].join("\n");
 
   return {
-    rulebookVersion: "etsy-prompt-pack-v4",
+    rulebookVersion: "etsy-prompt-pack-v6",
     generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
     productSnapshot: {
       productId: "prod_1",
@@ -199,7 +207,7 @@ describe("EtsyPrepWorkspace", () => {
       if (url.includes("/products/prod_1/etsy-prep/generate-listing-pack") && init?.method === "POST") {
         return jsonResponse({
           provider: "openai-oauth",
-          rulebookVersion: "etsy-prompt-pack-v4",
+          rulebookVersion: "etsy-prompt-pack-v6",
           result: {
             title: "Handmade Oversize Hoodie",
             description: "Soft cotton hoodie for everyday wear.",

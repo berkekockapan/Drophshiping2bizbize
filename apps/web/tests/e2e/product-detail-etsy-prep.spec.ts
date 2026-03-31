@@ -267,7 +267,8 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
           outputContract: { type: "json", fields: ["title", "description", "tags"] },
         },
         chatGptResearchPromptPack: {
-          prompt: "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+          prompt:
+            "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nKeep every tag at 20 characters or fewer.\nNo more than 4 tags may use the same main noun root.\nReplace the weakest 3 tags before finalizing.",
           outputFormat: "sectioned-text",
           researchMode: "required",
           expectedSections: ["title", "description", "tags"],
@@ -420,6 +421,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
   await expect(page.getByText(/system generate mode/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /chatgpt arastirma promptunu kopyala/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /sistem promptunu kopyala/i })).toBeVisible();
+  await expect(page.getByText(/generate 30 candidate etsy search phrases first/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /10 varyasyonu kopyala/i })).toBeVisible();
   await expect(listingCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();

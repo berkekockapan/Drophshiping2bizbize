@@ -159,7 +159,7 @@ describe("app api", () => {
           },
           chatGptResearchPromptPack: {
             prompt:
-              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nKeep every tag at 20 characters or fewer.\nNo more than 4 tags may use the same main noun root.\nReplace the weakest 3 tags before finalizing.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
             outputFormat: "sectioned-text",
             researchMode: "required",
             expectedSections: ["title", "description", "tags"],

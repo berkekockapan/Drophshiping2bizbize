@@ -33,7 +33,7 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildChatGptResearchPromptPack", () => {
-  it("forces handbook + competitor research, sharper SEO rules, and a self-reject loop", () => {
+  it("forces handbook + competitor research, hardened tag strategy, and a stricter self-reject loop", () => {
     const pack = buildChatGptResearchPromptPack(detail);
 
     expect(pack.outputFormat).toBe("sectioned-text");
@@ -49,6 +49,19 @@ describe("buildChatGptResearchPromptPack", () => {
     expect(pack.prompt).toContain("Reject any title draft that feels catalog-like, empty, or overextended.");
     expect(pack.prompt).toContain(
       "Reject any description draft that is too short, too generic, or fails to naturally distribute the chosen tag logic.",
+    );
+    expect(pack.prompt).toContain("Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.");
+    expect(pack.prompt).toContain("Use all 13 tags.");
+    expect(pack.prompt).toContain("Keep every tag at 20 characters or fewer.");
+    expect(pack.prompt).toContain("No more than 4 tags may use the same main noun root such as bracelet.");
+    expect(pack.prompt).toContain("No more than 5 tags may repeat the same adjective root such as pink.");
+    expect(pack.prompt).toContain(
+      "Avoid unsupported claims such as handmade, stretch, adjustable, gemstone, healing, crystal, or hypoallergenic unless explicitly supported by product facts.",
+    );
+    expect(pack.prompt).toContain("Replace the weakest 3 tags before finalizing.");
+    expect(pack.prompt).toContain("Reject any tag set where more than 2 tags are minor rewrites of each other.");
+    expect(pack.prompt).toContain(
+      "Reject any tag set that misses recipient, use-case, or differentiator coverage when supported by product facts.",
     );
     expect(pack.prompt).toContain("Before finalizing, silently reject outputs that copy weak competitor patterns.");
     expect(pack.prompt).toContain("Internal-only source brand hint:");

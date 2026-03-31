@@ -342,7 +342,7 @@ describe("etsy prep", () => {
     const payload = await response.json();
     expect(payload).toEqual(
       expect.objectContaining({
-        rulebookVersion: "etsy-prompt-pack-v2",
+        rulebookVersion: "etsy-prompt-pack-v3",
         systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
@@ -366,6 +366,9 @@ describe("etsy prep", () => {
     expect(payload.systemListingPromptPack.prompt).toContain("exactly 13 unique entries");
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
       "Silently choose exactly 1 primary keyword angle and exactly 2 supporting keyword angles before drafting.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.",
     );
     expect(payload.imagePromptPack.mainPrompt).toContain("Silent Quality Gate");
     expect(payload.imagePromptPack.variations).toHaveLength(10);

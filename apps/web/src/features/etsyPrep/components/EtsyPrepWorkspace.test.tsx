@@ -69,20 +69,36 @@ const imageVariations = [
   "Same exact product from the reference image. Editorial attention-grabber. Sophisticated close framing that keeps defining details obvious.",
 ];
 
+const researchPromptLines = [
+  "Role",
+  "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
+  "",
+  "Research First",
+  "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
+  "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
+  "",
+  "Tag Strategy",
+  "- Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.",
+  "- Use all 13 tags.",
+  "- Keep every tag at 20 characters or fewer.",
+  "- At least 8 tags must pair a concrete product anchor with a differentiator.",
+  "- No more than 4 tags may use the same main noun root.",
+  "- No more than 5 tags may repeat the same adjective root.",
+  "- Replace the weakest 3 tags before finalizing.",
+  "",
+  "Tag Self-Reject",
+  "- Reject any tag set where the same product noun dominates too many tags.",
+  "- Reject any tag set where color repetition crowds out other buyer intents.",
+  "- Reject any tag set where more than 2 tags feel like minor rewrites.",
+  "",
+  "Output",
+  "1. Title",
+  "2. Description",
+  "3. Tags",
+];
+
 function createPromptPackPayload() {
-  const researchPrompt = [
-    "Role",
-    "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
-    "",
-    "Research First",
-    "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
-    "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
-    "",
-    "Output",
-    "1. Title",
-    "2. Description",
-    "3. Tags",
-  ].join("\n");
+  const researchPrompt = researchPromptLines.join("\n");
 
   const systemPrompt = [
     "Role",
@@ -214,19 +230,7 @@ describe("EtsyPrepWorkspace", () => {
     await user.click(await screen.findByRole("button", { name: /chatgpt arastirma promptunu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
       1,
-      [
-        "Role",
-        "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
-        "",
-        "Research First",
-        "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
-        "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
-        "",
-        "Output",
-        "1. Title",
-        "2. Description",
-        "3. Tags",
-      ].join("\n"),
+      researchPromptLines.join("\n"),
     );
 
     await user.click(screen.getByRole("button", { name: /sistem promptunu kopyala/i }));
@@ -343,19 +347,7 @@ describe("EtsyPrepWorkspace", () => {
     await user.click(await screen.findByRole("button", { name: /chatgpt arastirma promptunu kopyala/i }));
     expect(clipboardWrite).toHaveBeenNthCalledWith(
       1,
-      [
-        "Role",
-        "You are an Etsy SEO strategist, buyer-intent keyword researcher, and conversion-focused copywriter.",
-        "",
-        "Research First",
-        "- Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.",
-        "- Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
-        "",
-        "Output",
-        "1. Title",
-        "2. Description",
-        "3. Tags",
-      ].join("\n"),
+      researchPromptLines.join("\n"),
     );
 
     await user.click(screen.getByRole("button", { name: /sistem promptunu kopyala/i }));

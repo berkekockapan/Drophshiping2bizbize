@@ -342,7 +342,7 @@ describe("etsy prep", () => {
     const payload = await response.json();
     expect(payload).toEqual(
       expect.objectContaining({
-        rulebookVersion: "etsy-prompt-pack-v3",
+        rulebookVersion: "etsy-prompt-pack-v4",
         systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
@@ -369,6 +369,12 @@ describe("etsy prep", () => {
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
       "Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.",
     );
     expect(payload.imagePromptPack.mainPrompt).toContain("Silent Quality Gate");
     expect(payload.imagePromptPack.variations).toHaveLength(10);

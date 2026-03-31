@@ -138,7 +138,7 @@ describe("app api", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          rulebookVersion: "etsy-prompt-pack-v2",
+          rulebookVersion: "etsy-prompt-pack-v4",
           generatedAt: 1774742400000,
           productSnapshot: {
             productId: "prod_1",
@@ -159,7 +159,7 @@ describe("app api", () => {
           },
           chatGptResearchPromptPack: {
             prompt:
-              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nKeep every tag at 20 characters or fewer.\nNo more than 4 tags may use the same main noun root.\nReplace the weakest 3 tags before finalizing.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nUse truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.\nDo not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.\nReject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
             outputFormat: "sectioned-text",
             researchMode: "required",
             expectedSections: ["title", "description", "tags"],
@@ -181,7 +181,7 @@ describe("app api", () => {
       "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v2");
+    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v4");
     expect(result.imagePromptPack.variations).toHaveLength(10);
   });
 

@@ -338,7 +338,7 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
         return jsonResponse({
-          rulebookVersion: "etsy-prompt-pack-v2",
+          rulebookVersion: "etsy-prompt-pack-v4",
           generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
           productSnapshot: {
             productId: "prod_1",
@@ -359,7 +359,7 @@ describe("ProductDetailPage", () => {
           },
           chatGptResearchPromptPack: {
             prompt:
-              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nKeep every tag at 20 characters or fewer.\nNo more than 4 tags may use the same main noun root.\nReplace the weakest 3 tags before finalizing.",
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nUse truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.\nDo not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.\nReject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.",
             outputFormat: "sectioned-text",
             researchMode: "required",
             expectedSections: ["title", "description", "tags"],

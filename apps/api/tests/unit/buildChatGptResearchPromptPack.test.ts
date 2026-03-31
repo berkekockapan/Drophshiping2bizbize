@@ -33,7 +33,7 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildChatGptResearchPromptPack", () => {
-  it("forces handbook + competitor research, hardened tag strategy, and a stricter self-reject loop", () => {
+  it("forces handbook + competitor research, truthful claim handling, and a stricter tag self-reject loop", () => {
     const pack = buildChatGptResearchPromptPack(detail);
 
     expect(pack.outputFormat).toBe("sectioned-text");
@@ -53,16 +53,19 @@ describe("buildChatGptResearchPromptPack", () => {
     expect(pack.prompt).toContain("Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.");
     expect(pack.prompt).toContain("Use all 13 tags.");
     expect(pack.prompt).toContain("Keep every tag at 20 characters or fewer.");
+    expect(pack.prompt).toContain("Every tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.");
     expect(pack.prompt).toContain("No more than 4 tags may use the same main noun root such as bracelet.");
     expect(pack.prompt).toContain("No more than 5 tags may repeat the same adjective root such as pink.");
-    expect(pack.prompt).toContain(
-      "Avoid unsupported claims such as handmade, stretch, adjustable, gemstone, healing, crystal, or hypoallergenic unless explicitly supported by product facts.",
-    );
+    expect(pack.prompt).toContain("Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.");
+    expect(pack.prompt).toContain("Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.");
+    expect(pack.prompt).toContain("Reject tags that combine a raw measurement with a generic noun unless the phrase sounds like a real Etsy buyer search.");
     expect(pack.prompt).toContain("Replace the weakest 3 tags before finalizing.");
+    expect(pack.prompt).toContain("Reject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.");
     expect(pack.prompt).toContain("Reject any tag set where more than 2 tags are minor rewrites of each other.");
     expect(pack.prompt).toContain(
       "Reject any tag set that misses recipient, use-case, or differentiator coverage when supported by product facts.",
     );
+    expect(pack.prompt).toContain("Reject any output that uses vintage language without explicit proof that the item qualifies as vintage on Etsy.");
     expect(pack.prompt).toContain("Before finalizing, silently reject outputs that copy weak competitor patterns.");
     expect(pack.prompt).toContain("Internal-only source brand hint:");
     expect(pack.prompt).toContain("EG BAGS");

@@ -81,15 +81,21 @@ const researchPromptLines = [
   "- Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.",
   "- Use all 13 tags.",
   "- Keep every tag at 20 characters or fewer.",
+  "- Every tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.",
   "- At least 8 tags must pair a concrete product anchor with a differentiator.",
   "- No more than 4 tags may use the same main noun root.",
   "- No more than 5 tags may repeat the same adjective root.",
+  "- Reject tags that combine a raw measurement with a generic noun unless the phrase sounds like a real Etsy buyer search.",
+  "- Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.",
+  "- Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.",
   "- Replace the weakest 3 tags before finalizing.",
   "",
   "Tag Self-Reject",
   "- Reject any tag set where the same product noun dominates too many tags.",
   "- Reject any tag set where color repetition crowds out other buyer intents.",
   "- Reject any tag set where more than 2 tags feel like minor rewrites.",
+  "- Reject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.",
+  "- Reject any output that uses vintage language without explicit proof that the item qualifies as vintage on Etsy.",
   "",
   "Output",
   "1. Title",
@@ -109,7 +115,7 @@ function createPromptPackPayload() {
   ].join("\n");
 
   return {
-    rulebookVersion: "etsy-prompt-pack-v2",
+    rulebookVersion: "etsy-prompt-pack-v4",
     generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
     productSnapshot: {
       productId: "prod_1",
@@ -193,7 +199,7 @@ describe("EtsyPrepWorkspace", () => {
       if (url.includes("/products/prod_1/etsy-prep/generate-listing-pack") && init?.method === "POST") {
         return jsonResponse({
           provider: "openai-oauth",
-          rulebookVersion: "etsy-prompt-pack-v2",
+          rulebookVersion: "etsy-prompt-pack-v4",
           result: {
             title: "Handmade Oversize Hoodie",
             description: "Soft cotton hoodie for everyday wear.",

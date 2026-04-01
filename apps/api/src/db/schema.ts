@@ -53,6 +53,52 @@ export const productCategories = sqliteTable(
   }),
 );
 
+export const sourceProducts = sqliteTable(
+  "source_products",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    sourceTitle: text("source_title").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    sourceUrlNormalized: text("source_url_normalized").notNull(),
+    sourcePlatform: text("source_platform").notNull(),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerSourceUrlUnique: uniqueIndex("source_products_owner_source_url_unique").on(
+      table.ownerKey,
+      table.sourceUrlNormalized,
+    ),
+    ownerUpdatedAtIdx: index("source_products_owner_updated_at_idx").on(table.ownerKey, table.updatedAt),
+  }),
+);
+
+export const sourceProductEtsyLinks = sqliteTable(
+  "source_product_etsy_links",
+  {
+    id: text("id").primaryKey(),
+    sourceProductId: text("source_product_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    etsyUrl: text("etsy_url").notNull(),
+    etsyUrlNormalized: text("etsy_url_normalized").notNull(),
+    etsyListingId: text("etsy_listing_id"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerEtsyUrlUnique: uniqueIndex("source_product_etsy_links_owner_etsy_url_unique").on(
+      table.ownerKey,
+      table.etsyUrlNormalized,
+    ),
+    sourceProductCreatedIdx: index("source_product_etsy_links_source_product_id_idx").on(
+      table.sourceProductId,
+      table.createdAt,
+    ),
+    ownerListingIdx: index("source_product_etsy_links_owner_listing_id_idx").on(table.ownerKey, table.etsyListingId),
+  }),
+);
+
 export const productVariants = sqliteTable(
   "product_variants",
   {
@@ -494,10 +540,14 @@ export const schema = {
   productTariffAnalysisRuns,
   productTariffSelection,
   tariffKnowledgeCandidates,
+  sourceProducts,
+  sourceProductEtsyLinks,
 };
 
 export const schemaTableNames = [
   "products",
+  "source_products",
+  "source_product_etsy_links",
   "product_variants",
   "product_current_state",
   "price_history",

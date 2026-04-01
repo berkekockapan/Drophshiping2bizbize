@@ -25,8 +25,20 @@ describe("schema integration", () => {
     const categoryColumns = database
       .prepare("pragma table_info(product_categories)")
       .all() as Array<{ name: string; dflt_value: string | null }>;
+    const sourceProductColumns = database
+      .prepare("pragma table_info(source_products)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
+    const sourceProductEtsyLinkColumns = database
+      .prepare("pragma table_info(source_product_etsy_links)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
     const productIndexes = database
       .prepare("pragma index_list(products)")
+      .all() as Array<{ name: string; partial: number }>;
+    const sourceProductIndexes = database
+      .prepare("pragma index_list(source_products)")
+      .all() as Array<{ name: string; partial: number }>;
+    const sourceProductEtsyLinkIndexes = database
+      .prepare("pragma index_list(source_product_etsy_links)")
       .all() as Array<{ name: string; partial: number }>;
     const priceColumns = database.prepare("pragma table_info(price_history)").all() as Array<{ name: string }>;
     const stockColumns = database.prepare("pragma table_info(stock_history)").all() as Array<{ name: string }>;
@@ -62,6 +74,21 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "updated_at" }),
       ]),
     );
+    expect(sourceProductColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "owner_key" }),
+        expect.objectContaining({ name: "source_url_normalized" }),
+        expect.objectContaining({ name: "source_platform" }),
+        expect.objectContaining({ name: "note" }),
+      ]),
+    );
+    expect(sourceProductEtsyLinkColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "source_product_id" }),
+        expect.objectContaining({ name: "etsy_url_normalized" }),
+        expect.objectContaining({ name: "etsy_listing_id" }),
+      ]),
+    );
     expect(notificationsColumns).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: "owner_key", dflt_value: "'berke'" })]),
     );
@@ -73,6 +100,19 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "products_owner_trendyol_active_unique", partial: 1 }),
         expect.objectContaining({ name: "products_owner_deleted_created_idx" }),
         expect.objectContaining({ name: "products_owner_category_created_idx" }),
+      ]),
+    );
+    expect(sourceProductIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "source_products_owner_source_url_unique" }),
+        expect.objectContaining({ name: "source_products_owner_updated_at_idx" }),
+      ]),
+    );
+    expect(sourceProductEtsyLinkIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "source_product_etsy_links_owner_etsy_url_unique" }),
+        expect.objectContaining({ name: "source_product_etsy_links_source_product_id_idx" }),
+        expect.objectContaining({ name: "source_product_etsy_links_owner_listing_id_idx" }),
       ]),
     );
     expect(priceColumns).toEqual(expect.arrayContaining([expect.objectContaining({ name: "refresh_audit_id" })]));

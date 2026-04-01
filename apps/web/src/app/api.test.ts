@@ -210,4 +210,102 @@ describe("app api", () => {
     );
     expect(result.result.tags).toBe("oversize hoodie, streetwear gift");
   });
+
+  it("prefixes source-products requests with VITE_API_BASE_URL", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://trendyol-etsy-api.workers.dev");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { fetchSourceProducts } = await import("./api");
+    await fetchSourceProducts("berke", "123456789");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://trendyol-etsy-api.workers.dev/owners/berke/source-products?search=123456789",
+      expect.anything(),
+    );
+  });
+
+  it("sends owner-scoped source-product detail and mutation requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/owners/berke/source-products/src_1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            product: {
+              id: "src_1",
+              ownerKey: "berke",
+              sourceTitle: "Minimal seramik kupa",
+              sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=123",
+              sourcePlatform: "SHOPIER",
+              note: "Ilk Etsy denemesi icin saklandi",
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            etsyLinks: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (method === "PATCH" || method === "POST") {
+        return new Response(
+          JSON.stringify({
+            product: {
+              id: "src_1",
+              ownerKey: "berke",
+              sourceTitle: "Minimal seramik kupa",
+              sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=123",
+              sourcePlatform: "SHOPIER",
+              note: "Guncel not",
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            etsyLinks: [],
+          }),
+          { status: method === "POST" ? 201 : 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    const {
+      addSourceProductEtsyLink,
+      deleteSourceProductEtsyLink,
+      fetchSourceProductDetail,
+      updateSourceProduct,
+    } = await import("./api");
+
+    await fetchSourceProductDetail("berke", "src_1");
+    await updateSourceProduct("berke", "src_1", { note: "Guncel not" });
+    await addSourceProductEtsyLink("berke", "src_1", { etsyUrl: "https://www.etsy.com/listing/123456789" });
+    await deleteSourceProductEtsyLink("berke", "src_1", "etsy_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1",
+      expect.anything(),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1/etsy-links",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1/etsy-links/etsy_1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
 });

@@ -1,4 +1,11 @@
-import type { GenerateListingPackResponse } from "@trendyol-etsy/shared";
+import type {
+  CreateSourceProductEtsyLinkRequest,
+  CreateSourceProductRequest,
+  GenerateListingPackResponse,
+  PatchSourceProductRequest,
+  SourceProductDetailResponse,
+  SourceProductListResponse,
+} from "@trendyol-etsy/shared";
 
 import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
 import type { EtsyCostCalculatorStorage } from "../features/etsyCostCalculator/lib/types";
@@ -856,6 +863,75 @@ export async function deleteTrackedProduct(ownerKey: OwnerKey, productId: string
 
   if (!response.ok) {
     await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function fetchSourceProducts(ownerKey: OwnerKey, search?: string | null): Promise<SourceProductListResponse> {
+  const searchParams = new URLSearchParams();
+  if (search && search.trim()) {
+    searchParams.set("search", search.trim());
+  }
+
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products${suffix}`);
+  return parseJson<SourceProductListResponse>(response);
+}
+
+export async function createSourceProduct(ownerKey: OwnerKey, payload: CreateSourceProductRequest) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function fetchSourceProductDetail(ownerKey: OwnerKey, sourceProductId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`);
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function updateSourceProduct(ownerKey: OwnerKey, sourceProductId: string, payload: PatchSourceProductRequest) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function addSourceProductEtsyLink(
+  ownerKey: OwnerKey,
+  sourceProductId: string,
+  payload: CreateSourceProductEtsyLinkRequest,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/etsy-links`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function deleteSourceProductEtsyLink(ownerKey: OwnerKey, sourceProductId: string, etsyLinkId: string) {
+  const response = await fetchWithTimeout(
+    `/owners/${ownerKey}/source-products/${sourceProductId}/etsy-links/${etsyLinkId}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (response.status !== 204) {
+    await assertOkResponse(response);
   }
 }
 

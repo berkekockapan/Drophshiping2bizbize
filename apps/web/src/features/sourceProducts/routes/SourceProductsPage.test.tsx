@@ -103,4 +103,73 @@ describe("SourceProductsPage", () => {
     await user.click(screen.getByRole("button", { name: /kategori yönet/i }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
+
+  it("submits the source-product form", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.includes("/owners/berke/source-product-categories") && method === "GET") {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/owners/berke/source-products") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            product: {
+              id: "sp_new",
+              ownerKey: "berke",
+              sourceTitle: "Yeni urun",
+              sourceUrl: "https://example.com/yeni",
+              sourcePlatform: "SHOPIER",
+              note: "not",
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+            etsyLinks: [],
+          }),
+          { status: 201, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.includes("/owners/berke/source-products") && method === "GET") {
+        return new Response(JSON.stringify({ items: [], filters: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    renderWithProviders(<SourceProductsPage />, {
+      route: "/owners/berke/source-products",
+      path: "/owners/:ownerKey/source-products",
+    });
+
+    await user.type(screen.getByLabelText(/kaynak baslik/i), "Yeni urun");
+    await user.type(screen.getByLabelText(/kaynak link/i), "https://example.com/yeni");
+    await user.selectOptions(screen.getByLabelText(/kaynak platformu/i), "SHOPIER");
+    await user.type(screen.getByLabelText(/kisisel not/i), "not");
+    await user.click(screen.getByRole("button", { name: /kaynak urunu kaydet/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/owners/berke/source-products",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            sourceTitle: "Yeni urun",
+            sourceUrl: "https://example.com/yeni",
+            sourcePlatform: "SHOPIER",
+            note: "not",
+          }),
+        }),
+      ),
+    );
+  });
 });

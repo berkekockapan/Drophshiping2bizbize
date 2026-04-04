@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CreateSourceProductRequest } from "@trendyol-etsy/shared";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
+  createSourceProduct,
   createSourceProductCategory,
   deleteSourceProduct,
   deleteSourceProductCategory,
@@ -18,6 +20,7 @@ import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 import { SourceProductCategoryManagerDialog } from "../components/SourceProductCategoryManagerDialog";
 import { SourceProductFilters } from "../components/SourceProductFilters";
+import { SourceProductForm } from "../components/SourceProductForm";
 import { SortableSourceProductSection } from "../components/SortableSourceProductSection";
 import { groupSourceProductsByCategory } from "../lib/groupSourceProductsByCategory";
 import { reorderSourceProductsInCategory } from "../lib/reorderSourceProductsInCategory";
@@ -50,6 +53,15 @@ export function SourceProductsPage() {
         categoryId: selectedCategoryId,
       }),
     ...liveSyncQueryOptions,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (payload: CreateSourceProductRequest) => createSourceProduct(ownerKey as OwnerKey, payload),
+    onSuccess: async () => {
+      setSearch("");
+      setSelectedCategoryId(null);
+      await queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] });
+    },
   });
 
   const categoryAssignmentMutation = useMutation({
@@ -144,6 +156,7 @@ export function SourceProductsPage() {
         : deleteCategoryMutation.error instanceof Error
           ? deleteCategoryMutation.error.message
           : null;
+  const createErrorMessage = createMutation.error instanceof Error ? createMutation.error.message : null;
 
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Geçersiz owner seçimi.</p>;
@@ -155,6 +168,12 @@ export function SourceProductsPage() {
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Kaynak Ürünler</p>
         <h1 className="mt-3 text-3xl font-semibold text-slate-900">Kaynak ürünler</h1>
       </section>
+
+      <SourceProductForm
+        isSubmitting={createMutation.isPending}
+        error={createErrorMessage}
+        onSubmit={(payload) => createMutation.mutate(payload)}
+      />
 
       <SourceProductFilters
         ownerKey={ownerKey}

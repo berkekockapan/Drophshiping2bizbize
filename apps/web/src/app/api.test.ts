@@ -138,7 +138,7 @@ describe("app api", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          rulebookVersion: "etsy-prompt-pack-v1",
+          rulebookVersion: "etsy-prompt-pack-v6",
           generatedAt: 1774742400000,
           productSnapshot: {
             productId: "prod_1",
@@ -150,13 +150,24 @@ describe("app api", () => {
             imageCount: 1,
           },
           listingPromptPack: {
-            prompt: "Return ONLY valid JSON.",
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
             outputContract: { type: "json", fields: ["title", "description", "tags"] },
           },
+          systemListingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          chatGptResearchPromptPack: {
+            prompt:
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
+            outputFormat: "sectioned-text",
+            researchMode: "required",
+            expectedSections: ["title", "description", "tags"],
+          },
           imagePromptPack: {
-            mainPrompt: "Use the reference image.",
-            variations: ["a", "b", "c", "d", "e", "f", "g"],
-            guardrailSummary: ["Urun formunu degistirme"],
+            mainPrompt: "Reference Truth\n- The manual reference image is the single source of truth for the exact product.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"],
+            guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
           },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -170,7 +181,8 @@ describe("app api", () => {
       "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.imagePromptPack.variations).toHaveLength(7);
+    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v6");
+    expect(result.imagePromptPack.variations).toHaveLength(10);
   });
 
   it("posts to generate-listing-pack and returns the parsed result", async () => {
@@ -197,5 +209,103 @@ describe("app api", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(result.result.tags).toBe("oversize hoodie, streetwear gift");
+  });
+
+  it("prefixes source-products requests with VITE_API_BASE_URL", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://trendyol-etsy-api.workers.dev");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const { fetchSourceProducts } = await import("./api");
+    await fetchSourceProducts("berke", "123456789");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://trendyol-etsy-api.workers.dev/owners/berke/source-products?search=123456789",
+      expect.anything(),
+    );
+  });
+
+  it("sends owner-scoped source-product detail and mutation requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/owners/berke/source-products/src_1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            product: {
+              id: "src_1",
+              ownerKey: "berke",
+              sourceTitle: "Minimal seramik kupa",
+              sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=123",
+              sourcePlatform: "SHOPIER",
+              note: "Ilk Etsy denemesi icin saklandi",
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            etsyLinks: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (method === "PATCH" || method === "POST") {
+        return new Response(
+          JSON.stringify({
+            product: {
+              id: "src_1",
+              ownerKey: "berke",
+              sourceTitle: "Minimal seramik kupa",
+              sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=123",
+              sourcePlatform: "SHOPIER",
+              note: "Guncel not",
+              createdAt: 1,
+              updatedAt: 2,
+            },
+            etsyLinks: [],
+          }),
+          { status: method === "POST" ? 201 : 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    const {
+      addSourceProductEtsyLink,
+      deleteSourceProductEtsyLink,
+      fetchSourceProductDetail,
+      updateSourceProduct,
+    } = await import("./api");
+
+    await fetchSourceProductDetail("berke", "src_1");
+    await updateSourceProduct("berke", "src_1", { note: "Guncel not" });
+    await addSourceProductEtsyLink("berke", "src_1", { etsyUrl: "https://www.etsy.com/listing/123456789" });
+    await deleteSourceProductEtsyLink("berke", "src_1", "etsy_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1",
+      expect.anything(),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1/etsy-links",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/owners/berke/source-products/src_1/etsy-links/etsy_1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 });

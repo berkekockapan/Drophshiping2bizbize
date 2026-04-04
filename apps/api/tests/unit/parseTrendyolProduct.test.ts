@@ -262,7 +262,7 @@ describe("parseTrendyolProduct", () => {
     ]);
   });
 
-  it("prefers merchant winner selling price over mismatched product variant price", () => {
+  it("prefers merchant winner basket price over mismatched product variant price", () => {
     const parsed = parseTrendyolProduct(`
       <!doctype html>
       <html>
@@ -294,7 +294,8 @@ describe("parseTrendyolProduct", () => {
                       "discountedPrice": { "value": 47.4, "text": "47,40 TL" },
                       "sellingPrice": { "value": 49.9, "text": "49,90 TL" },
                       "originalPrice": { "value": 49.9, "text": "49,90 TL" },
-                      "couponApplicablePrice": { "value": 47.4, "text": "47,40 TL" }
+                      "couponApplicablePrice": { "value": 47.4, "text": "47,40 TL" },
+                      "tyPlusCouponApplicablePrice": { "value": 46.8, "text": "46,80 TL" }
                     },
                     "inStock": true
                   },
@@ -342,11 +343,11 @@ describe("parseTrendyolProduct", () => {
     `);
 
     expect(parsed.title).toBe("ERKUGO Boğumlu Kahve Bardağı, Borosilikat Sunum Bardağı, Isı Dayanıklı Bardak (350 ML) Bubblecup");
-    expect(parsed.price).toBe(4990);
+    expect(parsed.price).toBe(4680);
     expect(parsed.variants).toEqual([
       expect.objectContaining({
         variantKey: "1163720857",
-        price: 4990,
+        price: 4680,
       }),
     ]);
   });

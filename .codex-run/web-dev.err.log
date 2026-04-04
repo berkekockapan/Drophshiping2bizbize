@@ -1,0 +1,373 @@
+[2m00:03:11[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8787
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m00:03:16[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8787
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m00:03:17[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /owners/berke/products/refresh-runs/active[39m
+Error: connect ECONNREFUSED 127.0.0.1:8787
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m00:03:17[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /owners/berke/categories[39m
+Error: connect ECONNREFUSED 127.0.0.1:8787
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m00:03:17[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /owners/berke/products[39m
+Error: connect ECONNREFUSED 127.0.0.1:8787
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m00:03:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8787
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m00:12:11[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/validation.ts:34:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/validation.ts[39m:34:0
+[33m  
+  [33mUnexpected "<<"[33m
+  32 |    }
+  33 |  
+  34 |  <<<<<<< HEAD
+     |  ^
+  35 |  =======
+  36 |    if (draft.manualDutyPercent < 0 || draft.manualDutyPercent > 100) {
+  [39m
+[2m00:12:11[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts:94:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts[39m:94:0
+[33m  
+  [33mUnexpected "<<"[33m
+  92 |        ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+  93 |        : 0;
+  94 |  <<<<<<< HEAD
+     |  ^
+  95 |  =======
+  96 |    const shipentegraImportBasisUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  [39m
+[2m00:12:11[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts:94:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts[39m:94:0
+[33m  
+  [33mUnexpected "<<"[33m
+  92 |        ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+  93 |        : 0;
+  94 |  <<<<<<< HEAD
+     |  ^
+  95 |  =======
+  96 |    const shipentegraImportBasisUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  [39m
+[2m00:12:11[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts:94:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts[39m:94:0
+[33m  
+  [33mUnexpected "<<"[33m
+  92 |        ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+  93 |        : 0;
+  94 |  <<<<<<< HEAD
+     |  ^
+  95 |  =======
+  96 |    const shipentegraImportBasisUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  [39m
+[2m00:12:11[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts:94:0: ERROR: Unexpected "<<"[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/calculateScenario.ts[39m:94:0
+[33m  
+  [33mUnexpected "<<"[33m
+  92 |        ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+  93 |        : 0;
+  94 |  <<<<<<< HEAD
+     |  ^
+  95 |  =======
+  96 |    const shipentegraImportBasisUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  [39m
+      at failureErrorWithLog (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:1748:15)
+      at C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:1017:50
+      at responseCallbacks.<computed> (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:884:9)
+      at handleIncomingPacket (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:939:12)
+      at Socket.readFromStdout (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:862:7)
+      at Socket.emit (node:events:508:20)
+      at addChunk (node:internal/streams/readable:564:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+      at Readable.push (node:internal/streams/readable:395:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m00:12:11[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/validation.ts:34:0: ERROR: Unexpected "<<"[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/features/etsyCostCalculator/lib/validation.ts[39m:34:0
+[33m  
+  [33mUnexpected "<<"[33m
+  32 |    }
+  33 |  
+  34 |  <<<<<<< HEAD
+     |  ^
+  35 |  =======
+  36 |    if (draft.manualDutyPercent < 0 || draft.manualDutyPercent > 100) {
+  [39m
+      at failureErrorWithLog (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:1748:15)
+      at C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:1017:50
+      at responseCallbacks.<computed> (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:884:9)
+      at handleIncomingPacket (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:939:12)
+      at Socket.readFromStdout (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:862:7)
+      at Socket.emit (node:events:508:20)
+      at addChunk (node:internal/streams/readable:564:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+      at Readable.push (node:internal/streams/readable:395:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+[2m00:12:50[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+C:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts:159:0: ERROR: Unexpected "<<"[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/berke/Desktop/Projelerim/dropshiping-win/apps/web/src/app/api.ts[39m:159:0
+[33m  
+  [33mUnexpected "<<"[33m
+  157 |  }
+  158 |  
+  159 |  <<<<<<< HEAD
+      |  ^
+  160 |  export interface EtsySystemListingPromptPack {
+  161 |    prompt: string;
+  [39m
+      at failureErrorWithLog (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:1748:15)
+      at C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:1017:50
+      at responseCallbacks.<computed> (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:884:9)
+      at handleIncomingPacket (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:939:12)
+      at Socket.readFromStdout (C:\Users\berke\Desktop\Projelerim\dropshiping-win\node_modules\.pnpm\esbuild@0.27.4\node_modules\esbuild\lib\main.js:862:7)
+      at Socket.emit (node:events:508:20)
+      at addChunk (node:internal/streams/readable:564:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:515:3)
+      at Readable.push (node:internal/streams/readable:395:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)

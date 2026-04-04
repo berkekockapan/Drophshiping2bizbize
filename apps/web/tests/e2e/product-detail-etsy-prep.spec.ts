@@ -15,7 +15,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     editedFields: string[];
   }> = [];
 
-  await page.route("**/products/prod_1", async (route) => {
+  await page.route("**/owners/berke/products/prod_1", async (route) => {
     const request = route.request();
     if (request.resourceType() === "document") {
       const rootResponse = await route.fetch({ url: "/" });
@@ -60,6 +60,79 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
         stockHistory: [],
         changeTimeline: [],
         notifications: [],
+        costContext: {
+          selectedVariantId: "var_1",
+          variants: [
+            {
+              variantId: "var_1",
+              label: "Tek Varyant",
+              autoProductCost: { amount: 449.9, currency: "TRY" },
+              manualProductCost: null,
+              autoShippingEstimate: { amount: 7.5, currency: "USD", sourceType: "profile_default" },
+              manualShippingCost: null,
+            },
+          ],
+          usState: {
+            status: "locked",
+            label: "hesap kilitli",
+            lockedReason: "Sistem ABD profilinden yeterince emin degil.",
+            profile: null,
+          },
+        },
+        tariffAnalysis: {
+          selection: null,
+          latestRun: {
+            id: "run_1",
+            productId: "prod_1",
+            ownerKey: "berke",
+            status: "completed",
+            usedAi: false,
+            inputSnapshot: {},
+            resultSnapshot: {
+              recommendations: [
+                {
+                  catalogId: "catalog_611020",
+                  canonicalHs6: "611020",
+                  profileName: "Pamuklu ust giysi",
+                  title: "Textile apparel",
+                  rationale: "Hoodie sinyali ile eslesti.",
+                  score: 92,
+                  usProfileId: "us_611020_2026r4",
+                  htsCode10: "6110.20.2079",
+                  generalDutyRate: 0.165,
+                  additionalDutyRate: 0,
+                  combinedDutyRate: 0.165,
+                  dutySummary: "%16.5 temel vergi + %0 ek tarife = toplam %16.5",
+                  defaultShipentegraUsd: 7.5,
+                  sourceBadges: ["Kural eslesmesi"],
+                },
+              ],
+            },
+            engineVersion: "tariff-v1",
+            createdAt: Date.parse("2026-03-20T10:00:00.000Z"),
+            completedAt: Date.parse("2026-03-20T10:00:05.000Z"),
+          },
+          recommendations: [
+            {
+              catalogId: "catalog_611020",
+              canonicalHs6: "611020",
+              profileName: "Pamuklu ust giysi",
+              title: "Textile apparel",
+              rationale: "Hoodie sinyali ile eslesti.",
+              score: 92,
+              usProfileId: "us_611020_2026r4",
+              htsCode10: "6110.20.2079",
+              generalDutyRate: 0.165,
+              additionalDutyRate: 0,
+              combinedDutyRate: 0.165,
+              dutySummary: "%16.5 temel vergi + %0 ek tarife = toplam %16.5",
+              defaultShipentegraUsd: 7.5,
+              sourceBadges: ["Kural eslesmesi"],
+            },
+          ],
+          manualSearchEnabled: true,
+          disclaimer: "Planlama amacli GTIP tahminidir.",
+        },
       }),
     });
   });
@@ -125,7 +198,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     });
   });
 
-  await page.route("**/products/prod_1/etsy-prep", async (route) => {
+  await page.route("**/owners/berke/products/prod_1/etsy-prep", async (route) => {
     if (route.request().method() !== "GET") {
       await route.continue();
       return;
@@ -169,13 +242,13 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     });
   });
 
-  await page.route("**/products/prod_1/etsy-prep/prompt-pack", async (route) => {
+  await page.route("**/owners/berke/products/prod_1/etsy-prep/prompt-pack", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        rulebookVersion: "etsy-prompt-pack-v1",
-        generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+        rulebookVersion: "etsy-prompt-pack-v6",
+        generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
         productSnapshot: {
           productId: "prod_1",
           title: "Oversize Hoodie",
@@ -185,20 +258,25 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
           variantCount: 1,
           imageCount: 1,
         },
+        listingPromptPack: {
+          prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+          outputContract: { type: "json", fields: ["title", "description", "tags"] },
+        },
         systemListingPromptPack: {
           prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
           outputContract: { type: "json", fields: ["title", "description", "tags"] },
         },
         chatGptResearchPromptPack: {
-          prompt: "Browse Etsy competitors first.\nReturn:\n1. Title\n2. Description\n3. Tags",
+          prompt:
+            "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
           outputFormat: "sectioned-text",
           researchMode: "required",
           expectedSections: ["title", "description", "tags"],
         },
         imagePromptPack: {
-          mainPrompt: "Use the reference image as truth.",
-          variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
-          guardrailSummary: ["Urun formunu degistirme"],
+          mainPrompt: "Reference Truth\n- The manual reference image is the single source of truth for the exact product.",
+          variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"],
+          guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
         },
       }),
     });
@@ -225,7 +303,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     });
   });
 
-  await page.route("**/products/prod_1/etsy-prep/analyze", async (route) => {
+  await page.route("**/owners/berke/products/prod_1/etsy-prep/analyze", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/x-ndjson" },
@@ -278,13 +356,13 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     });
   });
 
-  await page.route("**/products/prod_1/etsy-prep/generate-listing-pack", async (route) => {
+  await page.route("**/owners/berke/products/prod_1/etsy-prep/generate-listing-pack", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         provider: "openai-oauth",
-        rulebookVersion: "etsy-prompt-pack-v1",
+        rulebookVersion: "etsy-prompt-pack-v6",
         result: {
           title: "Handmade Oversize Hoodie",
           description: "Soft cotton hoodie for everyday wear.",
@@ -294,7 +372,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     });
   });
 
-  await page.route("**/products/prod_1/etsy-prep/save", async (route) => {
+  await page.route("**/owners/berke/products/prod_1/etsy-prep/save", async (route) => {
     const payload = route.request().postDataJSON() as {
       englishTitle: string | null;
       longDescription: string | null;
@@ -329,71 +407,24 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
     });
   });
 
-  await page.route("**/products/prod_1*", async (route) => {
-    const request = route.request();
-    if (request.resourceType() === "document") {
-      await route.continue();
-      return;
-    }
+  await page.goto("/owners/berke/products/prod_1");
+  await expect(page).toHaveURL(/\/owners\/berke\/products\/prod_1$/);
 
-    if (request.method() !== "GET") {
-      await route.continue();
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        product: {
-          id: "prod_1",
-          trendyolUrl: "https://www.trendyol.com/example",
-          sourceProductId: "123",
-          title: "Oversize Hoodie",
-          brand: "North Apparel",
-          category: "Sweatshirt",
-          descriptionRaw: "Yumusak dokulu oversize hoodie.",
-          attributes: [{ key: "Renk", value: "Siyah" }],
-          images: ["https://cdn.example.com/hoodie-1.jpg"],
-          status: "ACTIVE",
-          parseStatus: "OK",
-          lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
-        },
-        currentState: {
-          currentPrice: 44990,
-          minPrice: 34990,
-          maxPrice: 44990,
-          inStockVariantCount: 2,
-          totalVariantCount: 3,
-          lastChangeAt: Date.parse("2026-03-20T09:30:00.000Z"),
-          lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
-        },
-        variants: [],
-        priceHistory: [],
-        stockHistory: [],
-        changeTimeline: [],
-        notifications: [],
-      }),
-    });
-  });
-
-  await page.goto("/");
-  await page.getByRole("link", { name: /^Ürün görseli: Oversize Hoodie$/i }).click();
-  await expect(page).toHaveURL(/\/products\/prod_1$/);
-  await expect(page.getByText(/Ürün Özeti/i)).toBeVisible();
-
-  await page.getByRole("button", { name: "Etsy'e Yükle" }).click();
+  await page.getByRole("button", { name: /etsy'e yükle/i }).click();
 
   const listingCard = page.getByRole("heading", { name: /listing prompt pack/i }).locator("xpath=ancestor::section[1]");
   const imageCard = page.getByRole("heading", { name: /gorsel prompt pack/i }).locator("xpath=ancestor::section[1]");
 
   await expect(page.getByRole("heading", { name: /listing prompt pack/i })).toBeVisible();
-  await expect(page.getByText(/rulebook: etsy-prompt-pack-v1/i)).toBeVisible();
+  await expect(page.getByText(/rulebook: etsy-prompt-pack-v6/i)).toBeVisible();
   await expect(page.getByText(/chatgpt research mode/i)).toBeVisible();
   await expect(page.getByText(/system generate mode/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /chatgpt arastirma promptunu kopyala/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /sistem promptunu kopyala/i })).toBeVisible();
+  await expect(page.getByText(/generate 30 candidate etsy search phrases first/i)).toBeVisible();
+  await expect(page.getByText(/treat size tags as optional/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /10 varyasyonu kopyala/i })).toBeVisible();
   await expect(listingCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();
   await expect(imageCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();
   await expect(listingCard.getByText("PRODUCT_CONTEXT")).toHaveCount(0);

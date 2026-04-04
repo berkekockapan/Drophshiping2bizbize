@@ -1,6 +1,6 @@
 import type { GenerateListingPackResponse } from "@trendyol-etsy/shared";
 
-import type { D1Database, Env } from "../../config/bindings";
+import type { D1Database, Env } from "../../../config/bindings";
 import { OpenAiAuthError, resolveActiveOpenAiCredential } from "../../ai/openAiOAuth";
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildEtsyPromptPackResponse } from "./buildEtsyPromptPackResponse";

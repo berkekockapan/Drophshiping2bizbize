@@ -64,6 +64,33 @@ const productDetailPayload = {
     },
   ],
   notifications: [],
+  costContext: {
+    selectedVariantId: "var_1",
+    variants: [
+      {
+        variantId: "var_1",
+        label: "L / Siyah",
+        autoProductCost: { amount: 449.9, currency: "TRY" },
+        manualProductCost: null,
+        autoShippingEstimate: { amount: 7.5, currency: "USD", sourceType: "profile_default" },
+        manualShippingCost: null,
+      },
+      {
+        variantId: "var_2",
+        label: "M / Siyah",
+        autoProductCost: { amount: 429.9, currency: "TRY" },
+        manualProductCost: null,
+        autoShippingEstimate: { amount: 7.1, currency: "USD", sourceType: "profile_default" },
+        manualShippingCost: null,
+      },
+    ],
+    usState: {
+      status: "locked",
+      label: "hesap kilitli",
+      lockedReason: "Sistem ABD profilinden yeterince emin degil.",
+      profile: null,
+    },
+  },
   tariffAnalysis: {
     selection: null,
     latestRun: {
@@ -78,14 +105,33 @@ const productDetailPayload = {
           {
             catalogId: "catalog_711790",
             canonicalHs6: "711790",
+            profileName: "Deri aksesuar",
             title: "Imitation jewelry",
             rationale: "Deri aksesuar sinyali ile eslesti.",
             score: 97,
             usProfileId: "us_711790_2026r4",
+            htsCode10: "7117.90.7500",
             generalDutyRate: 0.11,
             additionalDutyRate: 0,
             combinedDutyRate: 0.11,
             dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
+            defaultShipentegraUsd: 7.5,
+            sourceBadges: ["Kural eslesmesi"],
+          },
+          {
+            catalogId: "catalog_611120",
+            canonicalHs6: "611120",
+            profileName: "Pamuklu ust giysi",
+            title: "Textile apparel",
+            rationale: "Pamuklu giyim sinyali ile eslesti.",
+            score: 74,
+            usProfileId: "us_611120_2026r4",
+            htsCode10: "6111.20.0000",
+            generalDutyRate: 0.16,
+            additionalDutyRate: 0,
+            combinedDutyRate: 0.16,
+            dutySummary: "%16 temel vergi + %0 ek tarife = toplam %16",
+            defaultShipentegraUsd: 6.2,
             sourceBadges: ["Kural eslesmesi"],
           },
         ],
@@ -98,14 +144,33 @@ const productDetailPayload = {
       {
         catalogId: "catalog_711790",
         canonicalHs6: "711790",
+        profileName: "Deri aksesuar",
         title: "Imitation jewelry",
         rationale: "Deri aksesuar sinyali ile eslesti.",
         score: 97,
         usProfileId: "us_711790_2026r4",
+        htsCode10: "7117.90.7500",
         generalDutyRate: 0.11,
         additionalDutyRate: 0,
         combinedDutyRate: 0.11,
         dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
+        defaultShipentegraUsd: 7.5,
+        sourceBadges: ["Kural eslesmesi"],
+      },
+      {
+        catalogId: "catalog_611120",
+        canonicalHs6: "611120",
+        profileName: "Pamuklu ust giysi",
+        title: "Textile apparel",
+        rationale: "Pamuklu giyim sinyali ile eslesti.",
+        score: 74,
+        usProfileId: "us_611120_2026r4",
+        htsCode10: "6111.20.0000",
+        generalDutyRate: 0.16,
+        additionalDutyRate: 0,
+        combinedDutyRate: 0.16,
+        dutySummary: "%16 temel vergi + %0 ek tarife = toplam %16",
+        defaultShipentegraUsd: 6.2,
         sourceBadges: ["Kural eslesmesi"],
       },
     ],
@@ -116,6 +181,18 @@ const productDetailPayload = {
 
 const categoriesPayload = {
   items: [{ id: "cat_bardak", name: "Bardak" }],
+};
+
+const settingsPayload = {
+  id: "default",
+  refreshIntervalHours: 5,
+  promptPreferences: null,
+  connectorHealthcheckEnabled: true,
+  aiTargetBaseUrl: "https://clip.example.com",
+  aiTargetManagementKey: "mgmt_live_123",
+  aiTargetLabel: "Windows",
+  aiTargetApiKey: "api_live_123",
+  etsyCostCalculator: null,
 };
 
 function jsonResponse(payload: unknown) {
@@ -148,6 +225,10 @@ describe("ProductDetailPage", () => {
         return jsonResponse(categoriesPayload);
       }
 
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
+      }
+
       if (url.includes("/owners/berke/products/prod_1")) {
         return jsonResponse(productDetailPayload);
       }
@@ -160,7 +241,10 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByText(/varyasyon matrisi/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
+    expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
+    expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
+    expect(screen.getByText(/varyasyon matrisi/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products/prod_1"), expect.anything());
   });
@@ -174,6 +258,10 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/categories")) {
         return jsonResponse(categoriesPayload);
+      }
+
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1")) {
@@ -250,8 +338,8 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
         return jsonResponse({
-          rulebookVersion: "etsy-prompt-pack-v1",
-          generatedAt: Date.parse("2026-03-29T09:00:00.000Z"),
+          rulebookVersion: "etsy-prompt-pack-v6",
+          generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
           productSnapshot: {
             productId: "prod_1",
             title: "Oversize Hoodie",
@@ -265,10 +353,21 @@ describe("ProductDetailPage", () => {
             prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
             outputContract: { type: "json", fields: ["title", "description", "tags"] },
           },
+          systemListingPromptPack: {
+            prompt: "Non-Negotiable Rules\nReturn ONLY valid JSON.",
+            outputContract: { type: "json", fields: ["title", "description", "tags"] },
+          },
+          chatGptResearchPromptPack: {
+            prompt:
+              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+            outputFormat: "sectioned-text",
+            researchMode: "required",
+            expectedSections: ["title", "description", "tags"],
+          },
           imagePromptPack: {
-            mainPrompt: "Use the reference image as truth.",
-            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
-            guardrailSummary: ["Urun formunu degistirme"],
+            mainPrompt: "Reference Truth\n- The manual reference image is the single source of truth for the exact product.",
+            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"],
+            guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
           },
         });
       }
@@ -283,16 +382,7 @@ describe("ProductDetailPage", () => {
       }
 
       if (url.endsWith("/settings") && (!init?.method || init.method === "GET")) {
-        return jsonResponse({
-          id: "default",
-          refreshIntervalHours: 5,
-          promptPreferences: null,
-          connectorHealthcheckEnabled: true,
-          aiTargetBaseUrl: "https://clip.example.com",
-          aiTargetManagementKey: "mgmt_live_123",
-          aiTargetLabel: "Windows",
-          aiTargetApiKey: "api_live_123",
-        });
+        return jsonResponse(settingsPayload);
       }
 
       if (url === "https://clip.example.com/health") {
@@ -338,6 +428,10 @@ describe("ProductDetailPage", () => {
         return jsonResponse(categoriesPayload);
       }
 
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
+      }
+
       if (url.includes("/owners/berke/products/prod_1/category") && init?.method === "PATCH") {
         return jsonResponse({ productId: "prod_1", userCategory: { id: "cat_bardak", name: "Bardak" } });
       }
@@ -363,7 +457,7 @@ describe("ProductDetailPage", () => {
     );
   });
 
-  it("mounts the tariff panel and saves a selected recommendation", async () => {
+  it("mounts the product cost panel with the tariff panel and saves a selected recommendation", async () => {
     installMockLocalStorage();
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -373,7 +467,38 @@ describe("ProductDetailPage", () => {
         return jsonResponse(categoriesPayload);
       }
 
+      if (url.endsWith("/settings")) {
+        return jsonResponse(settingsPayload);
+      }
+
       if (url.includes("/owners/berke/products/prod_1/tariff-selection") && init?.method === "PUT") {
+        const body = init.body ? JSON.parse(String(init.body)) : {};
+        const selectedCatalogId = body.catalogId ?? "catalog_711790";
+
+        if (selectedCatalogId === "catalog_611120") {
+          return jsonResponse({
+            selection: {
+              productId: "prod_1",
+              ownerKey: "berke",
+              catalogId: "catalog_611120",
+              canonicalHs6: "611120",
+              title: "Textile apparel",
+              usProfileId: "us_611120_2026r4",
+              selectionSource: "recommended",
+              selectedBy: "berke",
+              selectedAt: Date.now(),
+              analysisRunId: "run_1",
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              generalDutyRate: 0.16,
+              additionalDutyRate: 0,
+              combinedDutyRate: 0.16,
+              dutySummary: "%16 temel vergi + %0 ek tarife = toplam %16",
+              revisionLabel: "USITC HTS 2026 Revision 4",
+            },
+          });
+        }
+
         return jsonResponse({
           selection: {
             productId: "prod_1",
@@ -409,8 +534,11 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /bu kodu sec/i }));
+    expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
+    expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
+    expect(screen.getByText(/en uygun abd profili otomatik secildi/i)).toBeInTheDocument();
+    expect(screen.getByText(/bu urun icin secilen gtip: 711790/i)).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: /bu kodu sec/i })[1]);
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -418,5 +546,6 @@ describe("ProductDetailPage", () => {
         expect.objectContaining({ method: "PUT" }),
       ),
     );
+    expect(await screen.findByText(/bu urun icin secilen gtip: 611120/i)).toBeInTheDocument();
   });
 });

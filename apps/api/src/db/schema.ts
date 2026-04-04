@@ -53,6 +53,52 @@ export const productCategories = sqliteTable(
   }),
 );
 
+export const sourceProducts = sqliteTable(
+  "source_products",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    sourceTitle: text("source_title").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    sourceUrlNormalized: text("source_url_normalized").notNull(),
+    sourcePlatform: text("source_platform").notNull(),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerSourceUrlUnique: uniqueIndex("source_products_owner_source_url_unique").on(
+      table.ownerKey,
+      table.sourceUrlNormalized,
+    ),
+    ownerUpdatedAtIdx: index("source_products_owner_updated_at_idx").on(table.ownerKey, table.updatedAt),
+  }),
+);
+
+export const sourceProductEtsyLinks = sqliteTable(
+  "source_product_etsy_links",
+  {
+    id: text("id").primaryKey(),
+    sourceProductId: text("source_product_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    etsyUrl: text("etsy_url").notNull(),
+    etsyUrlNormalized: text("etsy_url_normalized").notNull(),
+    etsyListingId: text("etsy_listing_id"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerEtsyUrlUnique: uniqueIndex("source_product_etsy_links_owner_etsy_url_unique").on(
+      table.ownerKey,
+      table.etsyUrlNormalized,
+    ),
+    sourceProductCreatedIdx: index("source_product_etsy_links_source_product_id_idx").on(
+      table.sourceProductId,
+      table.createdAt,
+    ),
+    ownerListingIdx: index("source_product_etsy_links_owner_listing_id_idx").on(table.ownerKey, table.etsyListingId),
+  }),
+);
+
 export const productVariants = sqliteTable(
   "product_variants",
   {
@@ -336,11 +382,15 @@ export const tariffClassificationCatalog = sqliteTable(
   {
     id: text("id").primaryKey(),
     canonicalHs6: text("canonical_hs6").notNull(),
+    profileName: text("profile_name"),
     title: text("title").notNull(),
     description: text("description"),
     keywordsJson: text("keywords_json"),
     sourceType: text("source_type").notNull(),
     sourceVersion: text("source_version").notNull(),
+    confidenceMode: text("confidence_mode").notNull().default("low_confidence"),
+    masterEntryId: text("master_entry_id"),
+    defaultShipentegraUsd: real("default_shipentegra_usd"),
     effectiveFrom: integer("effective_from", { mode: "timestamp_ms" }),
     effectiveTo: integer("effective_to", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -350,6 +400,23 @@ export const tariffClassificationCatalog = sqliteTable(
     canonicalHs6Idx: index("tariff_classification_catalog_hs6_idx").on(table.canonicalHs6),
   }),
 );
+
+export const tariffMasterUsEntries = sqliteTable("tariff_master_us_entries", {
+  id: text("id").primaryKey(),
+  htsCode8: text("hts_code_8").notNull(),
+  htsCode10: text("hts_code_10").notNull(),
+  description: text("description").notNull(),
+  generalDutyRate: real("general_duty_rate").notNull(),
+  additionalDutyRate: real("additional_duty_rate").notNull().default(0),
+  combinedDutyRate: real("combined_duty_rate").notNull(),
+  dutySummary: text("duty_summary").notNull(),
+  sourceRevision: text("source_revision").notNull(),
+  sourceUrl: text("source_url"),
+  effectiveFrom: integer("effective_from", { mode: "timestamp_ms" }),
+  effectiveTo: integer("effective_to", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
 
 export const tariffClassificationUsProfiles = sqliteTable(
   "tariff_classification_us_profiles",
@@ -369,6 +436,18 @@ export const tariffClassificationUsProfiles = sqliteTable(
     catalogUnique: uniqueIndex("tariff_classification_us_profiles_catalog_id_unique").on(table.catalogId),
   }),
 );
+
+export const productVariantCostOverrides = sqliteTable("product_variant_cost_overrides", {
+  variantId: text("variant_id").primaryKey(),
+  productId: text("product_id").notNull(),
+  ownerKey: text("owner_key").notNull(),
+  manualProductCostAmount: real("manual_product_cost_amount"),
+  manualProductCostCurrency: text("manual_product_cost_currency"),
+  manualShippingCostAmount: real("manual_shipping_cost_amount"),
+  manualShippingCostCurrency: text("manual_shipping_cost_currency"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
 
 export const productTariffAnalysisRuns = sqliteTable(
   "product_tariff_analysis_runs",
@@ -455,14 +534,20 @@ export const schema = {
   manualRefreshRunItems,
   productCategories,
   tariffClassificationCatalog,
+  tariffMasterUsEntries,
   tariffClassificationUsProfiles,
+  productVariantCostOverrides,
   productTariffAnalysisRuns,
   productTariffSelection,
   tariffKnowledgeCandidates,
+  sourceProducts,
+  sourceProductEtsyLinks,
 };
 
 export const schemaTableNames = [
   "products",
+  "source_products",
+  "source_product_etsy_links",
   "product_variants",
   "product_current_state",
   "price_history",
@@ -480,7 +565,9 @@ export const schemaTableNames = [
   "manual_refresh_run_items",
   "product_categories",
   "tariff_classification_catalog",
+  "tariff_master_us_entries",
   "tariff_classification_us_profiles",
+  "product_variant_cost_overrides",
   "product_tariff_analysis_runs",
   "product_tariff_selection",
   "tariff_knowledge_candidates",

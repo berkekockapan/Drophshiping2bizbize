@@ -1,4 +1,4 @@
-﻿import "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -93,69 +93,6 @@ describe("AppRouter", () => {
         );
       }
 
-      if (url.includes("/owners/berke/products/prod_1")) {
-        return new Response(
-          JSON.stringify({
-            product: {
-              id: "prod_1",
-              ownerKey: "berke",
-              trendyolUrl: "https://www.trendyol.com/example",
-              sourceProductId: "123",
-              title: "Deri bileklik",
-              brand: "North Apparel",
-              category: "Aksesuar",
-              userCategory: null,
-              descriptionRaw: "El yapimi urun",
-              attributes: [],
-              images: [],
-              status: "ACTIVE",
-              parseStatus: "OK",
-              lastCheckedAt: Date.now(),
-            },
-            currentState: {
-              currentPrice: 44990,
-              minPrice: 34990,
-              maxPrice: 44990,
-              inStockVariantCount: 2,
-              totalVariantCount: 3,
-              lastChangeAt: Date.now(),
-              lastCheckedAt: Date.now(),
-            },
-            variants: [],
-            priceHistory: [],
-            stockHistory: [],
-            changeTimeline: [],
-            notifications: [],
-            tariffAnalysis: {
-              selection: {
-                productId: "prod_1",
-                ownerKey: "berke",
-                catalogId: "catalog_711790",
-                canonicalHs6: "711790",
-                title: "Imitation jewelry",
-                usProfileId: "us_711790_2026r4",
-                selectionSource: "recommended",
-                selectedBy: "berke",
-                selectedAt: Date.now(),
-                analysisRunId: "run_1",
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                generalDutyRate: 0.11,
-                additionalDutyRate: 0,
-                combinedDutyRate: 0.11,
-                dutySummary: "%11 temel vergi + %0 ek tarife = toplam %11",
-                revisionLabel: "USITC HTS 2026 Revision 4",
-              },
-              latestRun: null,
-              recommendations: [],
-              manualSearchEnabled: true,
-              disclaimer: "Planlama",
-            },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      }
-
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
@@ -175,6 +112,44 @@ describe("AppRouter", () => {
     expect(await screen.findByRole("heading", { name: /etsy maliyet hesaplayici/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /etsy maliyet hesaplayici/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /hedef kar icin satis fiyati bul/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { name: /abd ithalat vergisi/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /abd hedef profili/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /abd ithalat vergisi/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the source-products route and sidebar entry", async () => {
+    window.history.pushState({}, "", "/owners/berke/source-products");
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "src_1",
+                ownerKey: "berke",
+                sourceTitle: "Minimal seramik kupa",
+                sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=123",
+                sourcePlatform: "SHOPIER",
+                notePreview: "Ilk Etsy denemesi icin saklandi",
+                etsyLinkCount: 1,
+                updatedAt: Date.parse("2026-04-01T12:00:00.000Z"),
+              },
+            ],
+            total: 1,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    render(<AppRouter />);
+
+    expect(await screen.findByRole("heading", { name: /kaynak urunler/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Kaynak Ürünler / Berke" })).toBeInTheDocument();
+    expect(await screen.findByText(/minimal seramik kupa/i)).toBeInTheDocument();
   });
 });

@@ -32,6 +32,33 @@ test("product detail runs tariff analysis and lets the user save a recommendatio
     stockHistory: [],
     changeTimeline: [],
     notifications: [],
+    costContext: {
+      selectedVariantId: "var_1",
+      variants: [
+        {
+          variantId: "var_1",
+          label: "Standart",
+          autoProductCost: { amount: 149.9, currency: "TRY" },
+          manualProductCost: null,
+          autoShippingEstimate: { amount: 4.9, currency: "USD", sourceType: "profile_default" },
+          manualShippingCost: null,
+        },
+      ],
+      usState: {
+        status: "automatic_confirmed",
+        label: "otomatik dogrulandi",
+        lockedReason: null,
+        profile: {
+          catalogId: "catalog_711790",
+          profileName: "Deri aksesuar",
+          canonicalHs6: "711790",
+          htsCode10: "7117.90.7500",
+          combinedDutyRate: 0.11,
+          dutySummary: "%11.0 temel vergi + %0.0 ek tarife = toplam %11.0",
+          defaultShipentegraUsd: 4.9,
+        },
+      },
+    },
     tariffAnalysis: {
       selection: null,
       latestRun: {
@@ -46,14 +73,17 @@ test("product detail runs tariff analysis and lets the user save a recommendatio
             {
               catalogId: "catalog_711790",
               canonicalHs6: "711790",
+              profileName: "Deri aksesuar",
               title: "Imitation jewelry",
               rationale: "Eslesen urun sinyali bulundu.",
               score: 120,
               usProfileId: "us_711790_2026r4",
+              htsCode10: "7117.90.7500",
               generalDutyRate: 0.11,
               additionalDutyRate: 0,
               combinedDutyRate: 0.11,
               dutySummary: "%11.0 temel vergi + %0.0 ek tarife = toplam %11.0",
+              defaultShipentegraUsd: 4.9,
               sourceBadges: ["Kural eslesmesi"],
             },
           ],
@@ -66,14 +96,17 @@ test("product detail runs tariff analysis and lets the user save a recommendatio
         {
           catalogId: "catalog_711790",
           canonicalHs6: "711790",
+          profileName: "Deri aksesuar",
           title: "Imitation jewelry",
           rationale: "Eslesen urun sinyali bulundu.",
           score: 120,
           usProfileId: "us_711790_2026r4",
+          htsCode10: "7117.90.7500",
           generalDutyRate: 0.11,
           additionalDutyRate: 0,
           combinedDutyRate: 0.11,
           dutySummary: "%11.0 temel vergi + %0.0 ek tarife = toplam %11.0",
+          defaultShipentegraUsd: 4.9,
           sourceBadges: ["Kural eslesmesi"],
         },
       ],
@@ -96,6 +129,23 @@ test("product detail runs tariff analysis and lets the user save a recommendatio
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      if (url.endsWith("/settings")) {
+        return new Response(
+          JSON.stringify({
+            id: "default",
+            refreshIntervalHours: 5,
+            promptPreferences: null,
+            connectorHealthcheckEnabled: true,
+            aiTargetBaseUrl: null,
+            aiTargetManagementKey: null,
+            aiTargetLabel: null,
+            aiTargetApiKey: null,
+            etsyCostCalculator: null,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
       }
 
       if (url.includes("/owners/berke/products/prod_1/tariff-selection") && method === "PUT") {
@@ -146,8 +196,9 @@ test("product detail runs tariff analysis and lets the user save a recommendatio
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
 
+  await expect(page.getByRole("heading", { name: "Urun maliyet gorunumu" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "GTIP / ABD Vergi Analizi" })).toBeVisible();
-  await expect(page.getByText(/toplam %11.0/i)).toBeVisible();
+  await expect(page.getByText(/toplam %11.0/i).first()).toBeVisible();
   await page.getByRole("button", { name: /bu kodu sec/i }).first().click();
   await expect(page.getByText(/bu urun icin secilen gtip: 711790/i)).toBeVisible();
 });

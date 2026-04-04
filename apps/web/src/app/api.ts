@@ -1,4 +1,11 @@
-import type { GenerateListingPackResponse } from "@trendyol-etsy/shared";
+import type {
+  CreateSourceProductEtsyLinkRequest,
+  CreateSourceProductRequest,
+  GenerateListingPackResponse,
+  PatchSourceProductRequest,
+  SourceProductDetailResponse,
+  SourceProductListResponse,
+} from "@trendyol-etsy/shared";
 
 import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
 import type { EtsyCostCalculatorStorage } from "../features/etsyCostCalculator/lib/types";
@@ -84,15 +91,28 @@ export interface ProductChangeTimelineItem {
 export interface ProductTariffRecommendation {
   catalogId: string;
   canonicalHs6: string;
+  profileName: string | null;
   title: string;
   rationale: string;
   score: number;
   usProfileId: string | null;
+  htsCode10: string | null;
   generalDutyRate: number;
   additionalDutyRate: number;
   combinedDutyRate: number;
   dutySummary: string;
+  defaultShipentegraUsd: number | null;
   sourceBadges: string[];
+}
+
+export interface AutoSelectedTariffProfile {
+  catalogId: string;
+  profileName: string | null;
+  canonicalHs6: string;
+  htsCode10: string | null;
+  combinedDutyRate: number;
+  dutySummary: string;
+  defaultShipentegraUsd: number | null;
 }
 
 export interface ProductTariffAnalysisRun {
@@ -102,9 +122,14 @@ export interface ProductTariffAnalysisRun {
   status: string;
   usedAi: boolean;
   inputSnapshot: Record<string, unknown>;
-  resultSnapshot: {
-    recommendations: ProductTariffRecommendation[];
-  } | null;
+  resultSnapshot:
+    | {
+        confidenceState?: "high_confidence" | "low_confidence";
+        selectedProfile?: AutoSelectedTariffProfile | null;
+        lockedReason?: string | null;
+        recommendations: ProductTariffRecommendation[];
+      }
+    | null;
   engineVersion: string;
   createdAt: number;
   completedAt: number | null;
@@ -174,6 +199,39 @@ export interface EtsyPromptPackResponse {
   };
 }
 
+export interface ProductCostContextVariant {
+  variantId: string;
+  label: string;
+  autoProductCost: {
+    amount: number;
+    currency: "TRY";
+  };
+  manualProductCost: {
+    amount: number;
+    currency: "USD" | "TRY";
+  } | null;
+  autoShippingEstimate: {
+    amount: number;
+    currency: "USD";
+    sourceType: "profile_default" | "system_default";
+  };
+  manualShippingCost: {
+    amount: number;
+    currency: "USD" | "TRY";
+  } | null;
+}
+
+export interface ProductCostContext {
+  selectedVariantId: string | null;
+  variants: ProductCostContextVariant[];
+  usState: {
+    status: "automatic_confirmed" | "review_required" | "locked";
+    label: string;
+    lockedReason: string | null;
+    profile: ProductTariffSelection | AutoSelectedTariffProfile | null;
+  };
+}
+
 export interface ProductDetailResponse {
   product: {
     id: string;
@@ -233,6 +291,7 @@ export interface ProductDetailResponse {
   }>;
   changeTimeline: ProductChangeTimelineItem[];
   notifications: NotificationItem[];
+  costContext: ProductCostContext;
   tariffAnalysis: ProductTariffAnalysisSummary;
 }
 
@@ -481,6 +540,9 @@ export interface ManualRefreshRunSummary {
 export interface ProductTariffAnalysisRunResponse {
   runId: string;
   usedAi: boolean;
+  confidenceState: "high_confidence" | "low_confidence";
+  selectedProfile: AutoSelectedTariffProfile | null;
+  lockedReason: string | null;
   recommendations: ProductTariffRecommendation[];
 }
 
@@ -508,6 +570,11 @@ export interface TariffKnowledgeCandidatePayload {
 export interface TariffKnowledgeCandidateResponse {
   candidateId: string;
   status: string;
+}
+
+export interface SaveProductVariantCostOverridePayload {
+  manualProductCost?: { amount: number; currency: "USD" | "TRY" } | null;
+  manualShippingCost?: { amount: number; currency: "USD" | "TRY" } | null;
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
@@ -760,6 +827,23 @@ export async function submitTariffKnowledgeCandidate(
   return parseJson<TariffKnowledgeCandidateResponse>(response);
 }
 
+export async function saveProductVariantCostOverride(
+  ownerKey: OwnerKey,
+  productId: string,
+  variantId: string,
+  payload: SaveProductVariantCostOverridePayload,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/variants/${variantId}/cost-overrides`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{ override: { variantId: string } }>(response);
+}
+
 export async function setTrackedProductFavorite(ownerKey: OwnerKey, productId: string, isFavorite: boolean) {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/favorite`, {
     method: "POST",
@@ -779,6 +863,75 @@ export async function deleteTrackedProduct(ownerKey: OwnerKey, productId: string
 
   if (!response.ok) {
     await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function fetchSourceProducts(ownerKey: OwnerKey, search?: string | null): Promise<SourceProductListResponse> {
+  const searchParams = new URLSearchParams();
+  if (search && search.trim()) {
+    searchParams.set("search", search.trim());
+  }
+
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products${suffix}`);
+  return parseJson<SourceProductListResponse>(response);
+}
+
+export async function createSourceProduct(ownerKey: OwnerKey, payload: CreateSourceProductRequest) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function fetchSourceProductDetail(ownerKey: OwnerKey, sourceProductId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`);
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function updateSourceProduct(ownerKey: OwnerKey, sourceProductId: string, payload: PatchSourceProductRequest) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function addSourceProductEtsyLink(
+  ownerKey: OwnerKey,
+  sourceProductId: string,
+  payload: CreateSourceProductEtsyLinkRequest,
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/etsy-links`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function deleteSourceProductEtsyLink(ownerKey: OwnerKey, sourceProductId: string, etsyLinkId: string) {
+  const response = await fetchWithTimeout(
+    `/owners/${ownerKey}/source-products/${sourceProductId}/etsy-links/${etsyLinkId}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (response.status !== 204) {
+    await assertOkResponse(response);
   }
 }
 

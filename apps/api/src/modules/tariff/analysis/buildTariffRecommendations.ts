@@ -1,8 +1,13 @@
-import type { D1Database } from '../../../config/bindings';
-import { createTariffAnalysisRepo } from '../../../db/repositories/tariffAnalysisRepo';
-import { createTariffCatalogRepo } from '../../../db/repositories/tariffCatalogRepo';
+import type { D1Database } from "../../../config/bindings";
+import {
+  createTariffAnalysisRepo,
+  type TariffAnalysisConfidenceState,
+  type TariffAnalysisSelectedProfile,
+  type TariffRecommendationSnapshot,
+} from "../../../db/repositories/tariffAnalysisRepo";
+import { createTariffCatalogRepo } from "../../../db/repositories/tariffCatalogRepo";
 
-import { formatTariffDutySummary } from './formatTariffDutySummary';
+import { formatTariffDutySummary } from "./formatTariffDutySummary";
 
 export interface BuildTariffRecommendationsInput {
   ownerKey: string;
@@ -15,23 +20,14 @@ export interface BuildTariffRecommendationsInput {
   aiContext: unknown;
 }
 
-export interface TariffRecommendation {
-  catalogId: string;
-  canonicalHs6: string;
-  title: string;
-  rationale: string;
-  score: number;
-  usProfileId: string | null;
-  generalDutyRate: number;
-  additionalDutyRate: number;
-  combinedDutyRate: number;
-  dutySummary: string;
-  sourceBadges: string[];
-}
+export type TariffRecommendation = TariffRecommendationSnapshot;
 
 export interface BuildTariffRecommendationsResult {
   runId: string;
   usedAi: boolean;
+  confidenceState: TariffAnalysisConfidenceState;
+  selectedProfile: TariffAnalysisSelectedProfile | null;
+  lockedReason: string | null;
   recommendations: TariffRecommendation[];
 }
 
@@ -42,8 +38,8 @@ export async function buildTariffRecommendations(
   const catalogRepo = createTariffCatalogRepo(db);
   const analysisRepo = createTariffAnalysisRepo(db);
   const keywordQuery = [input.title, input.descriptionRaw, input.category, ...input.attributes.map((item) => item.value)]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .join(' ');
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ");
 
   const catalogMatches = await catalogRepo.searchCatalog(keywordQuery, 5);
   const recommendations = (
@@ -55,31 +51,58 @@ export async function buildTariffRecommendations(
           catalogId: match.id,
           canonicalHs6: match.canonicalHs6,
           title: match.title,
-          rationale: `Urun basligi/aciklamasi ${match.title.toLocaleLowerCase('tr-TR')} sinyali ile eslesti.`,
+          rationale: `Urun basligi/aciklamasi ${match.title.toLocaleLowerCase("tr-TR")} sinyali ile eslesti.`,
           score: Math.max(1, 100 - index * 10 + match.score),
           usProfileId: profile?.id ?? null,
+          profileName: profile?.profileName ?? null,
+          htsCode10: profile?.masterEntry?.htsCode10 ?? profile?.htsusCode ?? null,
           generalDutyRate: profile?.generalDutyRate ?? 0,
           additionalDutyRate: profile?.additionalDutyRate ?? 0,
           combinedDutyRate: profile?.combinedDutyRate ?? 0,
           dutySummary: profile?.summaryText ?? formatTariffDutySummary(0, 0),
-          sourceBadges: ['Kural eslesmesi'],
+          defaultShipentegraUsd: profile?.defaultShipentegraUsd ?? null,
+          sourceBadges: ["Kural eslesmesi"],
         } satisfies TariffRecommendation;
       }),
     )
-  ).sort((left, right) => right.score - left.score);
+  ).sort((left: TariffRecommendation, right: TariffRecommendation) => right.score - left.score);
+
+  const best = recommendations[0] ?? null;
+  const second = recommendations[1] ?? null;
+  const confidenceState: TariffAnalysisConfidenceState =
+    best && best.score >= 140 && (!second || best.score - second.score >= 25) ? "high_confidence" : "low_confidence";
+  const selectedProfile = best
+    ? {
+        catalogId: best.catalogId,
+        profileName: best.profileName,
+        canonicalHs6: best.canonicalHs6,
+        htsCode10: best.htsCode10,
+        combinedDutyRate: best.combinedDutyRate,
+        dutySummary: best.dutySummary,
+        defaultShipentegraUsd: best.defaultShipentegraUsd,
+      }
+    : null;
+  const lockedReason = selectedProfile
+    ? confidenceState === "high_confidence"
+      ? null
+      : "Sistem ABD profilinden yeterince emin degil. Sonuc inceleme gerektiriyor."
+    : "Bu urun icin kullanilabilir ABD profili bulunamadi.";
 
   const run = await analysisRepo.createRun({
     ownerKey: input.ownerKey,
     productId: input.productId,
     usedAi: false,
     inputSnapshot: input,
-    resultSnapshot: { recommendations },
-    engineVersion: 'tariff-v1',
+    resultSnapshot: { confidenceState, selectedProfile, lockedReason, recommendations },
+    engineVersion: "tariff-v2",
   });
 
   return {
     runId: run.id,
     usedAi: false,
+    confidenceState,
+    selectedProfile,
+    lockedReason,
     recommendations,
   };
 }

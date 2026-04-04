@@ -12,10 +12,11 @@ const tryFormatter = new Intl.NumberFormat("tr-TR", {
 });
 
 const SOURCE_LABELS = {
-  official_default: "Resmi varsayilan",
-  official_override: "Ozellestirilmis",
-  user_input: "Kullanici girdisi",
-  conditional: "Kosullu kalem",
+  system_default: "Sistem",
+  manual_override: "Manuel",
+  profile_default: "Profil",
+  analysis_selected: "Analiz",
+  conditional: "Kosullu",
 } as const;
 
 export function formatBreakdown(rows: BreakdownRow[]) {

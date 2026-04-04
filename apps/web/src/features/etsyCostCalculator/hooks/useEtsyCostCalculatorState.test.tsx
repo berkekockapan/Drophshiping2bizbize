@@ -51,29 +51,36 @@ describe("useEtsyCostCalculatorState", () => {
     expect(result.current.draft.feeProfileOverrides).toBeNull();
   });
 
-  it("tracks import duty fields and adds the breakdown row when enabled", () => {
+  it("hydrates legacy duty fields into destination profiles and adds the US duty row", () => {
     const onPersist = vi.fn().mockResolvedValue(undefined);
+    const initialStorage = createDefaultCalculatorStorage();
+    initialStorage.updatedAt = 1;
+    Object.assign(initialStorage.draft, {
+      usdTryRate: 40,
+      salePriceUsd: 0,
+      importDutyEnabled: true,
+      importDutyRate: 0.11,
+      importDutyLabel: "ABD GTIP vergisi",
+    });
+
     const { result } = renderHook(() =>
       useEtsyCostCalculatorState({
-        initialStorage: createDefaultCalculatorStorage(),
+        initialStorage,
         onPersist,
         autosaveDelayMs: 0,
       }),
     );
 
-    expect(result.current.draft.importDutyEnabled).toBe(false);
+    expect(result.current.draft.destinationProfile).toBe("US");
+    expect(result.current.draft.manualDutyPercent).toBe(11);
 
     act(() => {
       result.current.updateDraft({
         salePriceUsd: 50,
-        importDutyEnabled: true,
-        importDutyRate: 0.11,
-        importDutyLabel: "ABD GTIP vergisi",
-        selectedTariffCode: "711790",
       });
     });
 
-    expect(result.current.result.breakdown.map((row) => row.key)).toContain("import_duty_fee");
+    expect(result.current.result.breakdown.map((row) => row.key)).toContain("us_duty_fee");
   });
 
   it("creates, updates, loads and deletes presets explicitly", () => {
@@ -119,7 +126,14 @@ describe("useEtsyCostCalculatorState", () => {
     initialStorage.draft = {
       ...initialStorage.draft,
       usdTryRate: 40,
+      destinationProfile: "US",
+      manualDutyPercent: 10,
       salePriceUsd: 39,
+      saleDiscountPercent: 10,
+      coupon: { type: "fixed_usd", value: 2 },
+      buyerPaidShippingUsd: 4,
+      buyerPaidExtrasUsd: 1,
+      buyerTaxCollectedByEtsyUsd: 3,
       productCost: { amount: 18, currency: "USD" },
       actualShippingCost: { amount: 5, currency: "USD" },
       targetProfitMode: "net_profit_usd",
@@ -134,9 +148,15 @@ describe("useEtsyCostCalculatorState", () => {
       }),
     );
 
-    expect(result.current.quickMode.recommendedSalePriceUsd).not.toBeNull();
-    expect(result.current.quickMode.recommendedScenario?.netProfitUsd).toBeGreaterThanOrEqual(10);
-    expect(result.current.recommendedBreakdownGroups[0]?.label).toMatch(/etsy ucret/i);
-    expect(result.current.analysisBreakdownGroups[2]?.rows.map((row) => row.label)).toContain("Net kar");
+    expect(result.current.quickMode.recommendedSalePriceUsd).toBe(62.62);
+    expect(result.current.quickMode.breakEvenPriceUsd).toBe(43.02);
+    expect(result.current.quickMode.recommendedScenario?.shipentegraImportBasisUsd).toBe(54.36);
+    expect(result.current.quickMode.recommendedScenario?.shipentegraImportTotalUsd).toBe(14.59);
+    expect(result.current.quickMode.enteredPriceScenario?.shipentegraImportTotalUsd).toBe(9.28);
+    expect(result.current.recommendedBreakdownGroups.map((group) => group.label)).toContain("Etsy ucretleri");
+    expect(result.current.analysisBreakdownGroups.flatMap((group) => group.rows.map((row) => row.key))).toContain(
+      "shipentegra_import_total",
+    );
+    expect(result.current.analysisBreakdownGroups.at(-1)?.rows.map((row) => row.label)).toContain("Net kar");
   });
 });

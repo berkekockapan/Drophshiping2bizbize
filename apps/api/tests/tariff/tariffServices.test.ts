@@ -4,7 +4,7 @@ import { loadUsTariffSeed } from "../../src/modules/tariff/catalog/loadUsTariffS
 import { buildTariffRecommendations } from "../../src/modules/tariff/analysis/buildTariffRecommendations";
 import { createTestEnv } from "../support/sqlite";
 
-it("returns best 2 recommendations without AI", async () => {
+it("returns confidence state, selected profile, and lock reason", async () => {
   const { env } = createTestEnv();
 
   await loadUsTariffSeed(env.DB);
@@ -12,15 +12,20 @@ it("returns best 2 recommendations without AI", async () => {
   const result = await buildTariffRecommendations(env.DB, {
     ownerKey: "berke",
     productId: "prod_1",
-    title: "Deri bileklik taki",
-    descriptionRaw: "El yapimi deri aksesuar",
+    title: "Belirsiz aksesuar",
+    descriptionRaw: "karisik malzemeli el isi",
     category: "Aksesuar",
-    attributes: [{ key: "Materyal", value: "Deri" }],
+    attributes: [],
     images: [],
     aiContext: null,
   });
 
-  expect(result.usedAi).toBe(false);
-  expect(result.recommendations).toHaveLength(2);
-  expect(result.recommendations[0]?.canonicalHs6).toBe("711790");
+  expect(["high_confidence", "low_confidence"]).toContain(result.confidenceState);
+  expect(result.selectedProfile).not.toBeNull();
+  expect(result.selectedProfile?.profileName).toBeTruthy();
+  if (result.confidenceState === "high_confidence") {
+    expect(result.lockedReason).toBeNull();
+  } else {
+    expect(result.lockedReason).toMatch(/emin degil|bulunamadi/i);
+  }
 });

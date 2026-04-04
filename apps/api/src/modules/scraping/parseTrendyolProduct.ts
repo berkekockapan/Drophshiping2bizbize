@@ -110,6 +110,40 @@ function parseNestedPrice(value: unknown): number | null {
   );
 }
 
+const ENVOY_BASKET_PRICE_PRIORITY = [
+  "tyPlusCouponApplicablePrice",
+  "discountedPriceAfterNoLimitPromotions",
+  "couponApplicablePrice",
+  "discountedPrice",
+  "sellingPrice",
+  "originalPrice",
+  "value",
+  "text",
+] as const;
+
+function parseEnvoyBasketPrice(value: unknown): number | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "number" || typeof value === "string") {
+    return parsePriceValue(value);
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const key of ENVOY_BASKET_PRICE_PRIORITY) {
+    const parsed = parseNestedPrice(value[key]);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return parseNestedPrice(value.price) ?? parseNestedPrice(value);
+}
+
 function readImageUrls(value: unknown): string[] {
   if (typeof value === "string") {
     return value.trim() ? [value.trim()] : [];
@@ -318,10 +352,10 @@ function parseFromEnvoyProps(html: string): ParsedProduct | null {
   const selectedVariant =
     variantRecords.find((variant) => variant.isSelected === true) ?? winnerVariant ?? variantRecords[0] ?? null;
   const currentPrice =
-    parseNestedPrice(winnerVariant?.price) ??
-    parseNestedPrice(product.price) ??
-    parseNestedPrice(merchantListing?.price) ??
-    parseNestedPrice(selectedVariant?.price) ??
+    parseEnvoyBasketPrice(winnerVariant?.price) ??
+    parseEnvoyBasketPrice(product.price) ??
+    parseEnvoyBasketPrice(merchantListing?.price) ??
+    parseEnvoyBasketPrice(selectedVariant?.price) ??
     jsonLdFallback?.price ??
     null;
 
@@ -332,13 +366,13 @@ function parseFromEnvoyProps(html: string): ParsedProduct | null {
   const variants = variantRecords.map((variant, index) => {
     const option = firstText(variant.beautifiedValue, variant.attributeBeautifiedValue, variant.value, variant.attributeValue);
     const matchingMerchantVariant = merchantVariants.find((merchantVariant) => variantsMatch(merchantVariant, variant)) ?? null;
-    const preferredWinnerPrice = variantsMatch(variant, winnerVariant) ? parseNestedPrice(winnerVariant?.price) : null;
+    const preferredWinnerPrice = variantsMatch(variant, winnerVariant) ? parseEnvoyBasketPrice(winnerVariant?.price) : null;
     const price =
-      parseNestedPrice(matchingMerchantVariant?.price) ??
+      parseEnvoyBasketPrice(matchingMerchantVariant?.price) ??
       preferredWinnerPrice ??
-      parseNestedPrice(variant.price) ??
-      parseNestedPrice(product.price) ??
-      parseNestedPrice(merchantListing?.price) ??
+      parseEnvoyBasketPrice(variant.price) ??
+      parseEnvoyBasketPrice(product.price) ??
+      parseEnvoyBasketPrice(merchantListing?.price) ??
       currentPrice;
     const url = readVariantUrl(variant, productUrl) ?? productUrl;
 

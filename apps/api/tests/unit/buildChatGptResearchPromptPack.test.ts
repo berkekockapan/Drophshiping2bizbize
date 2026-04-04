@@ -33,53 +33,62 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildChatGptResearchPromptPack", () => {
-  it("requires Etsy research and returns a 3-section final output contract", () => {
+  it("forces handbook + competitor research, truthful claim handling, and a stricter tag self-reject loop", () => {
     const pack = buildChatGptResearchPromptPack(detail);
 
     expect(pack.outputFormat).toBe("sectioned-text");
     expect(pack.researchMode).toBe("required");
     expect(pack.expectedSections).toEqual(["title", "description", "tags"]);
-    expect(pack.prompt).toContain("Browse the Etsy Seller Handbook");
-    expect(pack.prompt).toContain("research competing English-language Etsy listings");
-    expect(pack.prompt).toContain("English-speaking Etsy market");
-    expect(pack.prompt).toContain("Do not avoid browsing");
-    expect(pack.prompt).toContain("Do not show research notes");
-    expect(pack.prompt).toContain("overused phrasing to avoid");
-    expect(pack.prompt).toContain("choose exactly 1 primary keyword angle");
-    expect(pack.prompt).toContain("Description rules: it does not need to be short");
-    expect(pack.prompt).toContain("naturally weaves the chosen tag concepts into the body text");
-    expect(pack.prompt).toContain("Do not mention competitors, competing listings, SEO strategy, research, or keyword analysis directly");
-    expect(pack.prompt).toContain("prefer roughly 8 to 11 words");
-    expect(pack.prompt).toContain("one main product noun cluster plus at most one supporting carry/style term");
-    expect(pack.prompt).toContain("mention color only once");
-    expect(pack.prompt).toContain("Reject any title draft that repeats the same product type");
-    expect(pack.prompt).toContain("Reject any title draft that ends in raw attribute fragments");
-    expect(pack.prompt).toContain("avoid stacking near-synonyms like bag/handbag/purse");
-    expect(pack.prompt).toContain("Write exactly 3 shopper-facing paragraphs");
-    expect(pack.prompt).toContain("paragraph 1 must establish the main search intent");
-    expect(pack.prompt).toContain("do not rely on generic template headings");
-    expect(pack.prompt).toContain("Reject any draft that reads like a template, a lightly rewritten attribute list, or a direct comparison script");
-    expect(pack.prompt).toContain("avoid vague filler words such as versatile, timeless, elevated, giftable, or elegant");
-    expect(pack.prompt).toContain("mild emoji is allowed");
-    expect(pack.prompt).toContain("at most 1 or 2 total");
-    expect(pack.prompt).toContain("do not repeat the same root word across most of the tag set");
-    expect(pack.prompt).toContain("each tag should read like a real Etsy shopper query");
-    expect(pack.prompt).toContain("at least 8 of the 13 tags should combine a concrete product anchor");
-    expect(pack.prompt).toContain("no single generic noun root such as bag, purse, or handbag may appear in more than 4 of the 13 tags");
-    expect(pack.prompt).toContain("at least 4 tags should avoid those generic noun roots entirely");
-    expect(pack.prompt).toContain("Reject any tag set where the same root noun appears in most tags");
-    expect(pack.prompt).toContain("neutral outfit bag, brunch outfit bag, city day accessory");
-    expect(pack.prompt).toContain("replace the weakest 3 if they sound editorial or vague");
-    expect(pack.prompt).toContain("You may use light emoji");
-    expect(pack.prompt).toContain("Never mention any brand name or seller name");
-    expect(pack.prompt).toContain("Write the final answer in natural English only");
+    expect(pack.prompt).toContain("Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.");
+    expect(pack.prompt).toContain(
+      "Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
+    );
+    expect(pack.prompt).toContain(
+      "Silently choose exactly 1 primary keyword angle and exactly 2 supporting keyword angles before drafting.",
+    );
+    expect(pack.prompt).toContain("Reject any title draft that feels catalog-like, empty, or overextended.");
+    expect(pack.prompt).toContain(
+      "Reject any description draft that is too short, too generic, or fails to naturally distribute the chosen tag logic.",
+    );
+    expect(pack.prompt).toContain("Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.");
+    expect(pack.prompt).toContain("Use all 13 tags.");
+    expect(pack.prompt).toContain("Keep every tag at 20 characters or fewer.");
+    expect(pack.prompt).toContain("Every tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.");
+    expect(pack.prompt).toContain("No more than 4 tags may use the same main noun root such as bracelet.");
+    expect(pack.prompt).toContain("No more than 5 tags may repeat the same adjective root such as pink.");
+    expect(pack.prompt).toContain("Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.");
+    expect(pack.prompt).toContain("Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.");
+    expect(pack.prompt).toContain("Reject tags that combine a raw measurement with a generic noun unless the phrase sounds like a real Etsy buyer search.");
+    expect(pack.prompt).toContain(
+      "Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+    );
+    expect(pack.prompt).toContain("Do not reject a tag only because it is broad.");
+    expect(pack.prompt).toContain(
+      "Keep broader material or color tags only when they add distinct search intent not already covered by stronger product-type tags.",
+    );
+    expect(pack.prompt).toContain(
+      "Do not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.",
+    );
+    expect(pack.prompt).toContain(
+      "Gift-intent tags should use a clear recipient or occasion when supported by product facts; avoid vague material-plus-gift phrasing.",
+    );
+    expect(pack.prompt).toContain("Replace the weakest 3 tags before finalizing.");
+    expect(pack.prompt).toContain("Reject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.");
+    expect(pack.prompt).toContain(
+      "Reject any tag set where more than 2 tags rely on generic fallback nouns such as jewelry or accessory.",
+    );
+    expect(pack.prompt).toContain(
+      "Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+    );
+    expect(pack.prompt).toContain("Reject a broad tag only when it adds no distinct buyer intent beyond stronger tags already in the set.");
+    expect(pack.prompt).toContain("Reject any tag set where more than 2 tags are minor rewrites of each other.");
+    expect(pack.prompt).toContain(
+      "Reject any tag set that misses recipient, use-case, or differentiator coverage when supported by product facts.",
+    );
+    expect(pack.prompt).toContain("Reject any output that uses vintage language without explicit proof that the item qualifies as vintage on Etsy.");
+    expect(pack.prompt).toContain("Before finalizing, silently reject outputs that copy weak competitor patterns.");
     expect(pack.prompt).toContain("Internal-only source brand hint:");
     expect(pack.prompt).toContain("EG BAGS");
-    expect(pack.prompt).toContain("Return only the final answer in exactly 3 sections");
-    expect(pack.prompt).toContain("1. Title");
-    expect(pack.prompt).toContain("2. Description");
-    expect(pack.prompt).toContain("3. Tags");
-    expect(pack.prompt).not.toContain("Return ONLY the JSON object.");
-    expect(pack.prompt).not.toContain("Brand: EG BAGS");
+    expect(pack.prompt).toContain("Return only the final answer in exactly 3 sections:");
   });
 });

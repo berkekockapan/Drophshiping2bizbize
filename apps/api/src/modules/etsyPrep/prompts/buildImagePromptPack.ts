@@ -2,39 +2,78 @@ import type { ImagePromptPack } from "@trendyol-etsy/shared";
 
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildProductPromptContext } from "./buildProductPromptContext";
+import { imagePromptVariationTemplates } from "./imagePromptVariationFamilies";
 import { etsyMasterRulebook } from "./masterRulebook";
 
-const sceneVariations = [
-  "Bright studio tabletop scene with a clean front angle and minimal props.",
-  "Soft morning window light with a slight top-down camera angle.",
-  "Neutral lifestyle shelf setup with shallow depth and tidy styling.",
-  "Warm gift-table composition with centered framing and soft shadows.",
-  "Editorial catalog shot with crisp side angle and muted backdrop.",
-  "Minimal fabric backdrop with close three-quarter framing.",
-  "Airy home desk setting with natural light and restrained accessories.",
-];
+function inferToneHints(context: ReturnType<typeof buildProductPromptContext>) {
+  const haystack = [context.sourceTitle, context.category, ...context.imageBrief.productIdentity].join(" ").toLowerCase();
+
+  if (/\b(hoodie|sweatshirt|dress|shirt|pant|jacket|coat|apparel|clothing)\b/.test(haystack)) {
+    return [
+      "Favor fabric texture readability and realistic drape.",
+      "Keep the setup modern, clean, and believable rather than theatrical.",
+    ];
+  }
+
+  if (/\b(necklace|earring|bracelet|ring|jewelry|jewellery)\b/.test(haystack)) {
+    return [
+      "Favor refined close framing with controlled highlights.",
+      "Keep shine believable so product details stay truthful.",
+    ];
+  }
+
+  if (/\b(mug|cup|glass|candle|pillow|blanket|ceramic|decor)\b/.test(haystack)) {
+    return [
+      "Favor calm home cues, soft natural light, and restrained cozy styling.",
+      "Keep the environment inviting and uncluttered.",
+    ];
+  }
+
+  return [
+    "Favor clean premium Etsy merchandising with restrained props.",
+    "Keep the environment supportive, uncluttered, and shopper-friendly.",
+  ];
+}
+
+function buildVariationText(template: (typeof imagePromptVariationTemplates)[number], toneHints: string[]) {
+  return [
+    "Same exact product from the reference image.",
+    template.lead,
+    template.composition,
+    template.lighting,
+    template.environment,
+    toneHints[0] ?? "",
+    "Keep exact form, color, material feel, pattern, and structure. No redesign.",
+  ].join(" ");
+}
 
 export function buildImagePromptPack(detail: EtsyPrepView): ImagePromptPack {
   const context = buildProductPromptContext(detail);
+  const toneHints = inferToneHints(context);
 
   return {
     mainPrompt: [
-      "Use the manual reference image as the single source of truth for the product.",
-      etsyMasterRulebook.imageRole,
+      "Reference Truth",
+      "- The manual reference image is the single source of truth for the exact product.",
+      "- Read product identity from the reference image first and never override it with guessed improvements.",
       "",
-      "Product Identity",
+      "Product Identity Summary",
       ...context.imageBrief.productIdentity.map((fact) => `- ${fact}`),
       "",
-      "Guardrails",
+      "Etsy Visual Objective",
+      ...etsyMasterRulebook.imageVisualObjectives.map((rule) => `- ${rule}`),
+      "",
+      "Hard Guardrails",
       ...etsyMasterRulebook.imageGuardrails.map((rule) => `- ${rule}`),
       "",
+      "Silent Quality Gate",
+      ...etsyMasterRulebook.imageQualityGate.map((rule) => `- ${rule}`),
+      "",
       "Creative Direction",
-      ...etsyMasterRulebook.imagePromptStructure.mainPromptSections.map((rule) => `- ${rule}`),
+      ...etsyMasterRulebook.imageCreativeDirection.map((rule) => `- ${rule}`),
+      ...toneHints.map((hint) => `- ${hint}`),
     ].join("\n"),
-    variations: sceneVariations.map(
-      (variation) =>
-        `Same exact product from the reference image. ${variation} Keep product form, color, material feel, print, and structural details unchanged.`,
-    ),
+    variations: imagePromptVariationTemplates.map((template) => buildVariationText(template, toneHints)),
     guardrailSummary: [...etsyMasterRulebook.imageGuardrails],
   };
 }

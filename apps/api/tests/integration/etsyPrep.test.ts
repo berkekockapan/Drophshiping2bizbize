@@ -342,7 +342,7 @@ describe("etsy prep", () => {
     const payload = await response.json();
     expect(payload).toEqual(
       expect.objectContaining({
-        rulebookVersion: "etsy-prompt-pack-v1",
+        rulebookVersion: "etsy-prompt-pack-v6",
         systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
@@ -355,7 +355,7 @@ describe("etsy prep", () => {
           expectedSections: ["title", "description", "tags"],
         }),
         imagePromptPack: expect.objectContaining({
-          mainPrompt: expect.stringContaining("reference image"),
+          mainPrompt: expect.stringContaining("Reference Truth"),
           variations: expect.any(Array),
         }),
       }),
@@ -364,10 +364,27 @@ describe("etsy prep", () => {
     expect(payload.systemListingPromptPack.prompt).toContain("Non-Negotiable Rules");
     expect(payload.systemListingPromptPack.prompt).toContain("Sanitized Product Facts");
     expect(payload.systemListingPromptPack.prompt).toContain("exactly 13 unique entries");
-    expect(payload.chatGptResearchPromptPack.prompt).toContain("Browse the Etsy Seller Handbook");
-    expect(payload.chatGptResearchPromptPack.prompt).toContain("research competing English-language Etsy listings");
-    expect(payload.chatGptResearchPromptPack.prompt).toContain("natural English only");
-    expect(payload.chatGptResearchPromptPack.prompt).toContain("Never mention any brand name or seller name");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Silently choose exactly 1 primary keyword angle and exactly 2 supporting keyword angles before drafting.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain("Do not reject a tag only because it is broad.");
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+    );
+    expect(payload.imagePromptPack.mainPrompt).toContain("Silent Quality Gate");
+    expect(payload.imagePromptPack.variations).toHaveLength(10);
     expect(JSON.stringify(payload)).not.toMatch(/descriptionRaw|Trendyol|yorumlarini inceleyin|indirimli fiyat|https?:\/\/|cdn\./i);
   });
 

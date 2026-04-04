@@ -1,4 +1,5 @@
 import { ETSY_TR_DEFAULT_FEE_PROFILE } from "./defaults";
+import { calculateShipentegraCarrierFee } from "./calculateShipentegraCarrierFee";
 import type { BreakdownRow, CalculatorDraft, FeeProfileOverrides, MoneyInput, ScenarioSnapshot } from "./types";
 
 function round2(value: number) {
@@ -41,8 +42,8 @@ function resolveOverheadUsd(draft: CalculatorDraft) {
   return round2(totalOverheadUsd / draft.overheadExpectedOrderCount);
 }
 
-function sourceTypeForOfficial(overrideValue: number | undefined) {
-  return typeof overrideValue === "number" ? "official_override" : "official_default";
+function sourceTypeForFee(overrideValue: number | undefined) {
+  return typeof overrideValue === "number" ? "manual_override" : "system_default";
 }
 
 export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
@@ -51,21 +52,23 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     ...(draft.feeProfileOverrides ?? {}),
   };
 
-  const discountedSubtotalUsd = round2(draft.salePriceUsd * (1 - draft.saleDiscountPercent / 100));
-  const couponUsd = resolveCouponUsd(discountedSubtotalUsd, draft);
-  const productRevenueUsd = round2(Math.max(0, discountedSubtotalUsd - couponUsd));
-  const buyerPaidShippingUsd = draft.freeShipping ? 0 : draft.buyerPaidShippingUsd;
-  const revenueExcludingTaxUsd = round2(productRevenueUsd + buyerPaidShippingUsd + draft.buyerPaidExtrasUsd);
-  const processingBaseUsd = round2(revenueExcludingTaxUsd + draft.buyerTaxCollectedByEtsyUsd);
+  const listedSalePriceUsd = round2(draft.salePriceUsd);
+  const discountedSalePriceUsd = round2(listedSalePriceUsd * (1 - draft.saleDiscountPercent / 100));
+  const couponUsd = resolveCouponUsd(discountedSalePriceUsd, draft);
+  const productRevenueUsd = round2(Math.max(0, discountedSalePriceUsd - couponUsd));
+  const collectedShippingUsd = round2(draft.freeShipping ? 0 : draft.buyerPaidShippingUsd);
+  const collectedExtrasUsd = round2(draft.buyerPaidExtrasUsd);
+  const totalCollectedUsd = round2(productRevenueUsd + collectedShippingUsd + collectedExtrasUsd);
+  const processingBaseUsd = round2(totalCollectedUsd + draft.buyerTaxCollectedByEtsyUsd);
 
   const listingRelatedFeeUsd = round2(feeProfile.listingRelatedFeeUsd);
-  const transactionFeeUsd = round2(revenueExcludingTaxUsd * feeProfile.transactionFeeRate);
+  const transactionFeeUsd = round2(totalCollectedUsd * feeProfile.transactionFeeRate);
   const processingFeeUsd = round2(
     processingBaseUsd * feeProfile.processingFeeRate + feeProfile.processingFixedTry / draft.usdTryRate,
   );
-  const regulatoryFeeUsd = round2(revenueExcludingTaxUsd * feeProfile.regulatoryFeeRate);
+  const regulatoryFeeUsd = round2(totalCollectedUsd * feeProfile.regulatoryFeeRate);
   const currencyConversionFeeUsd = draft.currencyConversionEnabled
-    ? round2(revenueExcludingTaxUsd * feeProfile.currencyConversionFeeRate)
+    ? round2(totalCollectedUsd * feeProfile.currencyConversionFeeRate)
     : 0;
 
   const offsiteAdsRate =
@@ -76,9 +79,9 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
         : draft.offsiteAdsMode === "rate_12"
           ? 0.12
           : 0.15;
-  const offsiteAdsFeeUsd = offsiteAdsRate > 0 ? round2(Math.min(revenueExcludingTaxUsd * offsiteAdsRate, 100)) : 0;
+  const offsiteAdsFeeUsd = offsiteAdsRate > 0 ? round2(Math.min(totalCollectedUsd * offsiteAdsRate, 100)) : 0;
 
-  const revenueTry = toTry(revenueExcludingTaxUsd, draft.usdTryRate);
+  const revenueTry = toTry(totalCollectedUsd, draft.usdTryRate);
   const depositFeeTry =
     draft.includeDepositFee &&
     revenueTry >= feeProfile.depositMinimumTry &&
@@ -86,10 +89,24 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       ? feeProfile.depositFeeTry
       : 0;
   const depositFeeUsd = round2(depositFeeTry / draft.usdTryRate);
-  const importDutyUsd =
-    draft.importDutyEnabled && typeof draft.importDutyRate === "number"
-      ? round2(revenueExcludingTaxUsd * draft.importDutyRate)
+
+  const appliedDutyPercent =
+    draft.destinationProfile === "US"
+      ? typeof draft.resolvedDutyPercent === "number"
+        ? draft.resolvedDutyPercent
+        : draft.manualDutyPercent
       : 0;
+  const shipentegraImportBasisUsd = draft.destinationProfile === "US" ? productRevenueUsd : 0;
+  const shipentegraDutyUsd =
+    shipentegraImportBasisUsd > 0 && appliedDutyPercent > 0
+      ? round2(shipentegraImportBasisUsd * (appliedDutyPercent / 100))
+      : 0;
+  const shipentegraAdditionalDutyUsd = shipentegraImportBasisUsd > 0 ? round2(shipentegraImportBasisUsd * 0.15) : 0;
+  const shipentegraCarrierFeeUsd =
+    draft.destinationProfile === "US" ? calculateShipentegraCarrierFee(shipentegraImportBasisUsd) : 0;
+  const shipentegraImportTotalUsd = round2(
+    shipentegraDutyUsd + shipentegraAdditionalDutyUsd + shipentegraCarrierFeeUsd,
+  );
 
   const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
   const vatFeeRows: Array<[string, number]> = [
@@ -112,7 +129,9 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       toUsd(draft.actualShippingCost, draft.usdTryRate) +
       toUsd(draft.packagingCost, draft.usdTryRate) +
       toUsd(draft.shipentegraOperationCost, draft.usdTryRate) +
-      importDutyUsd +
+      shipentegraDutyUsd +
+      shipentegraAdditionalDutyUsd +
+      shipentegraCarrierFeeUsd +
       draft.customCosts.filter((line) => line.enabled).reduce((sum, line) => sum + toUsd(line.value, draft.usdTryRate), 0) +
       resolveOverheadUsd(draft),
   );
@@ -147,13 +166,16 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       message: "Para donusumu kapali. Odeme para birimi farkliysa gercek ucret daha yuksek olabilir.",
     });
   }
-  if (draft.importDutyEnabled && typeof draft.importDutyRate === "number") {
+  if (draft.destinationProfile === "US" && shipentegraImportTotalUsd > 0) {
     warnings.push({
-      key: "import_duty",
-      message: "ABD ithalat vergisi secili GTIP oranina gore tahmini olarak eklendi.",
+      key: "shipentegra_import",
+      message:
+        typeof draft.resolvedDutyPercent === "number"
+          ? "ShipEntegra ithalat modeli secili profil ile uygulandi; matrah indirim ve kupon sonrasi urun geliridir."
+          : "ShipEntegra ithalat modeli hizli formdaki gumruk vergisi orani ile uygulandi; matrah indirim ve kupon sonrasi urun geliridir.",
     });
   }
-  if (round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
+  if (round2(totalCollectedUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
     warnings.push({ key: "negative_profit", message: "Bu senaryoda net kar negatife dusuyor." });
   }
 
@@ -163,7 +185,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Listeleme ucreti",
       amountUsd: listingRelatedFeeUsd,
       amountTry: toTry(listingRelatedFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.listingRelatedFeeUsd),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.listingRelatedFeeUsd),
       note: "Varsayilan siparis basi listeleme varsayimi.",
     },
     {
@@ -171,45 +193,42 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Islem ucreti",
       amountUsd: transactionFeeUsd,
       amountTry: toTry(transactionFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.transactionFeeRate),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.transactionFeeRate),
     },
     {
       key: "processing_fee",
       label: "Odeme isleme ucreti",
       amountUsd: processingFeeUsd,
       amountTry: toTry(processingFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.processingFeeRate),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.processingFeeRate),
     },
     {
       key: "regulatory_operating_fee",
       label: "Yasal isletim ucreti",
       amountUsd: regulatoryFeeUsd,
       amountTry: toTry(regulatoryFeeUsd, draft.usdTryRate),
-      sourceType: sourceTypeForOfficial(draft.feeProfileOverrides?.regulatoryFeeRate),
+      sourceType: sourceTypeForFee(draft.feeProfileOverrides?.regulatoryFeeRate),
     },
     {
       key: "currency_conversion_fee",
       label: "Para donusum ucreti",
       amountUsd: currencyConversionFeeUsd,
       amountTry: toTry(currencyConversionFeeUsd, draft.usdTryRate),
-      sourceType: draft.currencyConversionEnabled
-        ? sourceTypeForOfficial(draft.feeProfileOverrides?.currencyConversionFeeRate)
-        : "conditional",
+      sourceType: draft.currencyConversionEnabled ? sourceTypeForFee(draft.feeProfileOverrides?.currencyConversionFeeRate) : "conditional",
     },
     {
       key: "offsite_ads_fee",
       label: "Site disi reklam ucreti",
       amountUsd: offsiteAdsFeeUsd,
       amountTry: toTry(offsiteAdsFeeUsd, draft.usdTryRate),
-      sourceType:
-        draft.offsiteAdsMode === "off" ? "conditional" : sourceTypeForOfficial(draft.feeProfileOverrides?.offsiteAdsRate),
+      sourceType: draft.offsiteAdsMode === "off" ? "conditional" : sourceTypeForFee(draft.feeProfileOverrides?.offsiteAdsRate),
     },
     {
       key: "seller_fee_vat",
       label: "Satici ucretleri KDV'si",
       amountUsd: sellerFeeVatUsd,
       amountTry: toTry(sellerFeeVatUsd, draft.usdTryRate),
-      sourceType: draft.vatMode === "vat_id_provided" ? "conditional" : sourceTypeForOfficial(draft.feeProfileOverrides?.vatRate),
+      sourceType: draft.vatMode === "vat_id_provided" ? "conditional" : sourceTypeForFee(draft.feeProfileOverrides?.vatRate),
     },
     {
       key: "deposit_fee",
@@ -224,42 +243,70 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Urun maliyeti",
       amountUsd: toUsd(draft.productCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.productCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: draft.valueSources.productCost ?? "manual_override",
     },
     {
       key: "actual_shipping_cost",
       label: "Gercek kargo maliyeti",
       amountUsd: toUsd(draft.actualShippingCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.actualShippingCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: draft.valueSources.actualShippingCost ?? "manual_override",
     },
     {
       key: "packaging_cost",
       label: "Paketleme maliyeti",
       amountUsd: toUsd(draft.packagingCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.packagingCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     },
     {
       key: "shipentegra_operation_cost",
       label: "ShipEntegra operasyon maliyeti",
       amountUsd: toUsd(draft.shipentegraOperationCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.shipentegraOperationCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     },
   ];
 
-  if (draft.importDutyEnabled && typeof draft.importDutyRate === "number") {
-    breakdown.push({
-      key: "import_duty_fee",
-      label: draft.importDutyLabel ?? "ABD ithalat vergisi",
-      amountUsd: importDutyUsd,
-      amountTry: toTry(importDutyUsd, draft.usdTryRate),
-      sourceType: "conditional",
-      note: draft.selectedTariffCode
-        ? `Secili GTIP ${draft.selectedTariffCode} icin hesaplandi.`
-        : "GTIP secimi olmadan uygulanmaz.",
-    });
+  if (draft.destinationProfile === "US" && shipentegraImportTotalUsd > 0) {
+    breakdown.push(
+      {
+        key: "us_duty_fee",
+        label: "ShipEntegra gumruk vergisi",
+        amountUsd: shipentegraDutyUsd,
+        amountTry: toTry(shipentegraDutyUsd, draft.usdTryRate),
+        sourceType:
+          draft.valueSources.duty ?? (typeof draft.resolvedDutyPercent === "number" ? "analysis_selected" : "manual_override"),
+        note:
+          typeof draft.resolvedDutyPercent === "number"
+            ? "Secili profil oranina gore hesaplandi; matrah indirim ve kupon sonrasi urun geliridir."
+            : "Hizli formdaki gumruk vergisi orani ile hesaplandi; matrah indirim ve kupon sonrasi urun geliridir.",
+      },
+      {
+        key: "shipentegra_additional_duty_fee",
+        label: "ShipEntegra ek vergi (%15)",
+        amountUsd: shipentegraAdditionalDutyUsd,
+        amountTry: toTry(shipentegraAdditionalDutyUsd, draft.usdTryRate),
+        sourceType: "system_default",
+        note: "Turkiye cikisli gonderiler icin sabit %15 ek vergi.",
+      },
+      {
+        key: "shipentegra_carrier_fee",
+        label: "ShipEntegra tasiyici islem bedeli",
+        amountUsd: shipentegraCarrierFeeUsd,
+        amountTry: toTry(shipentegraCarrierFeeUsd, draft.usdTryRate),
+        sourceType: "system_default",
+        note: "Ilk surumde kullanici is kurali ile sabitlenen 1 USD tasiyici islem bedeli.",
+      },
+      {
+        key: "shipentegra_import_total",
+        label: "ShipEntegra toplam ithalat masrafi",
+        amountUsd: shipentegraImportTotalUsd,
+        amountTry: toTry(shipentegraImportTotalUsd, draft.usdTryRate),
+        sourceType: "system_default",
+        note: "Gumruk vergisi + ek vergi + tasiyici islem bedeli toplami.",
+      },
+    );
   }
 
   for (const line of draft.customCosts.filter((cost) => cost.enabled)) {
@@ -269,7 +316,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: line.label || "Ozel gider",
       amountUsd: lineUsd,
       amountTry: toTry(lineUsd, draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     });
   }
 
@@ -280,15 +327,27 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       label: "Genel gider payi",
       amountUsd: overheadUsd,
       amountTry: toTry(overheadUsd, draft.usdTryRate),
-      sourceType: "user_input",
+      sourceType: "manual_override",
     });
   }
 
-  const netProfitUsd = round2(revenueExcludingTaxUsd - totalEtsyFeesUsd - operationalCostsUsd);
+  const netProfitUsd = round2(totalCollectedUsd - totalEtsyFeesUsd - operationalCostsUsd);
   const netProfitTry = toTry(netProfitUsd, draft.usdTryRate);
 
   return {
-    normalizedRevenueUsd: revenueExcludingTaxUsd,
+    listedSalePriceUsd,
+    discountedSalePriceUsd,
+    productRevenueUsd,
+    collectedShippingUsd,
+    collectedExtrasUsd,
+    totalCollectedUsd,
+    dutyBaseUsd: shipentegraImportBasisUsd,
+    shipentegraImportBasisUsd,
+    shipentegraDutyUsd,
+    shipentegraAdditionalDutyUsd,
+    shipentegraCarrierFeeUsd,
+    shipentegraImportTotalUsd,
+    normalizedRevenueUsd: totalCollectedUsd,
     normalizedRevenueTry: revenueTry,
     totalEtsyFeesUsd,
     totalEtsyFeesTry: toTry(totalEtsyFeesUsd, draft.usdTryRate),
@@ -296,7 +355,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     totalOperationalCostsTry: toTry(operationalCostsUsd, draft.usdTryRate),
     netProfitUsd,
     netProfitTry,
-    netMarginPercent: revenueExcludingTaxUsd > 0 ? round2((netProfitUsd / revenueExcludingTaxUsd) * 100) : 0,
+    netMarginPercent: totalCollectedUsd > 0 ? round2((netProfitUsd / totalCollectedUsd) * 100) : 0,
     breakdown,
     warnings,
   };

@@ -3,20 +3,24 @@ import userEvent from "@testing-library/user-event";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { ProductTariffRecommendation } from "../../../app/api";
 import { renderWithProviders } from "../../../test/test-utils";
 import { TariffRecommendationCard } from "./TariffRecommendationCard";
 
-const recommendation = {
+const recommendation: ProductTariffRecommendation = {
   catalogId: "catalog_711790",
   canonicalHs6: "711790",
+  profileName: "Taklit taki",
   title: "Imitation jewelry",
   rationale: "Eslesen urun sinyali bulundu.",
   score: 120,
   usProfileId: "us_711790_2026r4",
+  htsCode10: "7117.90.7500",
   generalDutyRate: 0.11,
   additionalDutyRate: 0,
   combinedDutyRate: 0.11,
   dutySummary: "%11.0 temel vergi + %0.0 ek tarife = toplam %11.0",
+  defaultShipentegraUsd: 4.9,
   sourceBadges: ["Kural eslesmesi"],
 };
 

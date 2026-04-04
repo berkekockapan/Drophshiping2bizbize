@@ -49,13 +49,20 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildImagePromptPack", () => {
-  it("returns a short main prompt, seven variations, and product-fidelity guardrails", () => {
+  it("returns a block-structured main prompt, ten balanced variations, and stronger fidelity guardrails", () => {
     const pack = buildImagePromptPack(detail);
 
-    expect(pack.mainPrompt).toContain("single source of truth");
+    expect(pack.mainPrompt).toContain("Reference Truth");
+    expect(pack.mainPrompt).toContain("Etsy Visual Objective");
+    expect(pack.mainPrompt).toContain("Hard Guardrails");
+    expect(pack.mainPrompt).toContain("Silent Quality Gate");
+    expect(pack.mainPrompt).toContain("Do not redesign, reinterpret, embellish, or reconstruct the product.");
     expect(pack.mainPrompt).not.toMatch(/PRODUCT_CONTEXT|"attributes"|"variants"|"images"|"existingDraft"|https?:\/\/|cdn\./i);
-    expect(pack.variations).toHaveLength(7);
-    expect(pack.variations.every((variation) => variation.length < 220)).toBe(true);
-    expect(pack.guardrailSummary).toContain("Do not redesign the product.");
+    expect(pack.variations).toHaveLength(10);
+    expect(pack.variations.filter((variation) => /Etsy hero clean product shot/i.test(variation))).toHaveLength(4);
+    expect(pack.variations.filter((variation) => /Lifestyle scene/i.test(variation))).toHaveLength(4);
+    expect(pack.variations.filter((variation) => /Editorial attention-grabber/i.test(variation))).toHaveLength(2);
+    expect(pack.variations.every((variation) => variation.length < 420)).toBe(true);
+    expect(pack.guardrailSummary).toContain("Do not redesign, reinterpret, embellish, or reconstruct the product.");
   });
 });

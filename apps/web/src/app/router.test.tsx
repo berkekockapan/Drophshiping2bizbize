@@ -152,4 +152,33 @@ describe("AppRouter", () => {
     expect(screen.getByRole("link", { name: "Kaynak Ürünler / Berke" })).toBeInTheDocument();
     expect(await screen.findByText(/minimal seramik kupa/i)).toBeInTheDocument();
   });
+
+  it("renders the source-products route and sidebar entry", async () => {
+    window.history.pushState({}, "", "/owners/berke/source-products");
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/owners/berke/source-product-categories")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify({ items: [], filters: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    render(<AppRouter />);
+
+    expect(await screen.findByRole("heading", { name: /kaynak ürünler/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /kaynak ürünler/i })).toBeInTheDocument();
+  });
 });

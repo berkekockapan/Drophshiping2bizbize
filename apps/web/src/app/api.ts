@@ -21,6 +21,53 @@ export interface ProductCategory {
   name: string;
 }
 
+export interface SourceProductCategory {
+  id: string;
+  name: string;
+}
+
+export interface SourceProductItem {
+  id: string;
+  ownerKey: OwnerKey;
+  title: string;
+  sourceUrl: string;
+  platform: string | null;
+  notes: string | null;
+  sourceCategory: SourceProductCategory | null;
+  sortOrder: number | null;
+  deletedAt: number | null;
+  deletedReason?: string | null;
+  linkedEtsyCount: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface SourceProductsViewResponse {
+  items: SourceProductItem[];
+  filters: {
+    search?: string | null;
+    categoryId?: string | null;
+  };
+}
+
+export interface SourceProductsTrashResponse {
+  items: SourceProductItem[];
+  total: number;
+}
+
+export interface SourceProductDetailResponse {
+  sourceProduct: SourceProductItem & {
+    deletedReason: string | null;
+    createdAt: number;
+    updatedAt: number;
+  };
+  linkedEtsyItems: Array<{
+    id: string;
+    title: string;
+    url: string;
+  }>;
+}
+
 export interface TrackingItem {
   id: string;
   ownerKey: OwnerKey;
@@ -704,6 +751,127 @@ export async function fetchTrackingView(
   const suffix = search.toString() ? `?${search.toString()}` : "";
   const response = await fetchWithTimeout(`/owners/${ownerKey}/products${suffix}`);
   return parseJson<TrackingViewResponse>(response);
+}
+
+export async function fetchSourceProductsView(
+  ownerKey: OwnerKey,
+  options: { search?: string; categoryId?: string | "uncategorized" | null } = {},
+): Promise<SourceProductsViewResponse> {
+  const search = new URLSearchParams();
+  if (options.search?.trim()) {
+    search.set("search", options.search.trim());
+  }
+  if (options.categoryId) {
+    search.set("categoryId", options.categoryId);
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products${suffix}`);
+  return parseJson<SourceProductsViewResponse>(response);
+}
+
+export async function fetchSourceProductCategories(ownerKey: OwnerKey) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-product-categories`);
+  return parseJson<{ items: SourceProductCategory[] }>(response);
+}
+
+export async function createSourceProductCategory(ownerKey: OwnerKey, name: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-product-categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  return parseJson<{ category: SourceProductCategory }>(response);
+}
+
+export async function renameSourceProductCategory(ownerKey: OwnerKey, categoryId: string, name: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-product-categories/${categoryId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  return parseJson<{ category: SourceProductCategory }>(response);
+}
+
+export async function deleteSourceProductCategory(ownerKey: OwnerKey, categoryId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-product-categories/${categoryId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function setSourceProductCategory(ownerKey: OwnerKey, sourceProductId: string, categoryId: string | null) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/category`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ categoryId }),
+  });
+
+  return parseJson<{ sourceProductId: string; sourceCategory: SourceProductCategory | null }>(response);
+}
+
+export async function reorderSourceProducts(
+  ownerKey: OwnerKey,
+  payload: { categoryId: string | null; orderedIds: string[] },
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/reorder`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{ orderedIds: string[] }>(response);
+}
+
+export async function fetchSourceProductsTrash(ownerKey: OwnerKey): Promise<SourceProductsTrashResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/trash`);
+  return parseJson<SourceProductsTrashResponse>(response);
+}
+
+export async function deleteSourceProduct(ownerKey: OwnerKey, sourceProductId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function restoreSourceProduct(ownerKey: OwnerKey, sourceProductId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/restore`, {
+    method: "POST",
+  });
+
+  return parseJson<{ ok: true }>(response);
+}
+
+export async function permanentlyDeleteSourceProduct(ownerKey: OwnerKey, sourceProductId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/permanent`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    await parseJson<{ error: string }>(response);
+  }
+}
+
+export async function fetchSourceProductDetail(ownerKey: OwnerKey, sourceProductId: string): Promise<SourceProductDetailResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`);
+  return parseJson<SourceProductDetailResponse>(response);
 }
 
 export async function fetchProductCategories(ownerKey: OwnerKey) {

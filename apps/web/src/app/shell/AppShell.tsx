@@ -53,6 +53,12 @@ export function AppShell({ children }: PropsWithChildren) {
             <NavLink to={`/owners/${activeOwner}/trash`} className={({ isActive }) => linkClassName(isActive)}>
               Çöp Kutusu
             </NavLink>
+            <NavLink to={`/owners/${activeOwner}/source-products`} className={({ isActive }) => linkClassName(isActive)}>
+              Kaynak Ürünler
+            </NavLink>
+            <NavLink to={`/owners/${activeOwner}/source-products/trash`} className={({ isActive }) => linkClassName(isActive)}>
+              Kaynak Ürün Çöp Kutusu
+            </NavLink>
             <NavLink to="/etsy-cost-calculator" className={({ isActive }) => linkClassName(isActive)}>
               Etsy Maliyet Hesaplayici
             </NavLink>

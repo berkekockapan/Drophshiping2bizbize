@@ -24,11 +24,25 @@ describe("source product ordering", () => {
       sqlite
         .prepare(
           `insert into source_products (
-            id, owner_key, title, source_url, platform, notes,
-            source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
-          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            id, owner_key, source_title, source_url, source_url_normalized, source_platform, note,
+          source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(id, "berke", id, `https://example.com/${id}`, "trendyol", null, "cat_mutfak", sortOrder, null, null, now, now);
+        .run(
+          id,
+          "berke",
+          id,
+          `https://example.com/${id}`,
+          `https://example.com/${id}`,
+          "OTHER",
+          null,
+          "cat_mutfak",
+          sortOrder,
+          null,
+          null,
+          now,
+          now,
+        );
     }
 
     const reorderResponse = await app.request(

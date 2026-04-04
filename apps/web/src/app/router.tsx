@@ -12,8 +12,6 @@ import { SourceProductsPage } from "../features/sourceProducts/routes/SourceProd
 import { EtsyCostCalculatorPage } from "../features/etsyCostCalculator/routes/EtsyCostCalculatorPage";
 import { SettingsPage } from "../features/settings/routes/SettingsPage";
 import { getDefaultOwnerPath } from "../features/shared/lib/ownerRouteState";
-import { SourceProductDetailPage } from "../features/sourceProducts/routes/SourceProductDetailPage";
-import { SourceProductsPage } from "../features/sourceProducts/routes/SourceProductsPage";
 import { TrackingCenterPage } from "../features/tracking/routes/TrackingCenterPage";
 import { TrashPage } from "../features/tracking/routes/TrashPage";
 import { createQueryClient } from "./queryClient";
@@ -32,12 +30,10 @@ export function AppRouter() {
             <Route path="/owners/:ownerKey/products/:productId" element={<ProductDetailPage />} />
             <Route path="/owners/:ownerKey/products/:productId/seo" element={<SeoEditorPage />} />
             <Route path="/owners/:ownerKey/source-products" element={<SourceProductsPage />} />
+            <Route path="/owners/:ownerKey/source-products/trash" element={<SourceProductTrashPage />} />
             <Route path="/owners/:ownerKey/source-products/:sourceProductId" element={<SourceProductDetailPage />} />
             <Route path="/owners/:ownerKey/notifications" element={<NotificationsPage />} />
             <Route path="/owners/:ownerKey/trash" element={<TrashPage />} />
-            <Route path="/owners/:ownerKey/source-products" element={<SourceProductsPage />} />
-            <Route path="/owners/:ownerKey/source-products/trash" element={<SourceProductTrashPage />} />
-            <Route path="/owners/:ownerKey/source-products/:sourceProductId" element={<SourceProductDetailPage />} />
             <Route path="/etsy-cost-calculator" element={<EtsyCostCalculatorPage />} />
             <Route path="/connections" element={<AIConnectionsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

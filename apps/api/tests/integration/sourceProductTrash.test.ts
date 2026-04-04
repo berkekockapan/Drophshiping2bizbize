@@ -19,19 +19,41 @@ describe("source product trash", () => {
     sqlite
       .prepare(
         `insert into source_products (
-          id, owner_key, title, source_url, platform, notes,
+          id, owner_key, source_title, source_url, source_url_normalized, source_platform, note,
           source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run("sp_restore", "berke", "Restore urunu", "https://example.com/restore", "etsy", null, "cat_mutfak", 0, null, null, now, now);
+      .run(
+        "sp_restore",
+        "berke",
+        "Restore urunu",
+        "https://example.com/restore",
+        "https://example.com/restore",
+        "OTHER",
+        null,
+        "cat_mutfak",
+        0,
+        null,
+        null,
+        now,
+        now,
+      );
 
     sqlite
       .prepare(
         `insert into source_product_etsy_links (
-          id, owner_key, source_product_id, product_id, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?)`,
+          id, owner_key, source_product_id, etsy_url, etsy_url_normalized, etsy_listing_id, created_at
+        ) values (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run("link_1", "berke", "sp_restore", "prod_1", now, now);
+      .run(
+        "link_1",
+        "berke",
+        "sp_restore",
+        "https://www.etsy.com/listing/123456789/restore",
+        "https://www.etsy.com/listing/123456789",
+        "123456789",
+        now,
+      );
 
     const softDeleteResponse = await app.request(
       "http://localhost/owners/berke/source-products/sp_restore",

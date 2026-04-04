@@ -22,6 +22,7 @@ import { startManualRefreshRun } from "../modules/tracking/startManualRefreshRun
 import { createCategoriesRouter } from "./categories";
 import { createDraftsRouter } from "./drafts";
 import { createProductsRouter } from "./products";
+import { createSourceProductCategoriesRouter } from "./sourceProductCategories";
 import { createSourceProductsRouter } from "./sourceProducts";
 
 function parseOwnerKey(value: string | undefined) {
@@ -258,6 +259,7 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
 
   app.route("/products", createProductsRouter());
   app.route("/source-products", createSourceProductsRouter());
+  app.route("/source-product-categories", createSourceProductCategoriesRouter());
   app.route("/categories", createCategoriesRouter());
   app.route("/", createDraftsRouter());
 

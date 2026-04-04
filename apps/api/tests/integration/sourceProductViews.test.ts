@@ -19,32 +19,74 @@ describe("source product views", () => {
     sqlite
       .prepare(
         `insert into source_products (
-          id, owner_key, title, source_url, platform, notes,
+          id, owner_key, source_title, source_url, source_url_normalized, source_platform, note,
           source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run("sp_1", "berke", "Kumas canta", "https://example.com/canta", "etsy", "detay notu", "cat_textile", 0, null, null, now, now);
+      .run(
+        "sp_1",
+        "berke",
+        "Kumas canta",
+        "https://example.com/canta",
+        "https://example.com/canta",
+        "OTHER",
+        "detay notu",
+        "cat_textile",
+        0,
+        null,
+        null,
+        now,
+        now,
+      );
 
     sqlite
       .prepare(
         `insert into source_products (
-          id, owner_key, title, source_url, platform, notes,
+          id, owner_key, source_title, source_url, source_url_normalized, source_platform, note,
           source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run("sp_2", "kaan", "Kaan urunu", "https://example.com/kaan", "trendyol", null, null, 0, null, null, now, now);
+      .run(
+        "sp_2",
+        "kaan",
+        "Kaan urunu",
+        "https://example.com/kaan",
+        "https://example.com/kaan",
+        "OTHER",
+        null,
+        null,
+        0,
+        null,
+        null,
+        now,
+        now,
+      );
 
     sqlite
       .prepare(
         `insert into source_products (
-          id, owner_key, title, source_url, platform, notes,
+          id, owner_key, source_title, source_url, source_url_normalized, source_platform, note,
           source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run("sp_trash", "berke", "Cop urunu", "https://example.com/cop", "etsy", null, null, null, now, "user", now, now);
+      .run(
+        "sp_trash",
+        "berke",
+        "Cop urunu",
+        "https://example.com/cop",
+        "https://example.com/cop",
+        "OTHER",
+        null,
+        null,
+        null,
+        now,
+        "user",
+        now,
+        now,
+      );
 
     const listResponse = await app.request("http://localhost/owners/berke/source-products", undefined, env);
-    const detailResponse = await app.request("http://localhost/owners/berke/source-products/sp_1", undefined, env);
+    const detailResponse = await app.request("http://localhost/owners/berke/source-products/sp_1/view", undefined, env);
     const trashResponse = await app.request("http://localhost/owners/berke/source-products/trash", undefined, env);
     const kaanListResponse = await app.request("http://localhost/owners/kaan/source-products", undefined, env);
 

@@ -55,7 +55,7 @@ export interface SourceProductsTrashResponse {
   total: number;
 }
 
-export interface SourceProductDetailResponse {
+export interface SourceProductManagementDetailResponse {
   sourceProduct: SourceProductItem & {
     deletedReason: string | null;
     createdAt: number;
@@ -841,6 +841,14 @@ export async function fetchSourceProductsTrash(ownerKey: OwnerKey): Promise<Sour
   return parseJson<SourceProductsTrashResponse>(response);
 }
 
+export async function fetchSourceProductManagementDetail(
+  ownerKey: OwnerKey,
+  sourceProductId: string,
+): Promise<SourceProductManagementDetailResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/view`);
+  return parseJson<SourceProductManagementDetailResponse>(response);
+}
+
 export async function deleteSourceProduct(ownerKey: OwnerKey, sourceProductId: string) {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`, {
     method: "DELETE",
@@ -1054,11 +1062,6 @@ export async function createSourceProduct(ownerKey: OwnerKey, payload: CreateSou
     body: JSON.stringify(payload),
   });
 
-  return parseJson<SourceProductDetailResponse>(response);
-}
-
-export async function fetchSourceProductDetail(ownerKey: OwnerKey, sourceProductId: string) {
-  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}`);
   return parseJson<SourceProductDetailResponse>(response);
 }
 

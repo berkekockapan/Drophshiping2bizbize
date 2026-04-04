@@ -19,6 +19,10 @@ export interface SourceProductRow {
   sourceUrlNormalized: string;
   sourcePlatform: SourceProductPlatform;
   note: string | null;
+  sourceCategoryId: string | null;
+  sortOrder: number | null;
+  deletedAt: number | null;
+  deletedReason: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -45,6 +49,32 @@ interface SourceProductListRow {
 }
 
 interface SourceProductDetailRow extends SourceProductRow {}
+
+export interface SourceProductRecord {
+  id: string;
+  ownerKey: OwnerKey;
+  title: string;
+  sourceUrl: string;
+  platform: string | null;
+  notes: string | null;
+  sourceCategoryId: string | null;
+  sourceCategoryName: string | null;
+  sortOrder: number | null;
+  deletedAt: number | null;
+  deletedReason: string | null;
+  createdAt: number;
+  updatedAt: number;
+  linkedEtsyCount: number;
+}
+
+export interface SourceProductManagementDetailRecord {
+  sourceProduct: SourceProductRecord;
+  linkedEtsyItems: Array<{
+    id: string;
+    title: string;
+    url: string;
+  }>;
+}
 
 function buildSearchPatterns(search: string | null) {
   if (!search?.trim()) {
@@ -146,7 +176,109 @@ function mapDetailRow(row: SourceProductDetailRow): SourceProductDetailResponse[
   };
 }
 
+function categoryClause(categoryId: string | null) {
+  if (categoryId === null) {
+    return "source_category_id is null";
+  }
+
+  return "source_category_id = ?";
+}
+
+function categoryValues(categoryId: string | null) {
+  return categoryId === null ? [] : [categoryId];
+}
+
+interface ManagementRow {
+  id: string;
+  ownerKey: OwnerKey;
+  title: string;
+  sourceUrl: string;
+  platform: string | null;
+  notes: string | null;
+  sourceCategoryId: string | null;
+  sourceCategoryName: string | null;
+  sortOrder: number | null;
+  deletedAt: number | null;
+  deletedReason: string | null;
+  createdAt: number;
+  updatedAt: number;
+  linkedEtsyCount: number;
+}
+
+function mapManagementRow(row: ManagementRow): SourceProductRecord {
+  return {
+    id: row.id,
+    ownerKey: row.ownerKey,
+    title: row.title,
+    sourceUrl: row.sourceUrl,
+    platform: row.platform,
+    notes: row.notes,
+    sourceCategoryId: row.sourceCategoryId,
+    sourceCategoryName: row.sourceCategoryName,
+    sortOrder: row.sortOrder,
+    deletedAt: row.deletedAt,
+    deletedReason: row.deletedReason,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    linkedEtsyCount: row.linkedEtsyCount,
+  };
+}
+
 export function createSourceProductsRepo(db: D1Database) {
+  async function loadActiveCategoryRows(ownerKey: OwnerKey, categoryId: string | null) {
+    const result = await db
+      .prepare(
+        `select id
+         from source_products
+         where owner_key = ?
+           and deleted_at is null
+           and ${categoryClause(categoryId)}
+         order by sort_order asc, created_at asc, id asc`,
+      )
+      .bind(ownerKey, ...categoryValues(categoryId))
+      .all<{ id: string }>();
+
+    return result.results;
+  }
+
+  async function normalizeBucketOrder(ownerKey: OwnerKey, categoryId: string | null, now: Date) {
+    const rows = await loadActiveCategoryRows(ownerKey, categoryId);
+    if (rows.length === 0) {
+      return;
+    }
+
+    await runWithWriteRetry(async () => {
+      await db.batch!(
+        rows.map((row, index) =>
+          db
+            .prepare(
+              `update source_products
+               set sort_order = ?, updated_at = ?
+               where id = ?
+                 and owner_key = ?
+                 and deleted_at is null`,
+            )
+            .bind(index, now.getTime(), row.id, ownerKey),
+        ),
+      );
+    });
+  }
+
+  async function getNextSortOrder(ownerKey: OwnerKey, categoryId: string | null) {
+    const row = await db
+      .prepare(
+        `select coalesce(max(sort_order), -1) as maxSort
+         from source_products
+         where owner_key = ?
+           and deleted_at is null
+           and ${categoryClause(categoryId)}`,
+      )
+      .bind(ownerKey, ...categoryValues(categoryId))
+      .first<{ maxSort: number | null }>();
+
+    return (row?.maxSort ?? -1) + 1;
+  }
+
   const repo = {
     db,
     tables: {
@@ -203,7 +335,7 @@ export function createSourceProductsRepo(db: D1Database) {
     },
     async listSourceProducts(ownerKey: OwnerKey, search: string | null) {
       const searchClause = buildSearchClause(search);
-      const where = ["p.owner_key = ?", searchClause.query].filter(Boolean).join(" ");
+      const where = ["p.owner_key = ?", "p.deleted_at is null", searchClause.query].filter(Boolean).join(" ");
       const values: unknown[] = [ownerKey, ...searchClause.values];
 
       const rows = await db
@@ -238,7 +370,15 @@ export function createSourceProductsRepo(db: D1Database) {
       const product = await db
         .prepare(
           `select id, owner_key as ownerKey, source_title as sourceTitle, source_url as sourceUrl,
-                  source_platform as sourcePlatform, note, created_at as createdAt, updated_at as updatedAt
+                  source_url_normalized as sourceUrlNormalized,
+                  source_platform as sourcePlatform,
+                  note,
+                  source_category_id as sourceCategoryId,
+                  sort_order as sortOrder,
+                  deleted_at as deletedAt,
+                  deleted_reason as deletedReason,
+                  created_at as createdAt,
+                  updated_at as updatedAt
            from source_products
            where owner_key = ? and id = ?
            limit 1`,
@@ -278,13 +418,27 @@ export function createSourceProductsRepo(db: D1Database) {
       createdAt: number;
       updatedAt: number;
     }) {
+      const nextSortOrder = await getNextSortOrder(input.ownerKey, null);
+
       await runWithWriteRetry(async () => {
         await db
           .prepare(
             `insert into source_products (
-              id, owner_key, source_title, source_url, source_url_normalized, source_platform, note, created_at, updated_at
+              id,
+              owner_key,
+              source_title,
+              source_url,
+              source_url_normalized,
+              source_platform,
+              note,
+              source_category_id,
+              sort_order,
+              deleted_at,
+              deleted_reason,
+              created_at,
+              updated_at
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             input.id,
@@ -294,6 +448,10 @@ export function createSourceProductsRepo(db: D1Database) {
             input.sourceUrlNormalized,
             input.sourcePlatform,
             input.note,
+            null,
+            nextSortOrder,
+            null,
+            null,
             input.createdAt,
             input.updatedAt,
           )
@@ -415,6 +573,324 @@ export function createSourceProductsRepo(db: D1Database) {
       });
 
       return repo.getDetail(ownerKey, sourceProductId);
+    },
+    async get(ownerKey: OwnerKey, sourceProductId: string) {
+      const row = await db
+        .prepare(
+          `select p.id,
+                  p.owner_key as ownerKey,
+                  p.source_title as title,
+                  p.source_url as sourceUrl,
+                  p.source_platform as platform,
+                  p.note as notes,
+                  p.source_category_id as sourceCategoryId,
+                  c.name as sourceCategoryName,
+                  p.sort_order as sortOrder,
+                  p.deleted_at as deletedAt,
+                  p.deleted_reason as deletedReason,
+                  p.created_at as createdAt,
+                  p.updated_at as updatedAt,
+                  coalesce(link_counts.linked_etsy_count, 0) as linkedEtsyCount
+           from source_products p
+           left join source_product_categories c
+             on c.id = p.source_category_id
+            and c.owner_key = p.owner_key
+           left join (
+             select source_product_id, count(*) as linked_etsy_count
+             from source_product_etsy_links
+             where owner_key = ?
+             group by source_product_id
+           ) link_counts
+             on link_counts.source_product_id = p.id
+           where p.owner_key = ?
+             and p.id = ?
+           limit 1`,
+        )
+        .bind(ownerKey, ownerKey, sourceProductId)
+        .first<ManagementRow>();
+
+      return row ? mapManagementRow(row) : null;
+    },
+    async getManagementDetail(ownerKey: OwnerKey, sourceProductId: string) {
+      const sourceProduct = await repo.get(ownerKey, sourceProductId);
+      if (!sourceProduct) {
+        return null;
+      }
+
+      const linkedEtsyItems = (
+        await db
+          .prepare(
+            `select id,
+                    coalesce(etsy_listing_id, etsy_url) as title,
+                    etsy_url as url
+             from source_product_etsy_links
+             where owner_key = ?
+               and source_product_id = ?
+             order by created_at asc, id asc`,
+          )
+          .bind(ownerKey, sourceProductId)
+          .all<{ id: string; title: string; url: string }>()
+      ).results;
+
+      return {
+        sourceProduct,
+        linkedEtsyItems,
+      } satisfies SourceProductManagementDetailRecord;
+    },
+    async listActive(
+      ownerKey: OwnerKey,
+      filters: { search?: string | null; categoryId?: string | "uncategorized" | null } = {},
+    ) {
+      const clauses: string[] = ["p.owner_key = ?", "p.deleted_at is null"];
+      const searchClause = buildSearchClause(filters.search ?? null);
+      const values: unknown[] = [ownerKey, ...searchClause.values];
+
+      if (searchClause.query) {
+        clauses.push(searchClause.query.replace(/^and\s+/i, ""));
+      }
+
+      if (filters.categoryId === "uncategorized") {
+        clauses.push("p.source_category_id is null");
+      } else if (typeof filters.categoryId === "string" && filters.categoryId) {
+        clauses.push("p.source_category_id = ?");
+        values.push(filters.categoryId);
+      }
+
+      const rows = await db
+        .prepare(
+          `select p.id,
+                  p.owner_key as ownerKey,
+                  p.source_title as title,
+                  p.source_url as sourceUrl,
+                  p.source_platform as platform,
+                  p.note as notes,
+                  p.source_category_id as sourceCategoryId,
+                  c.name as sourceCategoryName,
+                  p.sort_order as sortOrder,
+                  p.deleted_at as deletedAt,
+                  p.deleted_reason as deletedReason,
+                  p.created_at as createdAt,
+                  p.updated_at as updatedAt,
+                  coalesce(link_counts.linked_etsy_count, 0) as linkedEtsyCount
+           from source_products p
+           left join source_product_categories c
+             on c.id = p.source_category_id
+            and c.owner_key = p.owner_key
+           left join (
+             select source_product_id, count(*) as linked_etsy_count
+             from source_product_etsy_links
+             where owner_key = ?
+             group by source_product_id
+           ) link_counts
+             on link_counts.source_product_id = p.id
+           where ${clauses.join(" and ")}
+           order by case when p.source_category_id is null then 1 else 0 end asc,
+                    lower(coalesce(c.name, '')) asc,
+                    p.sort_order asc,
+                    p.created_at asc,
+                    p.id asc`,
+        )
+        .bind(ownerKey, ...values)
+        .all<ManagementRow>();
+
+      return rows.results.map(mapManagementRow);
+    },
+    async listTrash(ownerKey: OwnerKey) {
+      const rows = await db
+        .prepare(
+          `select p.id,
+                  p.owner_key as ownerKey,
+                  p.source_title as title,
+                  p.source_url as sourceUrl,
+                  p.source_platform as platform,
+                  p.note as notes,
+                  p.source_category_id as sourceCategoryId,
+                  c.name as sourceCategoryName,
+                  p.sort_order as sortOrder,
+                  p.deleted_at as deletedAt,
+                  p.deleted_reason as deletedReason,
+                  p.created_at as createdAt,
+                  p.updated_at as updatedAt,
+                  coalesce(link_counts.linked_etsy_count, 0) as linkedEtsyCount
+           from source_products p
+           left join source_product_categories c
+             on c.id = p.source_category_id
+            and c.owner_key = p.owner_key
+           left join (
+             select source_product_id, count(*) as linked_etsy_count
+             from source_product_etsy_links
+             where owner_key = ?
+             group by source_product_id
+           ) link_counts
+             on link_counts.source_product_id = p.id
+           where p.owner_key = ?
+             and p.deleted_at is not null
+           order by p.deleted_at desc, p.created_at asc, p.id asc`,
+        )
+        .bind(ownerKey, ownerKey)
+        .all<ManagementRow>();
+
+      return rows.results.map(mapManagementRow);
+    },
+    async setCategory(ownerKey: OwnerKey, sourceProductId: string, categoryId: string | null, now: Date) {
+      const current = await repo.get(ownerKey, sourceProductId);
+      if (!current || current.deletedAt) {
+        return null;
+      }
+
+      const currentCategoryId = current.sourceCategoryId ?? null;
+      if (currentCategoryId === categoryId) {
+        return current;
+      }
+
+      const nextSortOrder = await getNextSortOrder(ownerKey, categoryId);
+
+      await runWithWriteRetry(async () => {
+        await db
+          .prepare(
+            `update source_products
+             set source_category_id = ?,
+                 sort_order = ?,
+                 updated_at = ?
+             where id = ?
+               and owner_key = ?
+               and deleted_at is null`,
+          )
+          .bind(categoryId, nextSortOrder, now.getTime(), sourceProductId, ownerKey)
+          .run();
+      });
+
+      await normalizeBucketOrder(ownerKey, currentCategoryId, now);
+      return repo.get(ownerKey, sourceProductId);
+    },
+    async reorder(ownerKey: OwnerKey, categoryId: string | null, orderedIds: string[], now: Date) {
+      const rows = await loadActiveCategoryRows(ownerKey, categoryId);
+      const actualIds = rows.map((row) => row.id);
+      const expectedIds = new Set(orderedIds);
+
+      if (
+        actualIds.length !== orderedIds.length ||
+        expectedIds.size !== orderedIds.length ||
+        actualIds.some((id) => !expectedIds.has(id))
+      ) {
+        return null;
+      }
+
+      await runWithWriteRetry(async () => {
+        await db.batch!(
+          orderedIds.map((id, index) =>
+            db
+              .prepare(
+                `update source_products
+                 set sort_order = ?, updated_at = ?
+                 where id = ?
+                   and owner_key = ?
+                   and deleted_at is null`,
+              )
+              .bind(index, now.getTime(), id, ownerKey),
+          ),
+        );
+      });
+
+      return orderedIds;
+    },
+    async softDelete(ownerKey: OwnerKey, sourceProductId: string, now: Date) {
+      const current = await repo.get(ownerKey, sourceProductId);
+      if (!current || current.deletedAt) {
+        return false;
+      }
+
+      await runWithWriteRetry(async () => {
+        await db
+          .prepare(
+            `update source_products
+             set deleted_at = ?,
+                 deleted_reason = ?,
+                 sort_order = null,
+                 updated_at = ?
+             where id = ?
+               and owner_key = ?
+               and deleted_at is null`,
+          )
+          .bind(now.getTime(), "user", now.getTime(), sourceProductId, ownerKey)
+          .run();
+      });
+
+      await normalizeBucketOrder(ownerKey, current.sourceCategoryId ?? null, now);
+      return true;
+    },
+    async restore(ownerKey: OwnerKey, sourceProductId: string, now: Date) {
+      const current = await repo.get(ownerKey, sourceProductId);
+      if (!current || !current.deletedAt) {
+        return false;
+      }
+
+      let targetCategoryId = current.sourceCategoryId ?? null;
+      if (targetCategoryId) {
+        const category = await db
+          .prepare(
+            `select id
+             from source_product_categories
+             where owner_key = ?
+               and id = ?
+             limit 1`,
+          )
+          .bind(ownerKey, targetCategoryId)
+          .first<{ id: string }>();
+
+        if (!category) {
+          targetCategoryId = null;
+        }
+      }
+
+      const nextSortOrder = await getNextSortOrder(ownerKey, targetCategoryId);
+
+      await runWithWriteRetry(async () => {
+        await db
+          .prepare(
+            `update source_products
+             set deleted_at = null,
+                 deleted_reason = null,
+                 source_category_id = ?,
+                 sort_order = ?,
+                 updated_at = ?
+             where id = ?
+               and owner_key = ?
+               and deleted_at is not null`,
+          )
+          .bind(targetCategoryId, nextSortOrder, now.getTime(), sourceProductId, ownerKey)
+          .run();
+      });
+
+      return true;
+    },
+    async permanentlyDelete(ownerKey: OwnerKey, sourceProductId: string) {
+      const current = await repo.get(ownerKey, sourceProductId);
+      if (!current || !current.deletedAt) {
+        return false;
+      }
+
+      await runWithWriteRetry(async () => {
+        await db.batch!([
+          db
+            .prepare(
+              `delete from source_product_etsy_links
+               where owner_key = ?
+                 and source_product_id = ?`,
+            )
+            .bind(ownerKey, sourceProductId),
+          db
+            .prepare(
+              `delete from source_products
+               where owner_key = ?
+                 and id = ?
+                 and deleted_at is not null`,
+            )
+            .bind(ownerKey, sourceProductId),
+        ]);
+      });
+
+      return true;
     },
   };
 

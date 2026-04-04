@@ -28,6 +28,9 @@ describe("schema integration", () => {
     const sourceProductColumns = database
       .prepare("pragma table_info(source_products)")
       .all() as Array<{ name: string; dflt_value: string | null }>;
+    const sourceCategoryColumns = database
+      .prepare("pragma table_info(source_product_categories)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
     const sourceProductEtsyLinkColumns = database
       .prepare("pragma table_info(source_product_etsy_links)")
       .all() as Array<{ name: string; dflt_value: string | null }>;
@@ -53,6 +56,7 @@ describe("schema integration", () => {
         { name: "product_refresh_audits" },
         { name: "product_content_history" },
         { name: "product_categories" },
+        { name: "source_product_categories" },
         { name: "tariff_master_us_entries" },
         { name: "product_variant_cost_overrides" },
       ]),
@@ -80,6 +84,18 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "source_url_normalized" }),
         expect.objectContaining({ name: "source_platform" }),
         expect.objectContaining({ name: "note" }),
+        expect.objectContaining({ name: "source_category_id" }),
+        expect.objectContaining({ name: "sort_order" }),
+        expect.objectContaining({ name: "deleted_at" }),
+        expect.objectContaining({ name: "deleted_reason" }),
+      ]),
+    );
+    expect(sourceCategoryColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "owner_key" }),
+        expect.objectContaining({ name: "name" }),
+        expect.objectContaining({ name: "created_at" }),
+        expect.objectContaining({ name: "updated_at" }),
       ]),
     );
     expect(sourceProductEtsyLinkColumns).toEqual(
@@ -106,6 +122,8 @@ describe("schema integration", () => {
       expect.arrayContaining([
         expect.objectContaining({ name: "source_products_owner_source_url_unique" }),
         expect.objectContaining({ name: "source_products_owner_updated_at_idx" }),
+        expect.objectContaining({ name: "source_products_owner_active_category_sort_idx" }),
+        expect.objectContaining({ name: "source_products_owner_deleted_idx" }),
       ]),
     );
     expect(sourceProductEtsyLinkIndexes).toEqual(

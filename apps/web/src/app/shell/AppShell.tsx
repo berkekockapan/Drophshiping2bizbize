@@ -1,5 +1,5 @@
-import type { PropsWithChildren } from "react";
-import { Fragment, useEffect } from "react";
+﻿import type { PropsWithChildren } from "react";
+import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import {
@@ -38,14 +38,9 @@ export function AppShell({ children }: PropsWithChildren) {
 
           <nav className="flex flex-col gap-2">
             {ownerOptions.map((owner) => (
-              <Fragment key={owner.key}>
-                <NavLink to={`/owners/${owner.key}/products`} className={({ isActive }) => linkClassName(isActive)}>
-                  Ürünler / {owner.label}
-                </NavLink>
-                <NavLink to={`/owners/${owner.key}/source-products`} className={({ isActive }) => linkClassName(isActive)}>
-                  Kaynak Ürünler / {owner.label}
-                </NavLink>
-              </Fragment>
+              <NavLink key={owner.key} to={`/owners/${owner.key}/products`} className={({ isActive }) => linkClassName(isActive)}>
+                Ürünler / {owner.label}
+              </NavLink>
             ))}
             <NavLink to={`/owners/${activeOwner}/notifications`} className={({ isActive }) => linkClassName(isActive)}>
               Bildirimler

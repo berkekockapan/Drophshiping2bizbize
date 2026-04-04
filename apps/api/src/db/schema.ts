@@ -63,6 +63,10 @@ export const sourceProducts = sqliteTable(
     sourceUrlNormalized: text("source_url_normalized").notNull(),
     sourcePlatform: text("source_platform").notNull(),
     note: text("note"),
+    sourceCategoryId: text("source_category_id"),
+    sortOrder: integer("sort_order"),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    deletedReason: text("deleted_reason"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   },
@@ -72,6 +76,29 @@ export const sourceProducts = sqliteTable(
       table.sourceUrlNormalized,
     ),
     ownerUpdatedAtIdx: index("source_products_owner_updated_at_idx").on(table.ownerKey, table.updatedAt),
+    ownerActiveCategorySortIdx: index("source_products_owner_active_category_sort_idx").on(
+      table.ownerKey,
+      table.deletedAt,
+      table.sourceCategoryId,
+      table.sortOrder,
+      table.createdAt,
+    ),
+    ownerDeletedIdx: index("source_products_owner_deleted_idx").on(table.ownerKey, table.deletedAt, table.createdAt),
+  }),
+);
+
+export const sourceProductCategories = sqliteTable(
+  "source_product_categories",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    ownerNameUnique: uniqueIndex("source_product_categories_owner_name_unique").on(table.ownerKey, table.name),
+    ownerNameIdx: index("source_product_categories_owner_name_idx").on(table.ownerKey, table.name),
   }),
 );
 
@@ -541,12 +568,14 @@ export const schema = {
   productTariffSelection,
   tariffKnowledgeCandidates,
   sourceProducts,
+  sourceProductCategories,
   sourceProductEtsyLinks,
 };
 
 export const schemaTableNames = [
   "products",
   "source_products",
+  "source_product_categories",
   "source_product_etsy_links",
   "product_variants",
   "product_current_state",

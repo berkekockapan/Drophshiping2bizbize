@@ -12,16 +12,17 @@ describe("source product categories", () => {
     sqlite
       .prepare(
         `insert into source_products (
-          id, owner_key, title, source_url, platform, notes,
+          id, owner_key, source_title, source_url, source_url_normalized, source_platform, note,
           source_category_id, sort_order, deleted_at, deleted_reason, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         "sp_1",
         "berke",
         "Bardak referansi",
         "https://example.com/bardak",
-        "trendyol",
+        "https://example.com/bardak",
+        "OTHER",
         "ilk not",
         null,
         0,

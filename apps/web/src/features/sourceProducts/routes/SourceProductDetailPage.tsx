@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
+  addSourceProductEtsyLink,
+  deleteSourceProductEtsyLink,
   deleteSourceProduct,
   fetchSourceProductCategories,
   fetchSourceProductManagementDetail,
@@ -22,6 +25,7 @@ export function SourceProductDetailPage() {
   const { ownerKey: ownerKeyParam, sourceProductId } = useParams<{ ownerKey: string; sourceProductId: string }>();
   const ownerKey = isOwnerKey(ownerKeyParam) ? ownerKeyParam : null;
   const queryClient = useQueryClient();
+  const [newEtsyUrl, setNewEtsyUrl] = useState("");
 
   const categoriesQuery = useQuery({
     queryKey: ["source-product-categories", ownerKey],
@@ -75,6 +79,27 @@ export function SourceProductDetailPage() {
     mutationFn: () => permanentlyDeleteSourceProduct(ownerKey as OwnerKey, sourceProductId as string),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["source-products-trash", ownerKey] });
+    },
+  });
+
+  const addEtsyLinkMutation = useMutation({
+    mutationFn: (etsyUrl: string) => addSourceProductEtsyLink(ownerKey as OwnerKey, sourceProductId as string, { etsyUrl }),
+    onSuccess: async () => {
+      setNewEtsyUrl("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["source-product-detail", ownerKey, sourceProductId] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
+      ]);
+    },
+  });
+
+  const deleteEtsyLinkMutation = useMutation({
+    mutationFn: (etsyLinkId: string) => deleteSourceProductEtsyLink(ownerKey as OwnerKey, sourceProductId as string, etsyLinkId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["source-product-detail", ownerKey, sourceProductId] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
+      ]);
     },
   });
 
@@ -188,16 +213,67 @@ export function SourceProductDetailPage() {
 
           <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Bağlı Etsy Ürünleri</p>
+            {!detailQuery.data.sourceProduct.deletedAt ? (
+              <form
+                className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const trimmed = newEtsyUrl.trim();
+                  if (!trimmed) {
+                    return;
+                  }
+
+                  addEtsyLinkMutation.mutate(trimmed);
+                }}
+              >
+                <label className="block text-sm font-medium text-slate-700" htmlFor="new-etsy-link">
+                  Etsy linki ekle
+                </label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <input
+                    id="new-etsy-link"
+                    value={newEtsyUrl}
+                    onChange={(event) => setNewEtsyUrl(event.target.value)}
+                    placeholder="https://www.etsy.com/listing/..."
+                    className="min-w-[280px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#F1641E]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={addEtsyLinkMutation.isPending}
+                    className="rounded-xl bg-[#F1641E] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#d95518] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {addEtsyLinkMutation.isPending ? "Kaydediliyor..." : "Kaydet"}
+                  </button>
+                </div>
+                {addEtsyLinkMutation.error instanceof Error ? (
+                  <p className="mt-2 text-sm text-rose-600">{addEtsyLinkMutation.error.message}</p>
+                ) : null}
+              </form>
+            ) : null}
             <div className="mt-4 space-y-3">
               {detailQuery.data.linkedEtsyItems.length === 0 ? (
                 <p className="text-sm text-slate-500">Bağlı Etsy ürünü yok.</p>
               ) : (
                 detailQuery.data.linkedEtsyItems.map((item) => (
                   <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
-                    <h2 className="text-base font-semibold text-slate-900">{item.title}</h2>
-                    <a href={item.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-slate-700 underline decoration-slate-300 underline-offset-2">
-                      Etsy bağlantısı
-                    </a>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h2 className="text-base font-semibold text-slate-900">{item.title}</h2>
+                        <a href={item.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-slate-700 underline decoration-slate-300 underline-offset-2">
+                          Etsy bağlantısı
+                        </a>
+                      </div>
+                      {!detailQuery.data.sourceProduct.deletedAt ? (
+                        <button
+                          type="button"
+                          onClick={() => deleteEtsyLinkMutation.mutate(item.id)}
+                          disabled={deleteEtsyLinkMutation.isPending}
+                          className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Bağlantıyı sil
+                        </button>
+                      ) : null}
+                    </div>
                   </article>
                 ))
               )}

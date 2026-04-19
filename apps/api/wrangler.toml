@@ -1,19 +1,19 @@
-name = "trendyol-etsy-api"
+name = "dropshipingtakip2-api"
 main = "src/worker.ts"
 compatibility_date = "2026-03-20"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "trendyol-etsy-prod"
-database_id = "ab158d2b-3c16-4439-97b8-d9a9ce2ab2a6"
+database_name = "dropshipingtakip2-prod"
+database_id = "384c8b3b-2382-47ff-bdae-8a7a8fa82c96"
 migrations_dir = "drizzle"
 
 [[queues.producers]]
 binding = "REFRESH_QUEUE"
-queue = "trendyol-refresh"
+queue = "dropshipingtakip2-refresh"
 
 [[queues.consumers]]
-queue = "trendyol-refresh"
+queue = "dropshipingtakip2-refresh"
 max_batch_size = 25
 max_batch_timeout = 30
 
@@ -21,18 +21,19 @@ max_batch_timeout = 30
 crons = ["0 * * * *"]
 
 [env.dev]
+name = "dropshipingtakip2-api-dev"
 
 [[env.dev.d1_databases]]
 binding = "DB"
-database_name = "trendyol-etsy-dev"
-database_id = "4b69206d-a8c2-449e-a75f-648e60d6c9fc"
+database_name = "dropshipingtakip2-dev"
+database_id = "5cb5ded7-cbf6-4d14-a307-6bfee2030366"
 migrations_dir = "drizzle"
 
 [[env.dev.queues.producers]]
 binding = "REFRESH_QUEUE"
-queue = "trendyol-refresh"
+queue = "dropshipingtakip2-refresh-dev"
 
 [[env.dev.queues.consumers]]
-queue = "trendyol-refresh"
+queue = "dropshipingtakip2-refresh-dev"
 max_batch_size = 25
 max_batch_timeout = 30

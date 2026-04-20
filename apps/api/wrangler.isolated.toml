@@ -1,0 +1,39 @@
+name = "dropshipingtakip2-berkecanta-api"
+main = "src/worker.ts"
+compatibility_date = "2026-03-20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dropshipingtakip2-berkecanta-prod"
+database_id = "f3d48e00-6fc4-4ab5-b57c-170a0964e4bf"
+migrations_dir = "drizzle"
+
+[[queues.producers]]
+binding = "REFRESH_QUEUE"
+queue = "dropshipingtakip2-berkecanta-refresh"
+
+[[queues.consumers]]
+queue = "dropshipingtakip2-berkecanta-refresh"
+max_batch_size = 25
+max_batch_timeout = 30
+
+[triggers]
+crons = ["0 * * * *"]
+
+[env.dev]
+name = "dropshipingtakip2-berkecanta-api-dev"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "dropshipingtakip2-berkecanta-dev"
+database_id = "78a15c3d-c290-4564-8586-0a31f7329e99"
+migrations_dir = "drizzle"
+
+[[env.dev.queues.producers]]
+binding = "REFRESH_QUEUE"
+queue = "dropshipingtakip2-berkecanta-refresh-dev"
+
+[[env.dev.queues.consumers]]
+queue = "dropshipingtakip2-berkecanta-refresh-dev"
+max_batch_size = 25
+max_batch_timeout = 30

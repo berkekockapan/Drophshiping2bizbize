@@ -90,12 +90,6 @@ Beklenen: `Forwarding https://...`
 scripts\windows\restart-main-server.bat
 ```
 
-## Windows VPS launcher canonical yolu
-
-- `scripts/windows/restart-main-server.bat` gelistirme ve cloud preview akislari icin korunur.
-- Sifirdan Windows VPS kurulumu ve private repo bootstrap ihtiyaci icin canonical yol artik `scripts/windows/vps-launcher/install-and-start.bat` paketidir.
-- Operator adimlari icin runbook: `docs/runbooks/windows-vps-launcher.md`
-
 ### Cloud mode notu (yeni varsayilan)
 
 - `restart-main-server.ps1` artik varsayilan olarak `Mode=Cloud` calisir.

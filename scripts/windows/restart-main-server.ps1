@@ -1,14 +1,9 @@
 param(
-  [string]$RepoPath = "C:\dropshipingtakip2",
-  [switch]$SkipGitSync,
+  [string]$RepoPath = "C:\dropshiping-win",
   [switch]$SkipInstall,
   [switch]$SkipCloudDeploy,
   [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
-  [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL,
-  [string]$CloudWranglerConfigPath = $env:DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH,
-  [string]$CloudD1ProdName = $env:DROPSHIP_CLOUD_D1_PROD_NAME,
-  [string]$NgrokAuthToken = $env:NGROK_AUTHTOKEN,
-  [string]$NgrokLocalScriptPath = $env:DROPSHIP_NGROK_LOCAL_SCRIPT_PATH
+  [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL
 )
 
 $ErrorActionPreference = "Stop"
@@ -60,109 +55,47 @@ function Resolve-BashExecutable {
   throw "bash.exe bulunamadi. Git for Windows kurulu olmali."
 }
 
-function Resolve-CloudApiBaseUrl {
-  param([string]$ProvidedCloudApiBaseUrl)
+function Get-DefaultCloudApiBaseUrl {
+  param([Parameter(Mandatory = $true)][string]$ResolvedRepoPath)
 
-  if ([string]::IsNullOrWhiteSpace($ProvidedCloudApiBaseUrl)) {
-    throw "Cloud API URL zorunlu. -CloudApiBaseUrl veya DROPSHIP_CLOUD_API_BASE_URL verin."
+  $wranglerToml = Join-Path $ResolvedRepoPath "apps\api\wrangler.toml"
+  if (-not (Test-Path -LiteralPath $wranglerToml)) {
+    return $null
   }
 
-  $resolved = $ProvidedCloudApiBaseUrl.Trim()
+  $nameLine = Select-String -Path $wranglerToml -Pattern '^\s*name\s*=\s*"([^"]+)"\s*$' | Select-Object -First 1
+  if (-not $nameLine) {
+    return $null
+  }
+
+  $serviceName = $nameLine.Matches[0].Groups[1].Value.Trim()
+  if ([string]::IsNullOrWhiteSpace($serviceName)) {
+    return $null
+  }
+
+  return "https://$serviceName.workers.dev"
+}
+
+function Resolve-CloudApiBaseUrl {
+  param(
+    [string]$ProvidedCloudApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
+  )
+
+  $resolved = $ProvidedCloudApiBaseUrl
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $resolved = Get-DefaultCloudApiBaseUrl -ResolvedRepoPath $ResolvedRepoPath
+  }
+
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    throw "Cloud API URL bulunamadi. DROPSHIP_CLOUD_API_BASE_URL tanimlayin veya -CloudApiBaseUrl parametresi verin."
+  }
+
   if (-not [System.Uri]::TryCreate($resolved, [System.UriKind]::Absolute, [ref]$null)) {
     throw "Cloud API URL gecersiz: $resolved"
   }
 
   return $resolved.TrimEnd("/")
-}
-
-function Resolve-CloudWranglerConfigPath {
-  param(
-    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
-    [string]$ProvidedCloudWranglerConfigPath
-  )
-
-  if ([string]::IsNullOrWhiteSpace($ProvidedCloudWranglerConfigPath)) {
-    throw "Cloud wrangler config yolu zorunlu. -CloudWranglerConfigPath veya DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH verin."
-  }
-
-  $candidate = $ProvidedCloudWranglerConfigPath.Trim()
-  $configPath = if ([System.IO.Path]::IsPathRooted($candidate)) {
-    $candidate
-  } else {
-    Join-Path $ResolvedRepoPath $candidate
-  }
-
-  if (-not (Test-Path -LiteralPath $configPath)) {
-    throw "Cloud wrangler config bulunamadi: $configPath"
-  }
-
-  return (Resolve-Path -LiteralPath $configPath).Path
-}
-
-function Resolve-NgrokLocalScriptPath {
-  param(
-    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
-    [string]$ProvidedNgrokLocalScriptPath
-  )
-
-  if ([string]::IsNullOrWhiteSpace($ProvidedNgrokLocalScriptPath)) {
-    return Join-Path $ResolvedRepoPath "scripts\windows\.ngrok.local.ps1"
-  }
-
-  $candidate = $ProvidedNgrokLocalScriptPath.Trim()
-  if ([System.IO.Path]::IsPathRooted($candidate)) {
-    return $candidate
-  }
-
-  return Join-Path $ResolvedRepoPath $candidate
-}
-
-function Resolve-NgrokAuthToken {
-  param(
-    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
-    [string]$ProvidedNgrokAuthToken,
-    [string]$ProvidedNgrokLocalScriptPath
-  )
-
-  if (-not [string]::IsNullOrWhiteSpace($ProvidedNgrokAuthToken)) {
-    return $ProvidedNgrokAuthToken.Trim()
-  }
-
-  $ngrokLocalScriptPath = Resolve-NgrokLocalScriptPath `
-    -ResolvedRepoPath $ResolvedRepoPath `
-    -ProvidedNgrokLocalScriptPath $ProvidedNgrokLocalScriptPath
-
-  if (-not (Test-Path -LiteralPath $ngrokLocalScriptPath)) {
-    return $null
-  }
-
-  Write-Log "Ngrok local config yukleniyor: $ngrokLocalScriptPath"
-  . $ngrokLocalScriptPath
-  if (-not [string]::IsNullOrWhiteSpace($env:NGROK_AUTHTOKEN)) {
-    return $env:NGROK_AUTHTOKEN.Trim()
-  }
-
-  Write-Log "Ngrok local config dosyasinda NGROK_AUTHTOKEN bulunamadi: $ngrokLocalScriptPath"
-  return $null
-}
-
-function Configure-NgrokAuthToken {
-  param([string]$ResolvedNgrokAuthToken)
-
-  if ([string]::IsNullOrWhiteSpace($ResolvedNgrokAuthToken)) {
-    Write-Log "NGROK_AUTHTOKEN tanimli degil; mevcut ngrok hesabi kullanilacak."
-    return
-  }
-
-  if (-not (Get-Command ngrok -ErrorAction SilentlyContinue)) {
-    throw "ngrok bulunamadi. PATH veya ngrok kurulumu kontrol edilmeli."
-  }
-
-  Write-Log "ngrok auth token guncelleniyor..."
-  & ngrok config add-authtoken $ResolvedNgrokAuthToken
-  if ($LASTEXITCODE -ne 0) {
-    throw "ngrok auth token guncellenemedi (exit code: $LASTEXITCODE)."
-  }
 }
 
 function Stop-StaleProcesses {
@@ -203,21 +136,13 @@ function Install-Dependencies {
 
 function Deploy-CloudApi {
   param(
-    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
-    [string]$ProvidedCloudWranglerConfigPath,
-    [string]$ProvidedCloudD1ProdName
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
   )
 
   if ($SkipCloudDeploy) {
     Write-Log "SkipCloudDeploy aktif, Cloud API deploy atlandi."
     return
   }
-
-  $resolvedWranglerConfigPath = Resolve-CloudWranglerConfigPath -ResolvedRepoPath $ResolvedRepoPath -ProvidedCloudWranglerConfigPath $ProvidedCloudWranglerConfigPath
-  if ([string]::IsNullOrWhiteSpace($ProvidedCloudD1ProdName)) {
-    throw "Cloud D1 prod adi zorunlu. -CloudD1ProdName veya DROPSHIP_CLOUD_D1_PROD_NAME verin."
-  }
-  $resolvedCloudD1ProdName = $ProvidedCloudD1ProdName.Trim()
 
   $cloudflareToken = $env:CLOUDFLARE_API_TOKEN
   if ([string]::IsNullOrWhiteSpace($cloudflareToken)) {
@@ -229,16 +154,16 @@ function Deploy-CloudApi {
     return
   }
 
-  Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
+  Write-Log "Cloud D1 migrationlari uygulaniyor (trendyol-etsy-prod)..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
-    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply $resolvedCloudD1ProdName --remote -c $resolvedWranglerConfigPath
+    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-prod --remote
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud D1 migration uygulamasi basarisiz oldu (exit code: $LASTEXITCODE)."
     }
 
     Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
-    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler deploy -c $resolvedWranglerConfigPath
+    & pnpm.cmd --filter @trendyol-etsy/api run deploy
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."
     }
@@ -399,32 +324,20 @@ function Main {
 
   $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
   Set-Location -LiteralPath $resolvedRepoPath
-  $resolvedNgrokAuthToken = Resolve-NgrokAuthToken `
-    -ResolvedRepoPath $resolvedRepoPath `
-    -ProvidedNgrokAuthToken $NgrokAuthToken `
-    -ProvidedNgrokLocalScriptPath $NgrokLocalScriptPath
 
   Write-Log "Repo: $resolvedRepoPath"
   Write-Log "Calisma modu: $Mode"
   Stop-StaleProcesses
-  if ($SkipGitSync) {
-    Write-Log "SkipGitSync aktif, git senkronizasyonu atlandi."
-  } else {
-    Sync-MainBranch
-  }
+  Sync-MainBranch
   Install-Dependencies
-  Configure-NgrokAuthToken -ResolvedNgrokAuthToken $resolvedNgrokAuthToken
 
   $runtime = if ($Mode -eq "Local") {
     $bashExecutable = Resolve-BashExecutable
     Write-Log "bash: $bashExecutable"
     Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
   } else {
-    Deploy-CloudApi `
-      -ResolvedRepoPath $resolvedRepoPath `
-      -ProvidedCloudWranglerConfigPath $CloudWranglerConfigPath `
-      -ProvidedCloudD1ProdName $CloudD1ProdName
-    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl
+    Deploy-CloudApi -ResolvedRepoPath $resolvedRepoPath
+    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl -ResolvedRepoPath $resolvedRepoPath
     Write-Log "Cloud API: $resolvedCloudApiBaseUrl"
     Start-ServiceWindowsCloud -ResolvedRepoPath $resolvedRepoPath -ResolvedCloudApiBaseUrl $resolvedCloudApiBaseUrl
   }

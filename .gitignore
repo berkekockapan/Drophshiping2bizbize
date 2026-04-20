@@ -12,4 +12,3 @@ dist
 .state
 .superpowers
 apps/connector/.env
-scripts/windows/.ngrok.local.ps1

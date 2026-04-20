@@ -1,9 +1,12 @@
 param(
-  [string]$RepoPath = "C:\dropshiping-win",
+  [string]$RepoPath = "C:\dropshipingtakip2",
+  [switch]$SkipGitSync,
   [switch]$SkipInstall,
   [switch]$SkipCloudDeploy,
   [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
-  [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL
+  [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL,
+  [string]$CloudWranglerConfigPath = $env:DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH,
+  [string]$CloudD1ProdName = $env:DROPSHIP_CLOUD_D1_PROD_NAME
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,47 +58,43 @@ function Resolve-BashExecutable {
   throw "bash.exe bulunamadi. Git for Windows kurulu olmali."
 }
 
-function Get-DefaultCloudApiBaseUrl {
-  param([Parameter(Mandatory = $true)][string]$ResolvedRepoPath)
-
-  $wranglerToml = Join-Path $ResolvedRepoPath "apps\api\wrangler.toml"
-  if (-not (Test-Path -LiteralPath $wranglerToml)) {
-    return $null
-  }
-
-  $nameLine = Select-String -Path $wranglerToml -Pattern '^\s*name\s*=\s*"([^"]+)"\s*$' | Select-Object -First 1
-  if (-not $nameLine) {
-    return $null
-  }
-
-  $serviceName = $nameLine.Matches[0].Groups[1].Value.Trim()
-  if ([string]::IsNullOrWhiteSpace($serviceName)) {
-    return $null
-  }
-
-  return "https://$serviceName.workers.dev"
-}
-
 function Resolve-CloudApiBaseUrl {
-  param(
-    [string]$ProvidedCloudApiBaseUrl,
-    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
-  )
+  param([string]$ProvidedCloudApiBaseUrl)
 
-  $resolved = $ProvidedCloudApiBaseUrl
-  if ([string]::IsNullOrWhiteSpace($resolved)) {
-    $resolved = Get-DefaultCloudApiBaseUrl -ResolvedRepoPath $ResolvedRepoPath
+  if ([string]::IsNullOrWhiteSpace($ProvidedCloudApiBaseUrl)) {
+    throw "Cloud API URL zorunlu. -CloudApiBaseUrl veya DROPSHIP_CLOUD_API_BASE_URL verin."
   }
 
-  if ([string]::IsNullOrWhiteSpace($resolved)) {
-    throw "Cloud API URL bulunamadi. DROPSHIP_CLOUD_API_BASE_URL tanimlayin veya -CloudApiBaseUrl parametresi verin."
-  }
-
+  $resolved = $ProvidedCloudApiBaseUrl.Trim()
   if (-not [System.Uri]::TryCreate($resolved, [System.UriKind]::Absolute, [ref]$null)) {
     throw "Cloud API URL gecersiz: $resolved"
   }
 
   return $resolved.TrimEnd("/")
+}
+
+function Resolve-CloudWranglerConfigPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [string]$ProvidedCloudWranglerConfigPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($ProvidedCloudWranglerConfigPath)) {
+    throw "Cloud wrangler config yolu zorunlu. -CloudWranglerConfigPath veya DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH verin."
+  }
+
+  $candidate = $ProvidedCloudWranglerConfigPath.Trim()
+  $configPath = if ([System.IO.Path]::IsPathRooted($candidate)) {
+    $candidate
+  } else {
+    Join-Path $ResolvedRepoPath $candidate
+  }
+
+  if (-not (Test-Path -LiteralPath $configPath)) {
+    throw "Cloud wrangler config bulunamadi: $configPath"
+  }
+
+  return (Resolve-Path -LiteralPath $configPath).Path
 }
 
 function Stop-StaleProcesses {
@@ -136,13 +135,21 @@ function Install-Dependencies {
 
 function Deploy-CloudApi {
   param(
-    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [string]$ProvidedCloudWranglerConfigPath,
+    [string]$ProvidedCloudD1ProdName
   )
 
   if ($SkipCloudDeploy) {
     Write-Log "SkipCloudDeploy aktif, Cloud API deploy atlandi."
     return
   }
+
+  $resolvedWranglerConfigPath = Resolve-CloudWranglerConfigPath -ResolvedRepoPath $ResolvedRepoPath -ProvidedCloudWranglerConfigPath $ProvidedCloudWranglerConfigPath
+  if ([string]::IsNullOrWhiteSpace($ProvidedCloudD1ProdName)) {
+    throw "Cloud D1 prod adi zorunlu. -CloudD1ProdName veya DROPSHIP_CLOUD_D1_PROD_NAME verin."
+  }
+  $resolvedCloudD1ProdName = $ProvidedCloudD1ProdName.Trim()
 
   $cloudflareToken = $env:CLOUDFLARE_API_TOKEN
   if ([string]::IsNullOrWhiteSpace($cloudflareToken)) {
@@ -154,16 +161,16 @@ function Deploy-CloudApi {
     return
   }
 
-  Write-Log "Cloud D1 migrationlari uygulaniyor (trendyol-etsy-prod)..."
+  Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
-    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-prod --remote
+    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply $resolvedCloudD1ProdName --remote -c $resolvedWranglerConfigPath
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud D1 migration uygulamasi basarisiz oldu (exit code: $LASTEXITCODE)."
     }
 
     Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
-    & pnpm.cmd --filter @trendyol-etsy/api run deploy
+    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler deploy -c $resolvedWranglerConfigPath
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."
     }
@@ -328,7 +335,11 @@ function Main {
   Write-Log "Repo: $resolvedRepoPath"
   Write-Log "Calisma modu: $Mode"
   Stop-StaleProcesses
-  Sync-MainBranch
+  if ($SkipGitSync) {
+    Write-Log "SkipGitSync aktif, git senkronizasyonu atlandi."
+  } else {
+    Sync-MainBranch
+  }
   Install-Dependencies
 
   $runtime = if ($Mode -eq "Local") {
@@ -336,8 +347,11 @@ function Main {
     Write-Log "bash: $bashExecutable"
     Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
   } else {
-    Deploy-CloudApi -ResolvedRepoPath $resolvedRepoPath
-    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl -ResolvedRepoPath $resolvedRepoPath
+    Deploy-CloudApi `
+      -ResolvedRepoPath $resolvedRepoPath `
+      -ProvidedCloudWranglerConfigPath $CloudWranglerConfigPath `
+      -ProvidedCloudD1ProdName $CloudD1ProdName
+    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl
     Write-Log "Cloud API: $resolvedCloudApiBaseUrl"
     Start-ServiceWindowsCloud -ResolvedRepoPath $resolvedRepoPath -ResolvedCloudApiBaseUrl $resolvedCloudApiBaseUrl
   }

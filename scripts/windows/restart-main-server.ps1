@@ -6,7 +6,9 @@ param(
   [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
   [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL,
   [string]$CloudWranglerConfigPath = $env:DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH,
-  [string]$CloudD1ProdName = $env:DROPSHIP_CLOUD_D1_PROD_NAME
+  [string]$CloudD1ProdName = $env:DROPSHIP_CLOUD_D1_PROD_NAME,
+  [string]$NgrokAuthToken = $env:NGROK_AUTHTOKEN,
+  [string]$NgrokLocalScriptPath = $env:DROPSHIP_NGROK_LOCAL_SCRIPT_PATH
 )
 
 $ErrorActionPreference = "Stop"
@@ -95,6 +97,72 @@ function Resolve-CloudWranglerConfigPath {
   }
 
   return (Resolve-Path -LiteralPath $configPath).Path
+}
+
+function Resolve-NgrokLocalScriptPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [string]$ProvidedNgrokLocalScriptPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($ProvidedNgrokLocalScriptPath)) {
+    return Join-Path $ResolvedRepoPath "scripts\windows\.ngrok.local.ps1"
+  }
+
+  $candidate = $ProvidedNgrokLocalScriptPath.Trim()
+  if ([System.IO.Path]::IsPathRooted($candidate)) {
+    return $candidate
+  }
+
+  return Join-Path $ResolvedRepoPath $candidate
+}
+
+function Resolve-NgrokAuthToken {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [string]$ProvidedNgrokAuthToken,
+    [string]$ProvidedNgrokLocalScriptPath
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($ProvidedNgrokAuthToken)) {
+    return $ProvidedNgrokAuthToken.Trim()
+  }
+
+  $ngrokLocalScriptPath = Resolve-NgrokLocalScriptPath `
+    -ResolvedRepoPath $ResolvedRepoPath `
+    -ProvidedNgrokLocalScriptPath $ProvidedNgrokLocalScriptPath
+
+  if (-not (Test-Path -LiteralPath $ngrokLocalScriptPath)) {
+    return $null
+  }
+
+  Write-Log "Ngrok local config yukleniyor: $ngrokLocalScriptPath"
+  . $ngrokLocalScriptPath
+  if (-not [string]::IsNullOrWhiteSpace($env:NGROK_AUTHTOKEN)) {
+    return $env:NGROK_AUTHTOKEN.Trim()
+  }
+
+  Write-Log "Ngrok local config dosyasinda NGROK_AUTHTOKEN bulunamadi: $ngrokLocalScriptPath"
+  return $null
+}
+
+function Configure-NgrokAuthToken {
+  param([string]$ResolvedNgrokAuthToken)
+
+  if ([string]::IsNullOrWhiteSpace($ResolvedNgrokAuthToken)) {
+    Write-Log "NGROK_AUTHTOKEN tanimli degil; mevcut ngrok hesabi kullanilacak."
+    return
+  }
+
+  if (-not (Get-Command ngrok -ErrorAction SilentlyContinue)) {
+    throw "ngrok bulunamadi. PATH veya ngrok kurulumu kontrol edilmeli."
+  }
+
+  Write-Log "ngrok auth token guncelleniyor..."
+  & ngrok config add-authtoken $ResolvedNgrokAuthToken
+  if ($LASTEXITCODE -ne 0) {
+    throw "ngrok auth token guncellenemedi (exit code: $LASTEXITCODE)."
+  }
 }
 
 function Stop-StaleProcesses {
@@ -331,6 +399,10 @@ function Main {
 
   $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
   Set-Location -LiteralPath $resolvedRepoPath
+  $resolvedNgrokAuthToken = Resolve-NgrokAuthToken `
+    -ResolvedRepoPath $resolvedRepoPath `
+    -ProvidedNgrokAuthToken $NgrokAuthToken `
+    -ProvidedNgrokLocalScriptPath $NgrokLocalScriptPath
 
   Write-Log "Repo: $resolvedRepoPath"
   Write-Log "Calisma modu: $Mode"
@@ -341,6 +413,7 @@ function Main {
     Sync-MainBranch
   }
   Install-Dependencies
+  Configure-NgrokAuthToken -ResolvedNgrokAuthToken $resolvedNgrokAuthToken
 
   $runtime = if ($Mode -eq "Local") {
     $bashExecutable = Resolve-BashExecutable

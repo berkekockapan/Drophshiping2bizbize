@@ -1,0 +1,27 @@
+@echo off
+setlocal
+
+set "SCRIPT_DIR=%~dp0"
+set "PS_SCRIPT=%SCRIPT_DIR%restart-main-server.ps1"
+
+if not exist "%PS_SCRIPT%" (
+  echo [ERROR] Script not found: "%PS_SCRIPT%"
+  exit /b 1
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" ^
+  -RepoPath "C:\dropshipingtakip2" ^
+  -Mode "Cloud" ^
+  -SkipGitSync ^
+  -SkipInstall ^
+  -SkipCloudDeploy ^
+  -CloudApiBaseUrl "https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev" ^
+  -CloudWranglerConfigPath "apps/api/wrangler.isolated.toml" ^
+  -CloudD1ProdName "dropshipingtakip2-berkecanta-prod" ^
+  -NgrokLocalScriptPath "scripts/windows/.ngrok.local.ps1"
+
+set "EXIT_CODE=%ERRORLEVEL%"
+if not "%EXIT_CODE%"=="0" exit /b %EXIT_CODE%
+
+echo [OK] Server start command completed.
+exit /b 0

@@ -8,6 +8,7 @@ Bu doküman `apps/api` uygulamasını Cloudflare Worker olarak, `apps/web` uygul
 - `trendyol-etsy-prod` canli veri icin tek dogruluk kaynagidir.
 - `trendyol-etsy-dev`, lokal `wrangler dev` ve lokal D1 sadece gelistirme ve test amaclidir; canli veri kaynagi degildir.
 - `VITE_API_BASE_URL` production Pages ortaminda bos birakilmaz ve canli Worker domainine isaret eder.
+- Tum ortamlarda veri koruma protokolu icin `docs/runbooks/cloudflare-data-safety.md` takip edilir.
 
 ## Hedef kaynaklar
 
@@ -180,6 +181,7 @@ OpenAI OAuth / masaüstü connector detayları gerekirse ek rehber için `docs/r
 - API Worker'ı yeniden deploy et
 - Web için yeni build/deploy al
 - Production D1 verisini silme; yalnızca kodu geri sar
+- Rollback karari ve komutlari veri guvenligi checklist'i ile birlikte dogrulanir (`docs/runbooks/cloudflare-data-safety.md`)
 
 
 ## 10) Time Travel ve geri donus

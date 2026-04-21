@@ -126,3 +126,4 @@ Kalıcı frontend URL'si:
 - Mevcut Worker, D1 veya queue adları bu sistem için yeniden kullanılmamalı.
 - `apps/api/wrangler.toml` içindeki D1 ID'leri yalnızca doğrulanmış Cloudflare kaynaklarına işaret etmelidir.
 - İlk veri taşımasından sonra bu sistem ile eski sistem arasında sürekli senkron kurulmamalı.
+- Veri guvenligi adimlari tum ortamlarda ayni sertlikte uygulanir; kontrol listesi icin `docs/runbooks/cloudflare-data-safety.md` kullanilir.

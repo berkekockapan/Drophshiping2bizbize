@@ -80,8 +80,39 @@ function Resolve-BashExecutable {
   throw "bash.exe bulunamadi. Git for Windows kurulu olmali."
 }
 
+function Get-EnvFileValue {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [Parameter(Mandatory = $true)][string]$Key
+  )
+
+  if (-not (Test-Path -LiteralPath $FilePath)) {
+    return $null
+  }
+
+  $escapedKey = [regex]::Escape($Key)
+  $line = Select-String -Path $FilePath -Pattern "^\s*$escapedKey\s*=\s*(.+?)\s*$" | Select-Object -First 1
+  if (-not $line) {
+    return $null
+  }
+
+  return $line.Matches[0].Groups[1].Value.Trim().Trim("'`"")
+}
+
 function Get-DefaultCloudApiBaseUrl {
   param([Parameter(Mandatory = $true)][string]$ResolvedRepoPath)
+
+  $webEnvCandidates = @(
+    (Join-Path $ResolvedRepoPath "apps\web\.env.production"),
+    (Join-Path $ResolvedRepoPath "apps\web\.env.local")
+  )
+
+  foreach ($candidate in $webEnvCandidates) {
+    $envValue = Get-EnvFileValue -FilePath $candidate -Key "VITE_API_BASE_URL"
+    if (-not [string]::IsNullOrWhiteSpace($envValue)) {
+      return $envValue
+    }
+  }
 
   $wranglerToml = Join-Path $ResolvedRepoPath "apps\api\wrangler.toml"
   if (-not (Test-Path -LiteralPath $wranglerToml)) {

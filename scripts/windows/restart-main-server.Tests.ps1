@@ -47,7 +47,7 @@ Describe "restart-main-server Cloud mode" {
         -ProvidedCloudApiBaseUrl "" `
         -ResolvedRepoPath "C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize"
 
-      $resolved | Should Be "https://dropshiping2bizbize-api.workers.dev"
+      $resolved | Should Be "https://dropshiping2bizbize-api.berkekockapan3535.workers.dev"
     } finally {
       $env:DROPSHIP_CLOUD_API_BASE_URL = $previous
     }

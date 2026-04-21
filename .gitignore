@@ -1,4 +1,4 @@
-﻿node_modules
+node_modules
 .pnpm-store
 .wrangler
 .dev.vars
@@ -14,3 +14,4 @@ dist
 apps/connector/.env
 scripts/windows/.ngrok.local.ps1
 scripts/windows/.ngrok.project.yml
+apps/api/.cloudflare.env

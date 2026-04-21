@@ -1,12 +1,13 @@
 param(
-  [string]$RepoPath = "C:\dropshiping2bizbize",
+  [string]$RepoPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
   [switch]$SkipGitSync,
   [switch]$SkipInstall,
   [switch]$SkipCloudDeploy,
   [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
   [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL,
-  [string]$CloudWranglerConfigPath = $env:DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH,
-  [string]$CloudD1ProdName = $env:DROPSHIP_CLOUD_D1_PROD_NAME,
+  [string]$CloudWranglerConfigPath = "apps/api/wrangler.toml",
+  [string]$CloudD1ProdName = "dropshiping2bizbize-prod",
+  [string]$CloudAuthEnvPath = "apps/api/.cloudflare.env",
   [string]$NgrokAuthToken = $env:NGROK_AUTHTOKEN,
   [string]$NgrokLocalScriptPath = $env:DROPSHIP_NGROK_LOCAL_SCRIPT_PATH,
   [string]$NgrokConfigPath = $env:DROPSHIP_NGROK_CONFIG_PATH,
@@ -39,6 +40,19 @@ function Ensure-Command {
   }
 }
 
+function Invoke-NativeCommand {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [string[]]$Arguments = @(),
+    [Parameter(Mandatory = $true)][string]$FailureMessage
+  )
+
+  & $FilePath @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "$FailureMessage (exit code: $LASTEXITCODE)."
+  }
+}
+
 function Resolve-BashExecutable {
   $bashCommand = Get-Command bash -ErrorAction SilentlyContinue
   if ($bashCommand -and (Test-Path -LiteralPath $bashCommand.Source)) {
@@ -66,14 +80,43 @@ function Resolve-BashExecutable {
   throw "bash.exe bulunamadi. Git for Windows kurulu olmali."
 }
 
-function Resolve-CloudApiBaseUrl {
-  param([string]$ProvidedCloudApiBaseUrl)
+function Get-DefaultCloudApiBaseUrl {
+  param([Parameter(Mandatory = $true)][string]$ResolvedRepoPath)
 
-  if ([string]::IsNullOrWhiteSpace($ProvidedCloudApiBaseUrl)) {
+  $wranglerToml = Join-Path $ResolvedRepoPath "apps\api\wrangler.toml"
+  if (-not (Test-Path -LiteralPath $wranglerToml)) {
+    return $null
+  }
+
+  $nameLine = Select-String -Path $wranglerToml -Pattern '^\s*name\s*=\s*"([^"]+)"\s*$' | Select-Object -First 1
+  if (-not $nameLine) {
+    return $null
+  }
+
+  $serviceName = $nameLine.Matches[0].Groups[1].Value.Trim()
+  if ([string]::IsNullOrWhiteSpace($serviceName)) {
+    return $null
+  }
+
+  return "https://$serviceName.workers.dev"
+}
+
+function Resolve-CloudApiBaseUrl {
+  param(
+    [string]$ProvidedCloudApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath
+  )
+
+  $resolved = $ProvidedCloudApiBaseUrl
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
+    $resolved = Get-DefaultCloudApiBaseUrl -ResolvedRepoPath $ResolvedRepoPath
+  }
+
+  if ([string]::IsNullOrWhiteSpace($resolved)) {
     throw "Cloud API URL zorunlu. -CloudApiBaseUrl veya DROPSHIP_CLOUD_API_BASE_URL verin."
   }
 
-  $resolved = $ProvidedCloudApiBaseUrl.Trim()
+  $resolved = $resolved.Trim()
   if (-not [System.Uri]::TryCreate($resolved, [System.UriKind]::Absolute, [ref]$null)) {
     throw "Cloud API URL gecersiz: $resolved"
   }
@@ -103,6 +146,30 @@ function Resolve-CloudWranglerConfigPath {
   }
 
   return (Resolve-Path -LiteralPath $configPath).Path
+}
+
+function Resolve-CloudAuthEnvPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [string]$ProvidedCloudAuthEnvPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($ProvidedCloudAuthEnvPath)) {
+    throw "Cloud auth env yolu zorunlu. -CloudAuthEnvPath veya varsayilan proje yolu kullanilmali."
+  }
+
+  $candidate = $ProvidedCloudAuthEnvPath.Trim()
+  $authEnvPath = if ([System.IO.Path]::IsPathRooted($candidate)) {
+    $candidate
+  } else {
+    Join-Path $ResolvedRepoPath $candidate
+  }
+
+  if (-not (Test-Path -LiteralPath $authEnvPath)) {
+    throw "Cloud auth env dosyasi bulunamadi: $authEnvPath"
+  }
+
+  return (Resolve-Path -LiteralPath $authEnvPath).Path
 }
 
 function Resolve-NgrokLocalScriptPath {
@@ -238,10 +305,10 @@ function Stop-StaleProcesses {
 
 function Sync-MainBranch {
   Write-Log "main dali origin/main ile senkronlaniyor..."
-  & git fetch origin
-  & git checkout main
-  & git reset --hard origin/main
-  & git clean -fd
+  Invoke-NativeCommand -FilePath "git" -Arguments @("fetch", "origin") -FailureMessage "git fetch basarisiz oldu"
+  Invoke-NativeCommand -FilePath "git" -Arguments @("checkout", "main") -FailureMessage "git checkout main basarisiz oldu"
+  Invoke-NativeCommand -FilePath "git" -Arguments @("reset", "--hard", "origin/main") -FailureMessage "git reset --hard origin/main basarisiz oldu"
+  Invoke-NativeCommand -FilePath "git" -Arguments @("clean", "-fd") -FailureMessage "git clean -fd basarisiz oldu"
 }
 
 function Install-Dependencies {
@@ -251,14 +318,15 @@ function Install-Dependencies {
   }
 
   Write-Log "Bagimliliklar yukleniyor (pnpm install)..."
-  & pnpm.cmd install
+  Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("install") -FailureMessage "pnpm install basarisiz oldu"
 }
 
 function Deploy-CloudApi {
   param(
     [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
     [string]$ProvidedCloudWranglerConfigPath,
-    [string]$ProvidedCloudD1ProdName
+    [string]$ProvidedCloudD1ProdName,
+    [string]$ProvidedCloudAuthEnvPath
   )
 
   if ($SkipCloudDeploy) {
@@ -271,36 +339,16 @@ function Deploy-CloudApi {
     throw "Cloud D1 prod adi zorunlu. -CloudD1ProdName veya DROPSHIP_CLOUD_D1_PROD_NAME verin."
   }
   $resolvedCloudD1ProdName = $ProvidedCloudD1ProdName.Trim()
+  $resolvedCloudAuthEnvPath = Resolve-CloudAuthEnvPath -ResolvedRepoPath $ResolvedRepoPath -ProvidedCloudAuthEnvPath $ProvidedCloudAuthEnvPath
 
-  $cloudflareToken = $env:CLOUDFLARE_API_TOKEN
-  if ([string]::IsNullOrWhiteSpace($cloudflareToken)) {
-    $cloudflareToken = $env:CF_API_TOKEN
-  }
-
-  if ([string]::IsNullOrWhiteSpace($cloudflareToken)) {
-    Write-Log "CLOUDFLARE_API_TOKEN/CF_API_TOKEN tanimli degil; Cloud migration + deploy atlandi. Mevcut Worker surumu kullanilacak."
-    return
-  }
-
-  Write-Log "Cloud hesap guard kontrolu calistiriliyor..."
+  Write-Log "Cloud auth env: $resolvedCloudAuthEnvPath"
+  Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
-    & pnpm.cmd cf:guard
-    if ($LASTEXITCODE -ne 0) {
-      throw "Cloudflare hesap guard basarisiz oldu (exit code: $LASTEXITCODE)."
-    }
-
-    Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
-    & pnpm.cmd --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply $resolvedCloudD1ProdName --remote -c $resolvedWranglerConfigPath
-    if ($LASTEXITCODE -ne 0) {
-      throw "Cloud D1 migration uygulamasi basarisiz oldu (exit code: $LASTEXITCODE)."
-    }
+    Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:migrate:api:prod") -FailureMessage "Cloud D1 migration uygulamasi basarisiz oldu"
 
     Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
-    & pnpm.cmd --filter @dropshiping2bizbize/api exec wrangler deploy -c $resolvedWranglerConfigPath
-    if ($LASTEXITCODE -ne 0) {
-      throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."
-    }
+    Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:deploy:api") -FailureMessage "Cloud API deploy basarisiz oldu"
   } finally {
     Pop-Location
   }
@@ -499,8 +547,11 @@ function Main {
     Deploy-CloudApi `
       -ResolvedRepoPath $resolvedRepoPath `
       -ProvidedCloudWranglerConfigPath $CloudWranglerConfigPath `
-      -ProvidedCloudD1ProdName $CloudD1ProdName
-    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl
+      -ProvidedCloudD1ProdName $CloudD1ProdName `
+      -ProvidedCloudAuthEnvPath $CloudAuthEnvPath
+    $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl `
+      -ProvidedCloudApiBaseUrl $CloudApiBaseUrl `
+      -ResolvedRepoPath $resolvedRepoPath
     Write-Log "Cloud API: $resolvedCloudApiBaseUrl"
     Start-ServiceWindowsCloud `
       -ResolvedRepoPath $resolvedRepoPath `
@@ -516,3 +567,5 @@ function Main {
 if (-not $RestartMainServerSkipMain) {
   Main
 }
+
+

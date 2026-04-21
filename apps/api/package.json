@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "cf:deploy": "node ../../scripts/cloudflare-auth-run.mjs deploy",
+    "cf:deploy:dev": "node ../../scripts/cloudflare-auth-run.mjs deploy --env dev",
+    "cf:d1:migrate:prod": "node ../../scripts/cloudflare-auth-run.mjs d1 migrations apply dropshiping2bizbize-prod --remote",
+    "cf:d1:migrate:dev": "node ../../scripts/cloudflare-auth-run.mjs d1 migrations apply dropshiping2bizbize-dev --remote --env dev",
     "dev": "bash ./scripts/ensure-local-d1.sh && wrangler dev --port 8788",
-    "deploy": "pnpm run guard:cloudflare && wrangler deploy",
+    "deploy": "wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "guard:cloudflare": "node ../../scripts/cloudflare/ensure-target-account.mjs",

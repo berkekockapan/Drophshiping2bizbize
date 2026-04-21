@@ -1,157 +1,165 @@
-﻿# Cloudflare Workers + D1 + Pages Deploy Rehberi
+# Cloudflare Workers + D1 + Pages Deploy Rehberi
 
-> Bu belge, **21 Nisan 2026** itibarıyla `dropshiping2bizbize` için gerçek operasyonel Cloudflare referansını tutar. Kod, konfigürasyon ve deploy yüzeyi hedef hesapla hizalanmıştır.
+Bu dokuman `apps/api` uygulamasini Cloudflare Worker olarak, `apps/web` uygulamasini Cloudflare Pages uzerinde yayinlamak icin gereken kalici kurulum akislarini toplar. `apps/connector` bu kapsamda deploy edilmez.
 
-## 1) Hedef kimlik
+## Repo-bazli Cloudflare authentication
 
-- Repo kimliği: `dropshiping2bizbize`
-- Hedef Cloudflare hesabı: `berkekockapan3535@gmail.com`
-- Hedef `account_id`: `102eaec87235c67e6d7524d859bd92dd`
-- Ayrı tutulacak kardeş repo: `dropshiping-win`
+Bu repo ayni sunucuda baska Cloudflare projeleri ile birlikte calisacaksa global `wrangler login` veya kullanici-shell seviyesinde ortak `CLOUDFLARE_API_TOKEN` kullanilmaz. Bu proje kendi auth bilgisini sadece repo icinde, git'e girmeyen bir dosyada tutar.
 
-## 2) Aktif kaynak isimleri
+Bu proje icin kullanilacak hesap:
+
+- `berkekockapan3535@gmail.com`
+
+Kurulum:
+
+1. `apps/api/.cloudflare.env.example` dosyasini `apps/api/.cloudflare.env` olarak kopyalayin.
+2. `CLOUDFLARE_API_TOKEN` degerini `berkekockapan3535@gmail.com` hesabinda olusturdugunuz token ile doldurun.
+3. `CLOUDFLARE_ACCOUNT_ID` degerini mevcut `wrangler.toml` ile ayni birakin.
+
+Ornek:
+
+```env
+CLOUDFLARE_API_TOKEN=put_your_cloudflare_api_token_here
+CLOUDFLARE_ACCOUNT_ID=102eaec87235c67e6d7524d859bd92dd
+```
+
+Bu dosya `.gitignore` icinde ignore edilir. Komutlar auth bilgisini `scripts/cloudflare-auth-run.mjs` uzerinden yukler; boylece ayni sunucudaki baska projelerin Cloudflare hesaplari ile karismaz.
+
+## Canli veri kurali
+
+- Production kullanicilari sadece deploy edilmis Worker + `dropshiping2bizbize-prod` uzerinden calisir.
+- `dropshiping2bizbize-prod` canli veri icin tek dogruluk kaynagidir.
+- `dropshiping2bizbize-dev`, lokal `wrangler dev` ve lokal D1 sadece gelistirme ve test amaclidir; canli veri kaynagi degildir.
+- `VITE_API_BASE_URL` production preview ortaminda canli Worker domainine isaret eder.
+
+## Hedef kaynaklar
 
 - Worker (production): `dropshiping2bizbize-api`
-- Worker (dev): `dropshiping2bizbize-api-dev`
+- Worker (remote dev): `dropshiping2bizbize-api-dev`
 - D1 (production): `dropshiping2bizbize-prod`
-  - `database_id = "aab63623-ff50-4109-b927-e2fff3f45fbc"`
-- D1 (dev): `dropshiping2bizbize-dev`
-  - `database_id = "ea8b4312-d2f8-47d0-91bd-8b10745c47ff"`
+- D1 (remote dev): `dropshiping2bizbize-dev`
 - Queue (production): `dropshiping2bizbize-refresh`
-- Queue (dev): `dropshiping2bizbize-refresh-dev`
-- Paket scope: `@dropshiping2bizbize/*`
-- Yerel port standardı: API `8788`, web dev `5174`, web preview `4175`, connector `4318`
+- Queue (remote dev): `dropshiping2bizbize-refresh-dev`
+- Connector: deploy edilmeyecek
 
-## 3) Aktif deploy uçları
+## Ortam modeli
 
-- Production worker: `https://dropshiping2bizbize-api.berkekockapan3535.workers.dev`
-- Dev worker: `https://dropshiping2bizbize-api-dev.berkekockapan3535.workers.dev`
+Cloudflare Wrangler ortamlari ayri Worker isimleri uretir (`<name>-<environment>`). Bu nedenle production Worker adini `dropshiping2bizbize-api` olarak korumak icin kok `wrangler.toml` production kabul edildi; remote dev veritabani ve istege bagli dev Worker ayrimi `env.dev` altinda tutuldu.
 
-Health check beklentisi:
+- Top-level Worker: `dropshiping2bizbize-api` -> production D1 (`dropshiping2bizbize-prod`)
+- `--env dev`: `dropshiping2bizbize-api-dev` -> remote dev D1 (`dropshiping2bizbize-dev`)
+- Lokal `wrangler dev`: ayni config ile calisir ama D1 erisimi yerel gelistirme depolamasinda simule edilir
 
-```json
-{"ok":true}
-```
+## 1) Cloudflare kaynaklarini olustur
 
-## 4) Başlamadan önce zorunlu kontroller
+Bu projede `wrangler login` zorunlu degildir. Repo-bazli token auth kullanilir.
 
-1. `wrangler whoami` çıktısında hedef email ve `account_id` göründüğünü doğrulayın.
-2. Veri etkileyen bir adım varsa önce `docs/runbooks/cloudflare-data-safety.md` kontrol listesini uygulayın.
-3. `dropshiping-win` hesabına ait worker/D1/queue isimlerini bu repo için kullanmayın.
-4. Production deploy öncesi `apps/api/wrangler.toml` içindeki `account_id`, D1 ve queue adlarını doğrulayın.
-
-## 5) Çalışan paket filtreleri
-
-- API: `@dropshiping2bizbize/api`
-- Web: `@dropshiping2bizbize/web`
-- Connector: `@dropshiping2bizbize/connector`
-
-Örnekler:
+Ardindan kaynaklari olustur:
 
 ```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler whoami
-pnpm --filter @dropshiping2bizbize/api exec wrangler deploy
-pnpm --filter @dropshiping2bizbize/web build
+node scripts/cloudflare-auth-run.mjs d1 create dropshiping2bizbize-dev
+node scripts/cloudflare-auth-run.mjs d1 create dropshiping2bizbize-prod
+node scripts/cloudflare-auth-run.mjs queues create dropshiping2bizbize-refresh
+node scripts/cloudflare-auth-run.mjs queues create dropshiping2bizbize-refresh-dev
 ```
 
-## 6) Cloudflare kaynak oluşturma komutları
+## 2) API Worker yapilandirmasi
 
-Yeni hesap veya sıfır kurulum gerekirse:
+`apps/api/wrangler.toml` su kurallarla yonetilir:
+
+- Production deploy icin top-level binding'ler kullanilir
+- Remote dev deploy icin `env.dev` binding'leri kullanilir
+- Queue producer/consumer binding'leri hem top-level hem `env.dev` icinde acikca tanimlidir; cunku Cloudflare ortamlarinda binding'ler kalitilmaz
+- Cron tetigi her saat basi calisir: `0 * * * *`
+- Dev cron tetigi plan limiti nedeniyle bos birakilmistir: `[env.dev.triggers] crons = []`
+
+## 3) Uzak D1 migration akisi
+
+Production migration:
 
 ```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler d1 create dropshiping2bizbize-prod
-pnpm --filter @dropshiping2bizbize/api exec wrangler d1 create dropshiping2bizbize-dev
-pnpm --filter @dropshiping2bizbize/api exec wrangler queues create dropshiping2bizbize-refresh
-pnpm --filter @dropshiping2bizbize/api exec wrangler queues create dropshiping2bizbize-refresh-dev
+pnpm cf:migrate:api:prod
 ```
 
-## 7) Worker yapılandırma kuralları
-
-`apps/api/wrangler.toml` için aktif beklenti:
-
-- `name = "dropshiping2bizbize-api"`
-- `account_id = "102eaec87235c67e6d7524d859bd92dd"`
-- top-level D1 = `dropshiping2bizbize-prod`
-- top-level queue = `dropshiping2bizbize-refresh`
-- `env.dev.name = "dropshiping2bizbize-api-dev"`
-- `env.dev` D1 = `dropshiping2bizbize-dev`
-- `env.dev` queue = `dropshiping2bizbize-refresh-dev`
-- dev cron tetikleyicisi şu an boş bırakılmıştır: `[env.dev.triggers] crons = []`
-
-Son madde, dev deploy sırasında hesap planı kısıtı nedeniyle bilinçli olarak uygulanmıştır.
-
-## 8) D1 migration akışı
-
-Production:
+Remote dev migration:
 
 ```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply dropshiping2bizbize-prod --remote
+pnpm cf:migrate:api:dev
 ```
 
-Dev:
+## 4) API deploy ve dogrulama
 
-```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply dropshiping2bizbize-dev --remote --env dev
-```
-
-## 9) API deploy ve doğrulama
-
-Production deploy:
+Production API deploy:
 
 ```bash
 pnpm cf:deploy:api
 ```
 
-Dev deploy:
+Istege bagli remote dev deploy:
 
 ```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler deploy --env dev
+pnpm cf:deploy:api:dev
 ```
 
-Doğrulama:
+Deploy sonrasi health check:
 
 ```bash
 curl https://dropshiping2bizbize-api.berkekockapan3535.workers.dev/health
 curl https://dropshiping2bizbize-api-dev.berkekockapan3535.workers.dev/health
 ```
 
-## 10) Frontend notları
+Beklenen cevap:
 
-- Production `VITE_API_BASE_URL` production worker alan adına gitmelidir.
-- Yerel geliştirme standardı: web `5174`, API `8788`, connector `4318`
-- Yerel preview standardı: `4175`
-- Web, production ortamında doğrudan Cloudflare Worker'a bağlanır.
-
-## 11) Smoke test kontrol listesi
-
-- `wrangler whoami` doğru hesabı gösteriyor mu?
-- Worker health endpoint dönüyor mu?
-- Web uygulaması API ile konuşuyor mu?
-- Refresh akışı doğru queue adına yazıyor mu?
-- Hiçbir adım `dropshiping-win` hesabındaki kaynaklara temas etmiyor mu?
-
-## 12) Rollback ve Time Travel
-
-Kod rollback'i veri rollback'inden önce düşünülür.
-
-Bilgi komutu:
-
-```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel info dropshiping2bizbize-prod
+```json
+{"ok":true}
 ```
 
-Geri dönüş komutu:
+## 5) Frontend / preview akisi
 
-```bash
-pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel restore dropshiping2bizbize-prod --bookmark=<bookmark>
-```
+- Cloud preview build'i `VITE_API_BASE_URL=https://dropshiping2bizbize-api.berkekockapan3535.workers.dev` ile alinir.
+- Yerel preview portu: `4175`
+- Yerel dev web portu: `5174`
+- Yerel API portu: `8788`
+- Ngrok web panel portu: `4041`
 
-> `time-travel restore` veri etkileyebileceği için `docs/runbooks/cloudflare-data-safety.md` ve açık kullanıcı onayı olmadan uygulanmaz.
+## 6) Windows acilis akisi
 
-## 13) Operasyonel referans zinciri
+Guncellenen dosyalar:
 
-1. `docs/runbooks/cloudflare-data-safety.md`
-2. `docs/runbooks/2026-04-21-proje-ayristirma-plani.md`
-3. `docs/deploy/cloudflare.md`
-4. `docs/runbooks/2026-03-28-central-cloud-persistence-rollout.md`
-5. `docs/superpowers/HISTORICAL-NOTE.md`
+- `scripts/windows/start-server.bat`
+- `scripts/windows/restart-main-server.ps1`
+- `scripts/windows/restart-main-server.Tests.ps1`
+
+`start-server.bat` artik otomatik olarak su zinciri baslatir:
+
+1. repo yolunu otomatik bulur
+2. acik eski proje pencerelerini kapatir
+3. `git fetch origin`
+4. `git checkout main`
+5. `git reset --hard origin/main`
+6. `git clean -fd`
+7. `pnpm install`
+8. production migration
+9. production deploy
+10. cloud health check
+11. web preview baslatma
+12. ngrok baslatma
+13. ozet log yazma
+
+> Dikkat: Bu akis local degisiklikleri siler; cunku `reset --hard` ve `clean -fd` kullanir.
+
+## 7) Hazir komutlar
+
+- Production deploy: `pnpm cf:deploy:api`
+- Remote dev deploy: `pnpm cf:deploy:api:dev`
+- Production migration: `pnpm cf:migrate:api:prod`
+- Remote dev migration: `pnpm cf:migrate:api:dev`
+- Web build: `pnpm cf:build:web`
+
+## 8) Smoke test kontrol listesi
+
+- `node scripts/cloudflare-auth-run.mjs whoami --json` dogru hesabi gosteriyor mu?
+- Worker health endpoint donuyor mu?
+- Web preview API ile konusuyor mu?
+- Refresh akisi dogru queue adina yaziyor mu?
+- Hicbir adim `dropshiping-win` hesabindaki kaynaklara temas etmiyor mu?

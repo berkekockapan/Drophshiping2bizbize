@@ -3,6 +3,7 @@ setlocal
 
 set "SCRIPT_DIR=%~dp0"
 set "PS_SCRIPT=%SCRIPT_DIR%restart-main-server.ps1"
+for %%I in ("%SCRIPT_DIR%..\..") do set "REPO_PATH=%%~fI"
 
 if not exist "%PS_SCRIPT%" (
   echo [ERROR] Script not found: "%PS_SCRIPT%"
@@ -10,14 +11,11 @@ if not exist "%PS_SCRIPT%" (
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" ^
-  -RepoPath "C:\dropshiping2bizbize" ^
+  -RepoPath "%REPO_PATH%" ^
   -Mode "Cloud" ^
-  -SkipGitSync ^
-  -SkipInstall ^
-  -SkipCloudDeploy ^
-  -CloudApiBaseUrl "https://dropshiping2bizbize-api.berkekockapan3535.workers.dev" ^
   -CloudWranglerConfigPath "apps/api/wrangler.toml" ^
   -CloudD1ProdName "dropshiping2bizbize-prod" ^
+  -CloudAuthEnvPath "apps/api/.cloudflare.env" ^
   -NgrokLocalScriptPath "scripts/windows/.ngrok.local.ps1" ^
   -NgrokConfigPath "scripts/windows/.ngrok.project.yml" ^
   -NgrokWebPort 4041
@@ -27,5 +25,4 @@ if not "%EXIT_CODE%"=="0" exit /b %EXIT_CODE%
 
 echo [OK] Server start command completed.
 exit /b 0
-
 

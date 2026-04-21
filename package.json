@@ -10,12 +10,14 @@
     "dev:web": "pnpm --filter @dropshiping2bizbize/web dev",
     "dev:connector": "pnpm --filter @dropshiping2bizbize/connector dev",
     "test:e2e": "pnpm --filter @dropshiping2bizbize/web test:e2e",
-    "cf:deploy:api": "pnpm --filter @dropshiping2bizbize/api run deploy",
+    "cf:deploy:api": "pnpm --filter @dropshiping2bizbize/api run cf:deploy",
+    "cf:deploy:api:dev": "pnpm --filter @dropshiping2bizbize/api run cf:deploy:dev",
+    "cf:migrate:api:prod": "pnpm --filter @dropshiping2bizbize/api run cf:d1:migrate:prod",
+    "cf:migrate:api:dev": "pnpm --filter @dropshiping2bizbize/api run cf:d1:migrate:dev",
     "cf:build:web": "pnpm --filter @dropshiping2bizbize/web build",
     "cf:guard": "node scripts/cloudflare/ensure-target-account.mjs",
     "cf:d1:migrate:prod": "pnpm --filter @dropshiping2bizbize/api run d1:migrate:prod",
     "cf:d1:migrate:dev": "pnpm --filter @dropshiping2bizbize/api run d1:migrate:dev",
-    "cf:deploy:api:dev": "pnpm --filter @dropshiping2bizbize/api run deploy:dev",
     "cf:secret": "node scripts/cloudflare/worker-secret.mjs"
   },
   "devDependencies": {

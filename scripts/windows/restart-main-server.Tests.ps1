@@ -149,5 +149,30 @@ Describe "restart-main-server Cloud deploy" {
       $FilePath -eq "pnpm.cmd" -and $Arguments[0] -eq "cf:deploy:api"
     }
   }
+
+  It "continues when cloud migration fails and logs a warning" {
+    Mock Resolve-CloudWranglerConfigPath { "C:\dropshiping2bizbize\apps\api\wrangler.toml" }
+    Mock Resolve-CloudAuthEnvPath { "C:\dropshiping2bizbize\apps\api\.cloudflare.env" }
+    Mock Push-Location {}
+    Mock Pop-Location {}
+    Mock Write-Log {}
+    Mock Invoke-NativeCommand {
+      throw "Cloud D1 migration uygulamasi basarisiz oldu (exit code: 1)."
+    } -ParameterFilter {
+      $FilePath -eq "pnpm.cmd" -and $Arguments[0] -eq "cf:migrate:api:prod"
+    }
+
+    {
+      Deploy-CloudApi `
+        -ResolvedRepoPath "C:\dropshiping2bizbize" `
+        -ProvidedCloudWranglerConfigPath "apps/api/wrangler.toml" `
+        -ProvidedCloudD1ProdName "dropshiping2bizbize-prod" `
+        -ProvidedCloudAuthEnvPath "apps/api/.cloudflare.env"
+    } | Should Not Throw
+
+    Assert-MockCalled Write-Log -Times 1 -ParameterFilter {
+      $Message -eq "UYARI: Cloud migration/deploy adimi basarisiz oldu; mevcut canli Worker ile devam edilecek."
+    }
+  }
 }
 

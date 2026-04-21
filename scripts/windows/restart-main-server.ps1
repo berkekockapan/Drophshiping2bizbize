@@ -342,13 +342,18 @@ function Deploy-CloudApi {
   $resolvedCloudAuthEnvPath = Resolve-CloudAuthEnvPath -ResolvedRepoPath $ResolvedRepoPath -ProvidedCloudAuthEnvPath $ProvidedCloudAuthEnvPath
 
   Write-Log "Cloud auth env: $resolvedCloudAuthEnvPath"
-  Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
-    Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:migrate:api:prod") -FailureMessage "Cloud D1 migration uygulamasi basarisiz oldu"
+    try {
+      Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
+      Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:migrate:api:prod") -FailureMessage "Cloud D1 migration uygulamasi basarisiz oldu"
 
-    Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
-    Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:deploy:api") -FailureMessage "Cloud API deploy basarisiz oldu"
+      Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
+      Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:deploy:api") -FailureMessage "Cloud API deploy basarisiz oldu"
+    } catch {
+      Write-Log "UYARI: Cloud migration/deploy adimi basarisiz oldu; mevcut canli Worker ile devam edilecek."
+      Write-Log "UYARI DETAY: $($_.Exception.Message)"
+    }
   } finally {
     Pop-Location
   }

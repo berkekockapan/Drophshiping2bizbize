@@ -44,22 +44,28 @@ pnpm --filter <connector-package> exec playwright install chromium
 - Hedef paket adı: `@dropshiping2bizbize/connector`
 - Geçici repo gerçeği: bugün `@dropshiping2bizbize/connector` gerekebilir
 
-## Start / stop scriptleri
+## Start / stop akışı
 
-Repo içindeki resmi Windows akışı şu dosyalarla yönetilir:
+Repo içindeki resmi Windows operasyon akışı artık cloud odaklı iki giriş noktasıyla yönetilir:
 
-- `scripts/windows/start-dev.ps1`
-- `scripts/windows/stop-dev.ps1`
+- `scripts/windows/start-server.bat`
+- `scripts/windows/stop-server.bat`
 
-Hedef davranış:
+Bu akış connector odaklı eski `start-dev.ps1` / `stop-dev.ps1` scriptlerinin yerini almıştır.
 
-1. Gerekli log ve PID klasörlerini hazırlar.
-2. Önkoşulları fail-fast kontrol eder.
-3. Eski servis pencerelerini kapatır.
-4. Connector → API → web sırasıyla servisleri başlatır.
-5. `http://127.0.0.1:4318/health`, `http://127.0.0.1:8788/health` ve `http://127.0.0.1:5174` için bekler.
+Yerel connector geliştirmesi gerektiğinde servisler manuel olarak ayrı terminallerde başlatılır:
 
-> Eğer mevcut scriptler bugün hâlâ `4318/8788/5174` bekliyorsa bu Faz C boşluğudur; doküman standardı değiştirilmiş, script henüz değiştirilmemiştir.
+```powershell
+pnpm --filter @dropshiping2bizbize/connector dev
+pnpm --filter @dropshiping2bizbize/api dev
+pnpm --filter @dropshiping2bizbize/web dev
+```
+
+Beklenen sağlık uçları:
+
+- `http://127.0.0.1:4318/health`
+- `http://127.0.0.1:8788/health`
+- `http://127.0.0.1:5174`
 
 ## AI Bağlantıları akışı
 

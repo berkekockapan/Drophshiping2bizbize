@@ -51,7 +51,9 @@ Bunlar yalnızca tarihsel kalıntı kabul edilir. Operasyonel hedef bu dosyada y
 ## 4) Kritik Windows scriptleri için beklenen davranış
 
 - `scripts/windows/start-server.bat`
+  - Bu repo içindeki resmi tek-tık başlangıç girişidir.
   - Cloud modda restart scriptini çağırır.
+  - `origin/main` ile senkronizasyon, install, migration, deploy, health check, preview ve ngrok zincirini yürütür.
   - Hedefte web preview `4175` için bekler.
   - Yanlış proje klasörüne veya yanlış Cloudflare hesabına deploy etmez.
 
@@ -64,31 +66,42 @@ Bunlar yalnızca tarihsel kalıntı kabul edilir. Operasyonel hedef bu dosyada y
 - `scripts/windows/stop-main-server.ps1`
   - Yalnızca bu projeye ait pencereleri kapatır.
 
+- `scripts/windows/stop-server.bat`
+  - Bu repo içindeki resmi tek-tık durdurma girişidir.
+  - `stop-main-server.ps1` üstünden aktif preview/ngrok pencerelerini kapatır.
+
 ## 5) Standart operasyon akışı
 
-### 5.1 Sunucuda kodu güncelle
+### 5.1 İlk kurulumda local secret dosyalarını hazırla
 
-```powershell
-Set-Location C:\dropshiping2bizbize
-git pull --ff-only origin main
-```
+- `apps/api/.cloudflare.env` dosyası repo-bazlı Cloudflare token içermelidir.
+- `scripts/windows/.ngrok.local.ps1` dosyası gerekirse `NGROK_AUTHTOKEN` içermelidir.
+- Örnek dosyalar:
+  - `apps/api/.cloudflare.env.example`
+  - `scripts/windows/.ngrok.local.example.ps1`
 
-### 5.2 ngrok authtoken'i bir kere ayarla
-
-```powershell
-Set-Location C:\dropshiping2bizbize
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure-ngrok-auth.ps1 `
-  -RepoPath C:\dropshiping2bizbize `
-  -NgrokAuthToken "BURAYA_AUTHTOKEN"
-```
-
-### 5.3 Servisi başlat / durdur
+### 5.2 Servisi başlat / durdur
 
 ```powershell
 Set-Location C:\dropshiping2bizbize
 .\scripts\windows\stop-server.bat
 .\scripts\windows\start-server.bat
 ```
+
+`start-server.bat` zaten kendi içinde:
+
+1. `git fetch origin`
+2. `git checkout main`
+3. `git reset --hard origin/main`
+4. `git clean -fd`
+5. `pnpm install`
+6. production migration
+7. production deploy
+8. cloud health check
+9. web preview
+10. ngrok
+
+zincirini yürütür; ayrıca manuel `git pull` adımı gerektirmez.
 
 ## 6) Hızlı doğrulama listesi
 

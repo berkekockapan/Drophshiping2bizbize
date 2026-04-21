@@ -27,11 +27,30 @@ function Invoke-CheckedGit {
     [Parameter(Mandatory = $true)][string]$ErrorMessage
   )
 
-  $output = & git @Arguments 2>&1
-  $exitCode = $LASTEXITCODE
-  if ($output) {
-    $output | ForEach-Object { Write-Host $_ }
+  $output = $null
+  $exitCode = 0
+  $previousErrorActionPreference = $ErrorActionPreference
+
+  try {
+    # git bazen basarili durumda bilgi mesajlarini stderr'e yazar (or: "Already on 'main'").
+    # Bu durumda scriptin yanlislikla durmamasini saglamak icin gecici olarak Continue kullan.
+    $ErrorActionPreference = "Continue"
+    $output = & git @Arguments 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
   }
+
+  if ($output) {
+    $output | ForEach-Object {
+      if ($_ -is [System.Management.Automation.ErrorRecord]) {
+        Write-Host $_.ToString()
+      } else {
+        Write-Host $_
+      }
+    }
+  }
+
   if ($exitCode -ne 0) {
     throw "$ErrorMessage (exit code: $exitCode)"
   }

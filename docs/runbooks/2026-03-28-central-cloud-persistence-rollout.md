@@ -1,56 +1,82 @@
-# Central cloud persistence rollout
+﻿# Central Cloud Persistence Rollout
 
-Bu runbook, production D1'i tek resmi canli veri kaynagi olarak kullanima alma, iki cihaz smoke test ve geri donus/Time Travel adimlarini toplar.
+> Bu runbook, `dropshiping2bizbize` için production D1'i tek resmi canlı veri kaynağı olarak kullanıma alma akışını toplar.
+> 21 Nisan 2026 ayrıştırma uygulaması sonrasında hedef hesap, worker, D1, queue, package scope ve port standardı aktif hale gelmiştir.
 
-## 1. Production D1 tek resmi veri kaynagidir
+## 1. Hedef canlı veri modeli
 
-- Canli kullanimda yalnizca deploy edilmis Pages + deploy edilmis Worker + `trendyol-etsy-prod` kullanilir.
-- Lokal D1, `trendyol-etsy-dev` ve `wrangler dev` canli veri kaynagi degildir.
-- `VITE_API_BASE_URL` production Pages ortaminda Worker domainine ayarlanmis olmalidir.
+- Canlı kullanımda yalnızca deploy edilmiş Pages + deploy edilmiş Worker + `dropshiping2bizbize-prod` kullanılır.
+- `dropshiping2bizbize-prod` tek resmi veri kaynağıdır.
+- Lokal D1, `dropshiping2bizbize-dev` ve `wrangler dev` canlı veri kaynağı değildir.
+- `VITE_API_BASE_URL` production Pages ortamında hedef worker domainine ayarlanmış olmalıdır.
+- Hedef Cloudflare hesabı `berkekockapan3535@gmail.com` / `102eaec87235c67e6d7524d859bd92dd` olmalıdır.
 
-## 2. Baslamadan once kontrol
+## 2. Rollout öncesi durdurma kriterleri
 
-1. `pnpm --filter @trendyol-etsy/api exec wrangler d1 info trendyol-etsy-prod`
-2. `pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel info trendyol-etsy-prod`
-3. Gerekirse mevcut veri kaynaklarini ve kritik kayitlari not alin.
+Aşağıdaki maddelerden biri sağlanmıyorsa rollout'u durdurun:
 
-## 3. Rollout sirasi
+- `wrangler whoami` hedef hesabı göstermiyorsa
+- `apps/api/wrangler.toml` hedef worker/D1/queue isimlerinden sapıyorsa
+- `account_id` sabitlenmemişse
+- Veri etkileyen bir komut için açık kullanıcı onayı yoksa
 
-1. `pnpm --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-prod --remote`
-2. `pnpm cf:deploy:api`
-3. Pages ortam degiskeninde `VITE_API_BASE_URL=https://<worker-subdomain>.workers.dev` oldugunu dogrula.
-4. Web uygulamasini deploy et ve health check calistir.
-
-## 4. Iki cihaz smoke test
-
-1. Cihaz A'da bir owner sayfasini ac.
-2. Cihaz A'dan yeni bir urun linki ekle.
-3. Cihaz B'de ayni owner listesi acik kalsin.
-4. En gec 10 saniye icinde ve pencere odaga gelince ayni kaydin gorundugunu dogrula.
-5. Cihaz A'da favori, kategori veya draft degisikligi yap.
-6. Cihaz B'de ayni kaydin tekrar cekildigini ve guncel verinin gorundugunu dogrula.
-7. Cop kutusu ve bildirim gorunumlerinde de merkezi veri tutarliligini kontrol et.
-
-## 5. Time Travel ve geri donus
-
-- Kod hatasinda once son saglam commit'i yeniden deploy et.
-- Veri duzeltmesi gerekiyorsa once bookmark listesini kontrol et:
+## 3. Başlamadan önce kontrol
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel info trendyol-etsy-prod
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 info dropshiping2bizbize-prod
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel info dropshiping2bizbize-prod
 ```
 
-- Ardindan ilgili bookmark ile geri donus uygula:
+Ek olarak:
+
+1. Kritik kayıtları ve owner bazlı örnek verileri not alın.
+2. Smoke test yapacak iki cihazı hazır edin.
+3. Gerekirse `docs/runbooks/cloudflare-data-safety.md` kontrol listesini tamamlayın.
+
+## 4. Rollout sırasında
+
+1. Production migration uygula:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel restore trendyol-etsy-prod --bookmark=<bookmark>
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply dropshiping2bizbize-prod --remote
 ```
 
-- Geri donus sonrasi yeniden smoke test calistir.
+2. Production API deploy et.
+3. Pages ortam değişkeninde `VITE_API_BASE_URL=https://dropshiping2bizbize-api.berkekockapan3535.workers.dev` olduğunu doğrula.
+4. Web uygulamasını deploy et.
+5. Health check çalıştır.
 
-## 6. Basari kriteri
+## 5. İki cihaz smoke test
 
-- Production veri yalnizca `trendyol-etsy-prod` uzerinden okunup yazilir.
-- Iki cihazdaki owner ekranlari 10 saniyelik live-sync ile senkron kalir.
-- Time Travel ile veri geri alinabilir.
-- Lokal veya dev ortam canli veri yerine gecmez.
+1. Cihaz A'da bir owner sayfasını aç.
+2. Cihaz A'dan yeni bir kayıt ekle.
+3. Cihaz B'de aynı owner listesini aç.
+4. En geç 10 saniye içinde güncel kaydın göründüğünü doğrula.
+5. Cihaz A'da favori, kategori veya draft değişikliği yap.
+6. Cihaz B'de merkezi verinin tekrar çekildiğini doğrula.
+7. Bildirim, çöp kutusu ve refresh akışlarının da aynı production D1 üzerinde çalıştığını kontrol et.
+
+## 6. Time Travel ve geri dönüş
+
+Kod hatasında önce son sağlam commit'i yeniden deploy et.
+
+Gerekirse önce bookmark bilgisini kontrol et:
+
+```bash
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel info dropshiping2bizbize-prod
+```
+
+Ardından yalnızca açık kullanıcı onayı varsa geri dönüş uygula:
+
+```bash
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel restore dropshiping2bizbize-prod --bookmark=<bookmark>
+```
+
+Geri dönüş sonrası smoke test'i yeniden çalıştır.
+
+## 7. Başarı kriteri
+
+- Production veri yalnızca `dropshiping2bizbize-prod` üzerinden okunup yazılır.
+- İki cihazdaki ekranlar merkezi veriyle senkron kalır.
+- Doğru hesap dışında hiçbir Cloudflare kaynağına temas edilmez.
+- Lokal/dev ortam canlı veri yerine geçmez.

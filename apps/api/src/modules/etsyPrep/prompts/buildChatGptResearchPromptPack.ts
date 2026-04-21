@@ -1,4 +1,4 @@
-import type { ChatGptResearchPromptPack } from "@trendyol-etsy/shared";
+import type { ChatGptResearchPromptPack } from "@dropshiping2bizbize/shared";
 
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildProductPromptContext } from "./buildProductPromptContext";
@@ -59,3 +59,4 @@ export function buildChatGptResearchPromptPack(detail: EtsyPrepView): ChatGptRes
     ].join("\n"),
   };
 }
+

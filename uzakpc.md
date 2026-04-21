@@ -1,222 +1,110 @@
-# uzakpc operasyon hafizasi (guncel)
+﻿# uzakpc operasyon hafızası
 
-Son guncelleme: 2026-04-21  
-Bu dosya, `uzakpc` (Windows server) ustundeki canli calisma modelini unutmayalim diye hazirlanmistir.
+Son güncelleme: 2026-04-21  
+Bu dosya, `uzakpc` (Windows server) üzerindeki hedef operasyon standardını unutmamak için tutulur.
 
-## 1) Aktif Mimari (su an ne calisiyor?)
+> 21 Nisan 2026 uygulaması sonrasında repo, port ve Cloudflare kimliği `dropshiping2bizbize` standardına taşınmıştır. Sunucuda eski klasör adları görülebilir; operasyonel referans olarak kullanılmazlar.
 
-Su an varsayilan calisma sekli tamamen `Cloud` odaklidir:
+## 1) Hedef mimari
 
-- Kod kaynagi: `C:\dropshipingtakip2`
-- Web: Windows server uzerinde `vite preview` (`http://127.0.0.1:4174`)
-- API: Cloudflare Worker (`dropshipingtakip2-berkecanta-api`)
-- Dis erisim: `ngrok http 4174`
+Varsayılan çalışma şekli `Cloud` odaklıdır:
 
-Pratikte bu ne demek:
+- Repo kimliği: `dropshiping2bizbize`
+- Önerilen sunucu klasörü: `C:\dropshiping2bizbize`
+- Web preview: `http://127.0.0.1:4175`
+- API: Cloudflare Worker `dropshiping2bizbize-api`
+- Dış erişim: `ngrok http 4175`
 
-- Lokal `wrangler dev` API sureci acilmiyor (standart start akisinda).
-- Web, dogrudan Cloud API'ye (`VITE_API_BASE_URL`) baglaniyor.
-- Dis dunyaya tek giris ngrok URL'si.
+Pratik anlamı:
 
-## 2) Cloudflare Kaynaklari (izole ortam: `berkecanta`)
+- Web, doğrudan Cloud API'ye (`VITE_API_BASE_URL`) bağlanır.
+- Dış dünyaya tek giriş ngrok URL'sidir.
+- `dropshiping-win` ile klasör, hesap veya kaynak paylaşımı yapılmaz.
+
+## 2) Hedef Cloudflare kaynakları
 
 - Account: `berkekockapan3535@gmail.com`
 - Account ID: `102eaec87235c67e6d7524d859bd92dd`
-- Worker prod: `dropshipingtakip2-berkecanta-api`
-- Worker dev: `dropshipingtakip2-berkecanta-api-dev`
-- D1 prod: `dropshipingtakip2-berkecanta-prod` (`f3d48e00-6fc4-4ab5-b57c-170a0964e4bf`)
-- D1 dev: `dropshipingtakip2-berkecanta-dev` (`78a15c3d-c290-4564-8586-0a31f7329e99`)
-- Queue prod: `dropshipingtakip2-berkecanta-refresh`
-- Queue dev: `dropshipingtakip2-berkecanta-refresh-dev`
+- Worker prod: `dropshiping2bizbize-api`
+- Worker dev: `dropshiping2bizbize-api-dev`
+- D1 prod: `dropshiping2bizbize-prod`
+- D1 dev: `dropshiping2bizbize-dev`
+- Queue prod: `dropshiping2bizbize-refresh`
+- Queue dev: `dropshiping2bizbize-refresh-dev`
 
-Izole wrangler config:
+Web env hedefi:
 
-- `apps/api/wrangler.isolated.toml`
+- `VITE_API_BASE_URL=https://dropshiping2bizbize-api.berkekockapan3535.workers.dev`
 
-Web env (Cloud API'ye bakiyor):
+## 3) Eski izler nasıl yorumlanır?
 
-- `apps/web/.env.production`
-- `apps/web/.env.local`
-- `VITE_API_BASE_URL=https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev`
+Sunucuda veya eski notlarda şu tür kalıntılar görülebilir:
 
-## 3) Kritik Windows Scriptleri
+- `C:\dropshipingtakip2`
+- `C:\dropshiping-win`
+- `dropshipingtakip2-*`
+- `@trendyol-etsy/*`
+- eski portlar `8787`, `5173`, `4174`, `4317`
+
+Bunlar yalnızca tarihsel kalıntı kabul edilir. Operasyonel hedef bu dosyada yazan `dropshiping2bizbize` standardıdır.
+
+## 4) Kritik Windows scriptleri için beklenen davranış
 
 - `scripts/windows/start-server.bat`
-  - Cloud modda restart scriptini cagirir.
-  - Varsayilan olarak `-SkipGitSync -SkipInstall -SkipCloudDeploy` ile calisir.
-  - `NgrokLocalScriptPath` olarak `scripts/windows/.ngrok.local.ps1` gonderir.
-  - `NgrokConfigPath` olarak `scripts/windows/.ngrok.project.yml` ve `NgrokWebPort=4041` gonderir.
+  - Cloud modda restart scriptini çağırır.
+  - Hedefte web preview `4175` için bekler.
+  - Yanlış proje klasörüne veya yanlış Cloudflare hesabına deploy etmez.
 
 - `scripts/windows/restart-main-server.ps1`
-  - Sadece bu projeye ait pencereleri kapatir (global `taskkill node/ngrok` yapmaz).
-  - Cloud API health kontrolu yapar.
-  - Web preview (`4174`) acip hazir olmasini bekler.
-  - ngrok'u projeye ozel config ile acar: `ngrok http 4174 --config scripts/windows/.ngrok.project.yml`
-  - Public URL'yi `http://127.0.0.1:4041/api/tunnels` uzerinden bekler.
-  - Gerekirse local token dosyasindan alip projeye ozel config dosyasini uretir.
-
-- `scripts/windows/stop-server.bat`
-  - `stop-main-server.ps1` cagirir.
+  - Sadece bu projeye ait pencereleri kapatır.
+  - Cloud API health kontrolü yapar.
+  - Web preview (`4175`) açıp hazır olmasını bekler.
+  - ngrok'u `4175` portuna bağlar.
 
 - `scripts/windows/stop-main-server.ps1`
-  - Sadece bu projenin pencerelerini kapatir:
-    - `DropshipTakip2 Web (Cloud Preview)`
-    - `DropshipTakip2 Web`
-    - `DropshipTakip2 API`
-    - `DropshipTakip2 ngrok`
+  - Yalnızca bu projeye ait pencereleri kapatır.
 
-- `scripts/windows/configure-ngrok-auth.ps1`
-  - Verilen authtoken'i `scripts/windows/.ngrok.local.ps1` icine yazar.
-  - Projeye ozel `scripts/windows/.ngrok.project.yml` dosyasini yazar (`web_addr: 127.0.0.1:4041`).
-  - Secret dosyasini `.git/info/exclude` ile local ignore eder.
-  - `ngrok config check --config ...` ile proje configini dogrular.
+## 5) Standart operasyon akışı
 
-## 4) Standart Operasyon Akisi
-
-### 4.1 Sunucuda kodu guncelle
+### 5.1 Sunucuda kodu güncelle
 
 ```powershell
-Set-Location C:\dropshipingtakip2
+Set-Location C:\dropshiping2bizbize
 git pull --ff-only origin main
 ```
 
-### 4.2 Ngrok authtoken'i bir kere ayarla
-
-Not:
-
-- Burada gereken deger `Authtoken`dir.
-- `API key` ayni sey degildir.
+### 5.2 ngrok authtoken'i bir kere ayarla
 
 ```powershell
-Set-Location C:\dropshipingtakip2
+Set-Location C:\dropshiping2bizbize
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure-ngrok-auth.ps1 `
-  -RepoPath C:\dropshipingtakip2 `
+  -RepoPath C:\dropshiping2bizbize `
   -NgrokAuthToken "BURAYA_AUTHTOKEN"
 ```
 
-### 4.3 Servisi baslat / durdur
+### 5.3 Servisi başlat / durdur
 
 ```powershell
-Set-Location C:\dropshipingtakip2
+Set-Location C:\dropshiping2bizbize
 .\scripts\windows\stop-server.bat
 .\scripts\windows\start-server.bat
 ```
 
-### 4.4 Tek tus deploy (onerilen gunluk akis)
+## 6) Hızlı doğrulama listesi
 
-Bu komut tek adimda su islemleri yapar:
+1. Cloud API health OK: `https://dropshiping2bizbize-api.berkekockapan3535.workers.dev/health`
+2. Local preview cevap veriyor: `http://127.0.0.1:4175`
+3. ngrok penceresinde `Forwarding https://... -> http://localhost:4175` görünüyor.
+4. Tarayıcıda ngrok URL açılıyor.
 
-1. `git pull --ff-only origin main`
-2. Gerekirse (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml` degismisse veya `node_modules` yoksa) `pnpm install --frozen-lockfile`
-3. `start-server.bat` ile servisleri yeniden baslatir ve health kontrollerini calistirir
+## 7) Güvenlik kuralları
 
-Onemli davranis:
+- Yanlış Cloudflare hesabında işlem yapma.
+- `dropshiping-win` klasörü veya kaynaklarını bu proje için kullanma.
+- Secret dosyalarını commit etme.
+- Veri etkileyen adımlarda `docs/runbooks/cloudflare-data-safety.md` kontrol listesini uygula.
 
-- `git pull` veya `pnpm install` hata verirse restart adimina gecmez.
-- Boylece o anda calisan surum kesilmez.
+## 8) Tarihsel not
 
-```powershell
-Set-Location C:\dropshipingtakip2
-.\scripts\windows\deploy-server.bat
-```
-
-## 5) Hizli Dogrulama Checklisti
-
-Baslatmadan sonra:
-
-1. Cloud API health OK:
-`https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev/health`
-2. Local preview cevap veriyor:
-`http://127.0.0.1:4174`
-3. ngrok penceresinde:
-`Session Status: online` ve `Forwarding https://... -> http://localhost:4174`
-4. Tarayicida ngrok URL aciliyor.
-
-Opsiyonel terminal kontrolu:
-
-```powershell
-Invoke-WebRequest "http://127.0.0.1:4174" -UseBasicParsing | Select-Object StatusCode
-Invoke-RestMethod "http://127.0.0.1:4041/api/tunnels" | ConvertTo-Json -Depth 5
-```
-
-## 6) Sik Hatalar ve Net Cozum
-
-### Hata: `ERR_NGROK_105`
-
-Sebep: placeholder veya bozuk token (`BURAYA_GERCEK_AUTHTOKEN` gibi) kullanimi.
-
-Cozum:
-
-- `scripts/windows/.ngrok.local.ps1` dosyasina gercek authtoken yaz.
-- `configure-ngrok-auth.ps1` scriptini tekrar calistir.
-
-### Hata: `ERR_NGROK_107`
-
-Sebep: token formati dogru ama gecersiz/revoke.
-
-Cozum:
-
-- Dashboarddan yeni authtoken al.
-- `configure-ngrok-auth.ps1` ile yeniden uygula.
-
-### Durum: `4041 API hatasi: Uzak sunucuya baglanilamiyor`
-
-Sebep: ngrok sureci ayakta degil.
-
-Cozum:
-
-```powershell
-Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force
-ngrok http 4174 --config .\scripts\windows\.ngrok.project.yml
-```
-
-### Hata: `tsc is not recognized` veya `node_modules missing`
-
-Sebep: `start-server.bat` varsayilaninda `-SkipInstall` aktif oldugu icin bagimliliklar yoksa build fail eder.
-
-Cozum:
-
-```powershell
-Set-Location C:\dropshipingtakip2
-pnpm.cmd install
-```
-
-Sonra `start-server.bat` tekrar calistir.
-
-## 7) Bilincli Tasarim Notlari
-
-- `start-server.bat` hiz icin sync/install/deploy adimlarini atliyor.
-- Uretim benzeri hizli yayinda bu tercih dogru.
-- Ama asagidaki senaryolarda full akis calistirilabilir:
-  - Yeni commit geldi ve server guncellenmedi.
-  - Bagimliliklar degisti.
-  - Cloud deploy de ayni akista yapilmak isteniyor.
-
-Full cloud akis ornegi:
-
-```powershell
-Set-Location C:\dropshipingtakip2
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\restart-main-server.ps1 `
-  -RepoPath C:\dropshipingtakip2 `
-  -Mode Cloud `
-  -CloudApiBaseUrl "https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev" `
-  -CloudWranglerConfigPath "apps/api/wrangler.isolated.toml" `
-  -CloudD1ProdName "dropshipingtakip2-berkecanta-prod"
-```
-
-## 8) Guvenlik ve Secret Kurallari
-
-- `scripts/windows/.ngrok.local.ps1` secret icerir, commit edilmez.
-- `scripts/windows/.ngrok.project.yml` secret icerir, commit edilmez.
-- Bu dosya hem `.gitignore` hem `.git/info/exclude` ile korunur.
-- Tokenlarin chat/gecmis kaydina dusmesi risklidir; mumkunse rotate edilmelidir.
-
-## 9) Eski Sistemden Kalanlar (kullanilmayacak)
-
-Asagidaki yol artik aktif sistemin parcasi degil:
-
-- `C:\dropshiping-win`
-
-Bu klasor baska bir proje/gecmis kurulum baglami olabilir. Aktif operasyon daima:
-
-- `C:\dropshipingtakip2`
+Sunucuda `C:\dropshiping-win` veya `C:\dropshipingtakip2` klasörleri bulunabilir; bunlar operasyonel source-of-truth değildir.
+Aktif standart bu dosya ve `docs/deploy/cloudflare.md` içindeki `dropshiping2bizbize` kimliğidir.

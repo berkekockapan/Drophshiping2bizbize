@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { CreateSourceProductRequest } from "@trendyol-etsy/shared";
+import type { CreateSourceProductRequest } from "@dropshiping2bizbize/shared";
 
 interface SourceProductFormProps {
   isSubmitting: boolean;
@@ -100,3 +100,4 @@ export function SourceProductForm({ isSubmitting, error, onSubmit }: SourceProdu
     </form>
   );
 }
+

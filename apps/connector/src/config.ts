@@ -103,7 +103,7 @@ function parseCommaSeparatedList(value: string | undefined, fallback: string[]) 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConnectorConfig {
   return {
     host: env.CONNECTOR_HOST ?? "127.0.0.1",
-    port: Number(env.CONNECTOR_PORT ?? 4317),
+    port: Number(env.CONNECTOR_PORT ?? 4318),
     provider: toProviderId(env.CONNECTOR_PROVIDER),
     stateDir: resolve(process.cwd(), env.CONNECTOR_STATE_DIR ?? ".state"),
     browserChannel: normalizeOptionalEnv(env.CONNECTOR_BROWSER_CHANNEL) ?? "chrome",

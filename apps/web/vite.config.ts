@@ -14,7 +14,7 @@ const apiProxyRoutes = [
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiBaseUrl = (env.VITE_API_BASE_URL ?? "").trim();
-  const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8787";
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8788";
   const shouldUseApiProxy = apiBaseUrl.length === 0;
 
   return {
@@ -24,13 +24,15 @@ export default defineConfig(({ mode }) => {
     server: {
       allowedHosts: true,
       host: "127.0.0.1",
+      port: 5174,
+      strictPort: true,
       ...(shouldUseApiProxy
         ? {
             proxy: Object.fromEntries(
               apiProxyRoutes.map((route) => [
                 route,
                 {
-                  // Lokal geliştirmede VITE_API_BASE_URL boşsa /owners vb. istekleri 127.0.0.1:8787'ye proxy et.
+                  // Lokal geliştirmede VITE_API_BASE_URL boşsa /owners vb. istekleri 127.0.0.1:8788'e proxy et.
                   // Cloud modda VITE_API_BASE_URL doluysa proxy devre dışı kalır ve tarayıcı doğrudan Worker'a gider.
                   target: apiProxyTarget,
                   changeOrigin: true,
@@ -43,6 +45,8 @@ export default defineConfig(({ mode }) => {
     preview: {
       // ngrok gibi uzak host adlari preview sunucusu tarafindan reddedilmesin.
       allowedHosts: true,
+      port: 4175,
+      strictPort: true,
     },
     test: {
       environment: "jsdom",

@@ -4,7 +4,7 @@ import type {
   SourceProductListResponse,
   SourceProductPlatform,
   SourceProductSummary,
-} from "@trendyol-etsy/shared";
+} from "@dropshiping2bizbize/shared";
 
 import type { OwnerKey } from "../../contracts/owners";
 import type { D1Database } from "../../config/bindings";
@@ -896,3 +896,4 @@ export function createSourceProductsRepo(db: D1Database) {
 
   return repo;
 }
+

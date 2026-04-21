@@ -49,7 +49,7 @@ export function AiTargetConfigPanel({ initialValue, pending = false, onSubmit }:
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
-              placeholder="http://127.0.0.1:4317"
+              placeholder="http://127.0.0.1:4318"
             />
           </label>
 
@@ -67,3 +67,4 @@ export function AiTargetConfigPanel({ initialValue, pending = false, onSubmit }:
     </details>
   );
 }
+

@@ -1,4 +1,4 @@
-import type { PatchSourceProductRequest } from "@trendyol-etsy/shared";
+import type { PatchSourceProductRequest } from "@dropshiping2bizbize/shared";
 
 import type { OwnerKey } from "../../contracts/owners";
 import type { D1Database } from "../../config/bindings";
@@ -29,3 +29,4 @@ export async function updateSourceProduct(
     updatedAt: now.getTime(),
   });
 }
+

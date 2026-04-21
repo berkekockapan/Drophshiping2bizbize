@@ -1,0 +1,11 @@
+INSERT INTO "product_categories" VALUES('65a79cf8-04b2-4228-b796-95c4a2f2d203', 'berke', 'KadınÇanta', 1774689573970, 1774689576312);
+INSERT INTO "product_categories" VALUES('69d5ec7e-a9b8-46a2-be9c-04d4a7235752', 'kaan', 'MUG', 1774696895201, 1774696898944);
+INSERT INTO "product_categories" VALUES('d178201b-ec29-4083-9040-cf350e89c5dd', 'kaan', 'TAKI', 1774696915260, 1774696915260);
+INSERT INTO "product_categories" VALUES('de58eb01-f7a6-46ac-8193-f48bbed9a33e', 'kaan', 'ÇANTA', 1774696922773, 1774696922773);
+INSERT INTO "product_categories" VALUES('a8473475-f29f-4209-b0f3-f8927a960ecb', 'berke', 'juraderiyüklenecek', 1774812578656, 1774812578656);
+INSERT INTO "product_categories" VALUES('f07d2a5d-feca-4ee5-b2d6-22bfbd8d0274', 'berke', 'juraderi çelikbileklik', 1774816660924, 1774816660924);
+INSERT INTO "product_categories" VALUES('266e0ca1-ea04-4d5f-93b2-d03ff2b0c051', 'berke', 'juraderi kadın kolye', 1774860998709, 1774860998709);
+INSERT INTO "product_categories" VALUES('8ada8a9b-38f0-4c6e-a5e8-cd14efd666c4', 'berke', 'juraderi bakır', 1775140507350, 1775140507350);
+INSERT INTO "product_categories" VALUES('3052ee48-17d1-42d4-a288-e8ce5fd55d59', 'berke', 'juraceramic yüklenecek', 1775484261871, 1775484261871);
+INSERT INTO "product_categories" VALUES('029461df-6ffe-4934-a80b-39445390a167', 'berke', 'juraceramic yüklendi', 1775975550161, 1775975550161);
+INSERT INTO "product_categories" VALUES('e66ef4ac-dfc7-4459-a44c-cd5838cf5fc5', 'berke', 'Kadın çanta yüklencek', 1776515940340, 1776515940340);

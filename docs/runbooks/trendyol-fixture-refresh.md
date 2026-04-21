@@ -1,16 +1,17 @@
-ï»¿# Trendyol Fixture Refresh Runbook
+# Trendyol Fixture Refresh Runbook
 
 ## Ne zaman yenilenmeli?
-- Parser testleri aniden kÄ±rÄ±lÄ±yorsa
-- Trendyol Ã¼rÃ¼n sayfasÄ± DOM yapÄ±sÄ± deÄŸiÅŸtiyse
+- Parser testleri aniden kırılıyorsa
+- Trendyol ürün sayfası DOM yapısı değiştiyse
 
-## Yenileme AdÄ±mlarÄ±
-1. Hedef sayfalarÄ±n yeni HTML Ã¶rneklerini alÄ±n.
-2. `apps/api/tests/fixtures/trendyol/` altÄ±ndaki fixture dosyalarÄ±nÄ± gÃ¼ncelleyin.
-3. Parser unit/integration testlerini Ã§alÄ±ÅŸtÄ±rÄ±n:
-   - `npx pnpm --filter @trendyol-etsy/api run test -- --run tests/unit/parseTrendyolProduct.test.ts tests/integration/addTrackedProduct.test.ts`
-4. DeÄŸiÅŸiklikleri kÄ±sa notla commit edin.
+## Yenileme Adımları
+1. Hedef sayfaların yeni HTML örneklerini alın.
+2. `apps/api/tests/fixtures/trendyol/` altındaki fixture dosyalarını güncelleyin.
+3. Parser unit/integration testlerini çalıştırın:
+   - `npx pnpm --filter @dropshiping2bizbize/api run test -- --run tests/unit/parseTrendyolProduct.test.ts tests/integration/addTrackedProduct.test.ts`
+4. Değişiklikleri kısa notla commit edin.
 
 ## Kurallar
-- Fixture'lara kiÅŸisel veri koymayÄ±n.
-- En az bir "variants", bir "basic", bir "unavailable" Ã¶rneÄŸi gÃ¼ncel kalsÄ±n.
+- Fixture'lara kişisel veri koymayın.
+- En az bir "variants", bir "basic", bir "unavailable" örneği güncel kalsın.
+

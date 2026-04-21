@@ -1,5 +1,5 @@
 param(
-  [string]$RepoPath = "C:\dropshipingtakip2"
+  [string]$RepoPath = "C:\dropshiping2bizbize"
 )
 
 $ErrorActionPreference = "Stop"

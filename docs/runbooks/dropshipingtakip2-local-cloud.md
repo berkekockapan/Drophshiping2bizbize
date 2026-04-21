@@ -1,129 +1,126 @@
-# Dropshipingtakip2 Local Cloud Runbook
+# Local Cloud Runbook
 
-Bu runbook, `dropshipingtakip2` kopyasını ikinci ve bağımsız Cloudflare Worker + D1 kaynaklarına bağlamak için kullanılır. İlk kurulumda mevcut cloud verisi yalnızca bir kez taşınır; bundan sonra bu sistem ayrı çalışır.
+> **Tarihsel dosya adı notu:** Bu dosyanın adı geçmişten kaldı. Operasyonel içerik artık `dropshiping2bizbize` kimliğini tarif eder; `dropshipingtakip2` referansı filename seviyesinde arşivsel kabul edilmelidir.
 
-## Hedef kaynaklar
+Bu runbook, `dropshiping2bizbize` reposunu kendi Cloudflare Worker + D1 + Queue kaynaklarına bağlamak için kullanılır.
 
-- Worker (prod): `dropshipingtakip2-api`
-- Worker (remote dev): `dropshipingtakip2-api-dev`
-- D1 (prod): `dropshipingtakip2-prod`
-- D1 (remote dev): `dropshipingtakip2-dev`
-- Queue (prod): `dropshipingtakip2-refresh`
-- Queue (remote dev): `dropshipingtakip2-refresh-dev`
-- Pages project: `dropshipingtakip2-web`
+## Hedef kimlik
 
-## Aktif kaynak kimlikleri
+- Cloudflare hesabı: `berkekockapan3535@gmail.com`
+- `account_id`: `102eaec87235c67e6d7524d859bd92dd`
+- Worker (prod): `dropshiping2bizbize-api`
+- Worker (dev): `dropshiping2bizbize-api-dev`
+- D1 (prod): `dropshiping2bizbize-prod`
+- D1 (dev): `dropshiping2bizbize-dev`
+- Queue (prod): `dropshiping2bizbize-refresh`
+- Queue (dev): `dropshiping2bizbize-refresh-dev`
+- Scope hedefi: `@dropshiping2bizbize/*`
+- Port hedefi: API `8788`, web dev `5174`, web preview `4175`, connector `4318`
 
-- Production D1 ID: `384c8b3b-2382-47ff-bdae-8a7a8fa82c96`
-- Remote dev D1 ID: `5cb5ded7-cbf6-4d14-a307-6bfee2030366`
-- Production Worker URL: `https://dropshipingtakip2-api.berkekockapan35.workers.dev`
-- Production Pages URL: `https://dropshipingtakip2-web.pages.dev`
-- Latest Pages deployment URL: `https://eab3e6c1.dropshipingtakip2-web.pages.dev`
-- OpenAI / OAuth secret değerleri: daha sonra ayrı Worker secret yüzeyi ile girilecek
+## Ge�i� notu
+
+21 Nisan 2026 itibarıyla repoda hâlâ legacy isimler, eski scope veya eski portlar bulunabilir. Bu belge hedef standardı anlatır; çalıştırılacak gerçek komutlarda mevcut package adını ve gerçek config değerini doğrulayın.
 
 ## 1) Cloudflare oturumunu doğrula
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler whoami
+pnpm --filter <api-package> exec wrangler whoami
 ```
 
-Eğer giriş yoksa önce login ol:
+Beklenen hesap:
+
+- Email: `berkekockapan3535@gmail.com`
+- Account ID: `102eaec87235c67e6d7524d859bd92dd`
+
+Giriş yoksa:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler login
+pnpm --filter <api-package> exec wrangler login
 ```
 
 ## 2) Cloud kaynaklarını oluştur
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 create dropshipingtakip2-prod
-pnpm --filter @trendyol-etsy/api exec wrangler d1 create dropshipingtakip2-dev
-pnpm --filter @trendyol-etsy/api exec wrangler queues create dropshipingtakip2-refresh
-pnpm --filter @trendyol-etsy/api exec wrangler queues create dropshipingtakip2-refresh-dev
+pnpm --filter <api-package> exec wrangler d1 create dropshiping2bizbize-prod
+pnpm --filter <api-package> exec wrangler d1 create dropshiping2bizbize-dev
+pnpm --filter <api-package> exec wrangler queues create dropshiping2bizbize-refresh
+pnpm --filter <api-package> exec wrangler queues create dropshiping2bizbize-refresh-dev
 ```
 
-Komut çıktılarındaki `database_id` değerlerini `apps/api/wrangler.toml` içinde ilgili alanlara yerleştir.
+Komut çıktılarındaki `database_id` değerlerini `apps/api/wrangler.toml` içine doğru alanlarla yerleştir.
 
 ## 3) API worker yapılandırması
 
-`apps/api/wrangler.toml` şu kuralları korumalıdır:
+`apps/api/wrangler.toml` hedefte şu kuralları sağlamalıdır:
 
-- Top-level Worker adı `dropshipingtakip2-api` olmalı
-- Remote dev Worker adı `dropshipingtakip2-api-dev` olmalı
-- Production D1 binding'i `dropshipingtakip2-prod` olmalı
-- Remote dev D1 binding'i `dropshipingtakip2-dev` olmalı
-- Queue producer ve consumer binding'leri hem top-level hem `env.dev` altında açıkça tanımlı olmalı
-- Production ve remote dev queue adları farklı olmalı; aksi halde ikinci consumer deploy'u hata verir
-- Cron tetikleyicisi saat başı çalışmalı: `0 * * * *`
+- Top-level worker adı `dropshiping2bizbize-api`
+- Dev worker adı `dropshiping2bizbize-api-dev`
+- `account_id = "102eaec87235c67e6d7524d859bd92dd"`
+- Production D1 binding'i `dropshiping2bizbize-prod`
+- Dev D1 binding'i `dropshiping2bizbize-dev`
+- Production queue `dropshiping2bizbize-refresh`
+- Dev queue `dropshiping2bizbize-refresh-dev`
+- Producer ve consumer binding'leri her iki ortamda açıkça tanımlı olmalı
 
-## 4) Migrasyon ve deploy akışı
+## 4) Migration ve deploy akışı
 
 Production migration:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 migrations apply dropshipingtakip2-prod --remote
+pnpm --filter <api-package> exec wrangler d1 migrations apply dropshiping2bizbize-prod --remote
 ```
 
-Remote dev migration:
+Dev migration:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 migrations apply dropshipingtakip2-dev --remote --env dev
+pnpm --filter <api-package> exec wrangler d1 migrations apply dropshiping2bizbize-dev --remote --env dev
 ```
 
 Production deploy:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler deploy
+pnpm --filter <api-package> exec wrangler deploy
 ```
 
-Remote dev deploy:
+Dev deploy:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler deploy --env dev
+pnpm --filter <api-package> exec wrangler deploy --env dev
 ```
 
 ## 5) Web env bağlantısı
 
-Web uygulaması ikinci Worker’a bağlanacak şekilde ayrı bir env dosyası kullanmalıdır:
+Hedef production bağlantısı:
 
 ```env
-VITE_API_BASE_URL=https://dropshipingtakip2-api.berkekockapan35.workers.dev
-VITE_API_PROXY_TARGET=http://127.0.0.1:8787
+VITE_API_BASE_URL=https://dropshiping2bizbize-api.<worker-subdomain>.workers.dev
 ```
 
-Production build için aynı değer `apps/web/.env.production` içinde de sabitlenmiştir.
+Hedef local dev bağlantı standardı:
 
-## 5.1) Pages deploy
-
-Production frontend'i her bilgisayardan erişilebilir yapmak için:
-
-```bash
-VITE_API_BASE_URL=https://dropshipingtakip2-api.berkekockapan35.workers.dev pnpm --filter @trendyol-etsy/web build
-pnpm exec wrangler pages deploy /Users/berke/dropshipingtakip2/apps/web/dist --project-name dropshipingtakip2-web --branch main --commit-dirty=true --commit-message "Deploy dropshipingtakip2 web"
+```env
+VITE_API_PROXY_TARGET=http://127.0.0.1:8788
 ```
 
-Kalıcı frontend URL'si:
-
-- `https://dropshipingtakip2-web.pages.dev`
+> Bugün repo içindeki `.env` veya `vite.config.ts` dosyalarında eski portlar görülebilir; bu belge Faz C sonrası hedef standardı ifade eder.
 
 ## 6) Secret stratejisi
 
-İlk kurulumda entegrasyonlar kapalı tutulur. Bu yüzden:
-
-- Çekirdek ürün takip akışı secret gerektirmeden doğrulanır
-- OpenAI / OAuth / connector secret'ları ikinci Worker için daha sonra ayrı ayrı girilir
-- Mevcut sistemin secret'ları kopyalanmaz
+- Çekirdek ürün takibi akışı önce secret bağımsız doğrulanır.
+- OpenAI / OAuth / connector secret'ları sadece bu repo hesabına yazılır.
+- `dropshiping-win` veya başka legacy projelerden secret kopyalanmaz.
 
 ## 7) Smoke test
 
 1. API health endpoint'ini doğrula.
 2. Web ana ekranını aç.
-3. Queue tabanlı refresh akışının yeni queue adına bağlandığını kontrol et.
-4. Temel CRUD ve ayar akışlarının yeni D1 üzerinde çalıştığını doğrula.
+3. Refresh akışının `dropshiping2bizbize-refresh` kuyruğuna yazdığını doğrula.
+4. Temel CRUD ve ayar akışlarının `dropshiping2bizbize-prod` üzerinde çalıştığını doğrula.
 
 ## 8) Güvenlik notu
 
-- Mevcut Worker, D1 veya queue adları bu sistem için yeniden kullanılmamalı.
-- `apps/api/wrangler.toml` içindeki D1 ID'leri yalnızca doğrulanmış Cloudflare kaynaklarına işaret etmelidir.
-- İlk veri taşımasından sonra bu sistem ile eski sistem arasında sürekli senkron kurulmamalı.
-- Veri guvenligi adimlari tum ortamlarda ayni sertlikte uygulanir; kontrol listesi icin `docs/runbooks/cloudflare-data-safety.md` kullanilir.
+- Hedef hesap dışında kaynak kullanma.
+- Legacy kaynak adlarını bu repo için yeniden kullanma.
+- Veri güvenliği adımları için `docs/runbooks/cloudflare-data-safety.md` kullan.
+
+

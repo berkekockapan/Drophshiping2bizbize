@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SourceProductEtsyLink } from "@trendyol-etsy/shared";
+import type { SourceProductEtsyLink } from "@dropshiping2bizbize/shared";
 
 interface SourceProductEtsyLinksPanelProps {
   etsyLinks: SourceProductEtsyLink[];
@@ -98,3 +98,4 @@ export function SourceProductEtsyLinksPanel({
     </section>
   );
 }
+

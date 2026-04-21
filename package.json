@@ -1,17 +1,22 @@
 {
-  "name": "trendyol-etsy-workflow",
+  "name": "dropshiping2bizbize-workflow",
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "build": "pnpm -r --if-present build",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
-    "dev:api": "pnpm --filter @trendyol-etsy/api dev",
-    "dev:web": "pnpm --filter @trendyol-etsy/web dev",
-    "dev:connector": "pnpm --filter @trendyol-etsy/connector dev",
-    "test:e2e": "pnpm --filter @trendyol-etsy/web test:e2e",
-    "cf:deploy:api": "pnpm --filter @trendyol-etsy/api run deploy",
-    "cf:build:web": "pnpm --filter @trendyol-etsy/web build"
+    "dev:api": "pnpm --filter @dropshiping2bizbize/api dev",
+    "dev:web": "pnpm --filter @dropshiping2bizbize/web dev",
+    "dev:connector": "pnpm --filter @dropshiping2bizbize/connector dev",
+    "test:e2e": "pnpm --filter @dropshiping2bizbize/web test:e2e",
+    "cf:deploy:api": "pnpm --filter @dropshiping2bizbize/api run deploy",
+    "cf:build:web": "pnpm --filter @dropshiping2bizbize/web build",
+    "cf:guard": "node scripts/cloudflare/ensure-target-account.mjs",
+    "cf:d1:migrate:prod": "pnpm --filter @dropshiping2bizbize/api run d1:migrate:prod",
+    "cf:d1:migrate:dev": "pnpm --filter @dropshiping2bizbize/api run d1:migrate:dev",
+    "cf:deploy:api:dev": "pnpm --filter @dropshiping2bizbize/api run deploy:dev",
+    "cf:secret": "node scripts/cloudflare/worker-secret.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

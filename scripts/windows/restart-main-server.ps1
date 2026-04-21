@@ -1,5 +1,5 @@
 param(
-  [string]$RepoPath = "C:\dropshipingtakip2",
+  [string]$RepoPath = "C:\dropshiping2bizbize",
   [switch]$SkipGitSync,
   [switch]$SkipInstall,
   [switch]$SkipCloudDeploy,
@@ -15,13 +15,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$CloudPreviewPort = 4174
-$LocalWebPort = 5173
-$LocalApiPort = 8787
-$CloudWebWindowTitle = "DropshipTakip2 Web (Cloud Preview)"
-$LocalWebWindowTitle = "DropshipTakip2 Web"
-$LocalApiWindowTitle = "DropshipTakip2 API"
-$NgrokWindowTitle = "DropshipTakip2 ngrok"
+$CloudPreviewPort = 4175
+$LocalWebPort = 5174
+$LocalApiPort = 8788
+$CloudWebWindowTitle = "Dropshiping2BizBize Web (Cloud Preview)"
+$LocalWebWindowTitle = "Dropshiping2BizBize Web"
+$LocalApiWindowTitle = "Dropshiping2BizBize API"
+$NgrokWindowTitle = "Dropshiping2BizBize ngrok"
 
 function Write-Log {
   param([Parameter(Mandatory = $true)][string]$Message)
@@ -282,16 +282,22 @@ function Deploy-CloudApi {
     return
   }
 
-  Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
+  Write-Log "Cloud hesap guard kontrolu calistiriliyor..."
   Push-Location -LiteralPath $ResolvedRepoPath
   try {
-    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler d1 migrations apply $resolvedCloudD1ProdName --remote -c $resolvedWranglerConfigPath
+    & pnpm.cmd cf:guard
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cloudflare hesap guard basarisiz oldu (exit code: $LASTEXITCODE)."
+    }
+
+    Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
+    & pnpm.cmd --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply $resolvedCloudD1ProdName --remote -c $resolvedWranglerConfigPath
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud D1 migration uygulamasi basarisiz oldu (exit code: $LASTEXITCODE)."
     }
 
     Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
-    & pnpm.cmd --filter @trendyol-etsy/api exec wrangler deploy -c $resolvedWranglerConfigPath
+    & pnpm.cmd --filter @dropshiping2bizbize/api exec wrangler deploy -c $resolvedWranglerConfigPath
     if ($LASTEXITCODE -ne 0) {
       throw "Cloud API deploy basarisiz oldu (exit code: $LASTEXITCODE)."
     }
@@ -309,7 +315,7 @@ function Start-ServiceWindows {
 
   $apiHealthUrl = "http://127.0.0.1:$LocalApiPort/health"
   $webLocalUrl = "http://127.0.0.1:$LocalWebPort"
-  $apiCmd = "title $LocalApiWindowTitle && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @trendyol-etsy/api exec wrangler dev --port $LocalApiPort"
+  $apiCmd = "title $LocalApiWindowTitle && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @dropshiping2bizbize/api exec wrangler dev --port $LocalApiPort"
   $webCmd = "title $LocalWebWindowTitle && cd /d `"$ResolvedRepoPath`" && pnpm.cmd dev:web"
   $ngrokCmd = "title $NgrokWindowTitle && cd /d `"$ResolvedRepoPath`" && ngrok http $LocalWebPort --config `"$ResolvedNgrokConfigPath`""
 
@@ -349,7 +355,7 @@ function Start-ServiceWindowsCloud {
 
   $apiHealthUrl = "$ResolvedCloudApiBaseUrl/health"
   $webLocalUrl = "http://127.0.0.1:$CloudPreviewPort"
-  $webCmd = "title $CloudWebWindowTitle && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd --filter @trendyol-etsy/web build && pnpm.cmd --filter @trendyol-etsy/web exec vite preview --host 0.0.0.0 --port $CloudPreviewPort --strictPort"
+  $webCmd = "title $CloudWebWindowTitle && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd --filter @dropshiping2bizbize/web build && pnpm.cmd --filter @dropshiping2bizbize/web exec vite preview --host 0.0.0.0 --port $CloudPreviewPort --strictPort"
   $ngrokCmd = "title $NgrokWindowTitle && cd /d `"$ResolvedRepoPath`" && ngrok http $CloudPreviewPort --config `"$ResolvedNgrokConfigPath`""
 
   Write-Log "Cloud API saglik kontrolu yapiliyor..."

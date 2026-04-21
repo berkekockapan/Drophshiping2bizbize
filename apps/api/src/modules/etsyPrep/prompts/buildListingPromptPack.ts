@@ -1,4 +1,4 @@
-import type { ListingPromptPack } from "@trendyol-etsy/shared";
+import type { ListingPromptPack } from "@dropshiping2bizbize/shared";
 
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildProductPromptContext } from "./buildProductPromptContext";
@@ -47,3 +47,4 @@ export function buildListingPromptPack(detail: EtsyPrepView): ListingPromptPack 
     },
   };
 }
+

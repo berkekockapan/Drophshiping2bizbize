@@ -9,9 +9,9 @@ $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..\..")).Path
 $RuntimeDir = Join-Path $ProjectRoot ".state\windows-dev"
 $PidsDir = Join-Path $RuntimeDir "pids"
 $ServiceWindows = @(
-  "Dropship Connector",
-  "Dropship API",
-  "Dropship Web"
+  "Dropshiping2BizBize Connector",
+  "Dropshiping2BizBize API",
+  "Dropshiping2BizBize Web"
 )
 
 function Write-StopLog {

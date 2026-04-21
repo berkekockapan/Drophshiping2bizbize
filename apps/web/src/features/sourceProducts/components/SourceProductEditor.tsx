@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { PatchSourceProductRequest, SourceProductDetail } from "@trendyol-etsy/shared";
+import type { PatchSourceProductRequest, SourceProductDetail } from "@dropshiping2bizbize/shared";
 
 interface SourceProductEditorProps {
   product: SourceProductDetail;
@@ -86,3 +86,4 @@ export function SourceProductEditor({ product, isSaving, error, onSave }: Source
     </form>
   );
 }
+

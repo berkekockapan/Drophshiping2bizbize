@@ -1,4 +1,4 @@
-import type { GeneratedListingPackResult } from "@trendyol-etsy/shared";
+import type { GeneratedListingPackResult } from "@dropshiping2bizbize/shared";
 
 export interface GeneratedListingValidationContext {
   allowedClaimTokens?: readonly string[];
@@ -168,3 +168,4 @@ export function validateGeneratedListing(
   assertTitleQuality(result.title);
   assertTagsAreStrong(result.tags);
 }
+

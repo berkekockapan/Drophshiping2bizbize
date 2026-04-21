@@ -1,4 +1,4 @@
-import type { EtsyPromptPackResponse } from "@trendyol-etsy/shared";
+import type { EtsyPromptPackResponse } from "@dropshiping2bizbize/shared";
 
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildChatGptResearchPromptPack } from "./buildChatGptResearchPromptPack";
@@ -31,3 +31,4 @@ export function buildEtsyPromptPackResponse(detail: EtsyPrepView): EtsyPromptPac
     imagePromptPack,
   };
 }
+

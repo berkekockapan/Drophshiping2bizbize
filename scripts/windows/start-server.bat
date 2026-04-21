@@ -10,14 +10,14 @@ if not exist "%PS_SCRIPT%" (
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" ^
-  -RepoPath "C:\dropshipingtakip2" ^
+  -RepoPath "C:\dropshiping2bizbize" ^
   -Mode "Cloud" ^
   -SkipGitSync ^
   -SkipInstall ^
   -SkipCloudDeploy ^
-  -CloudApiBaseUrl "https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev" ^
-  -CloudWranglerConfigPath "apps/api/wrangler.isolated.toml" ^
-  -CloudD1ProdName "dropshipingtakip2-berkecanta-prod" ^
+  -CloudApiBaseUrl "https://dropshiping2bizbize-api.berkekockapan3535.workers.dev" ^
+  -CloudWranglerConfigPath "apps/api/wrangler.toml" ^
+  -CloudD1ProdName "dropshiping2bizbize-prod" ^
   -NgrokLocalScriptPath "scripts/windows/.ngrok.local.ps1" ^
   -NgrokConfigPath "scripts/windows/.ngrok.project.yml" ^
   -NgrokWebPort 4041
@@ -27,3 +27,5 @@ if not "%EXIT_CODE%"=="0" exit /b %EXIT_CODE%
 
 echo [OK] Server start command completed.
 exit /b 0
+
+

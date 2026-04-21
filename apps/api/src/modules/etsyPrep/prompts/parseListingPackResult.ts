@@ -1,4 +1,4 @@
-import type { GeneratedListingPackResult } from "@trendyol-etsy/shared";
+import type { GeneratedListingPackResult } from "@dropshiping2bizbize/shared";
 
 import type { GeneratedListingValidationContext } from "./validateGeneratedListing";
 import { InvalidGeneratedListingError, validateGeneratedListing } from "./validateGeneratedListing";
@@ -50,3 +50,4 @@ export function parseListingPackResult(
   validateGeneratedListing(result, context);
   return result;
 }
+

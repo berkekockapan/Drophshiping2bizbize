@@ -181,12 +181,12 @@ main() {
   open_terminal_tab "$(build_service_command web pnpm dev:web)"
   sleep 1
 
-  open "http://127.0.0.1:5173"
+  open "http://127.0.0.1:5174"
 
   log "Başlatma tamamlandı."
-  log "Web: http://127.0.0.1:5173"
-  log "API health: http://127.0.0.1:8787/health"
-  log "Connector health: http://127.0.0.1:4317/health"
+  log "Web: http://127.0.0.1:5174"
+  log "API health: http://127.0.0.1:8788/health"
+  log "Connector health: http://127.0.0.1:4318/health"
 }
 
 main "$@"

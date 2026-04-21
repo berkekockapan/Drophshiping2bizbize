@@ -8,7 +8,7 @@ describe("app api", () => {
   });
 
   it("prefixes owner requests with VITE_API_BASE_URL", async () => {
-    vi.stubEnv("VITE_API_BASE_URL", "https://trendyol-etsy-api.workers.dev");
+    vi.stubEnv("VITE_API_BASE_URL", "https://dropshiping2bizbize-api.workers.dev");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({ summary: { trackedCount: 0, activeCount: 0, reviewNeededCount: 0 }, items: [], filters: {} }),
@@ -23,7 +23,7 @@ describe("app api", () => {
     await fetchTrackingView("berke");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://trendyol-etsy-api.workers.dev/owners/berke/products",
+      "https://dropshiping2bizbize-api.workers.dev/owners/berke/products",
       expect.anything(),
     );
   });
@@ -212,7 +212,7 @@ describe("app api", () => {
   });
 
   it("prefixes source-products requests with VITE_API_BASE_URL", async () => {
-    vi.stubEnv("VITE_API_BASE_URL", "https://trendyol-etsy-api.workers.dev");
+    vi.stubEnv("VITE_API_BASE_URL", "https://dropshiping2bizbize-api.workers.dev");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: [], total: 0 }), {
         status: 200,
@@ -224,7 +224,7 @@ describe("app api", () => {
     await fetchSourceProducts("berke", "123456789");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://trendyol-etsy-api.workers.dev/owners/berke/source-products?search=123456789",
+      "https://dropshiping2bizbize-api.workers.dev/owners/berke/source-products?search=123456789",
       expect.anything(),
     );
   });
@@ -309,3 +309,4 @@ describe("app api", () => {
     );
   });
 });
+

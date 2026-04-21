@@ -2,14 +2,14 @@
 # ~/.codex/auth.json içindeki client_id değeri bu proje için kullanılamaz.
 OPENAI_OAUTH_CLIENT_ID=app_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 OPENAI_OAUTH_CLIENT_SECRET=
-OPENAI_OAUTH_REDIRECT_URI=http://127.0.0.1:8787/ai-profiles/openai/callback
+OPENAI_OAUTH_REDIRECT_URI=http://127.0.0.1:8788/ai-profiles/openai/callback
 # 32-byte base64url key (or plain 32-char string)
 OPENAI_OAUTH_ENCRYPTION_KEY=replace_with_32_byte_base64url_key
 
 # Optional
 OPENAI_DEFAULT_MODEL=gpt-5-mini
 OPENAI_API_BASE_URL=https://api.openai.com/v1
-OPENAI_OAUTH_ORIGINATOR=dropshipingtakip_cloud
+OPENAI_OAUTH_ORIGINATOR=dropshiping2bizbize_cloud
 # Codex/CLI özel authorize parametreleri için gerekirse 1 yapın.
 # Web OAuth akışında varsayılan olarak kapalı bırakılmalıdır.
 # OPENAI_OAUTH_USE_CODEX_FLOW=1

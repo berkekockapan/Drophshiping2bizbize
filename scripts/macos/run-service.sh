@@ -26,8 +26,8 @@ timestamp() {
   date '+%Y-%m-%d %H:%M:%S'
 }
 
-printf '\033]0;%s\007' "dropshiping-win:${service_name}"
-printf '\033]1;%s\007' "dropshiping-win:${service_name}"
+printf '\033]0;%s\007' "dropshiping2bizbize:${service_name}"
+printf '\033]1;%s\007' "dropshiping2bizbize:${service_name}"
 
 echo "[$(timestamp)] ${service_name} servisi hazırlanıyor..."
 echo "[$(timestamp)] Repo: $repo_root"

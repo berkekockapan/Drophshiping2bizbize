@@ -5,7 +5,7 @@ import type {
   PatchSourceProductRequest,
   SourceProductDetailResponse,
   SourceProductListResponse,
-} from "@trendyol-etsy/shared";
+} from "@dropshiping2bizbize/shared";
 
 import type { OwnerKey } from "../features/shared/lib/ownerRouteState";
 import type { EtsyCostCalculatorStorage } from "../features/etsyCostCalculator/lib/types";
@@ -1484,3 +1484,4 @@ export function formatDateTime(value: number | null | undefined) {
     timeStyle: "short",
   }).format(value);
 }
+

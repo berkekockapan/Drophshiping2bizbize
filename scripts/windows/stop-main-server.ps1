@@ -5,10 +5,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ServiceWindowTitles = @(
-  "DropshipTakip2 Web (Cloud Preview)",
-  "DropshipTakip2 Web",
-  "DropshipTakip2 API",
-  "DropshipTakip2 ngrok"
+  "Dropshiping2BizBize Web (Cloud Preview)",
+  "Dropshiping2BizBize Web",
+  "Dropshiping2BizBize API",
+  "Dropshiping2BizBize ngrok"
 )
 
 function Write-StopLog {

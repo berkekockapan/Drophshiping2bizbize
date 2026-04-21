@@ -1,4 +1,4 @@
-import type { GenerateListingPackResponse } from "@trendyol-etsy/shared";
+import type { GenerateListingPackResponse } from "@dropshiping2bizbize/shared";
 
 import type { D1Database, Env } from "../../../config/bindings";
 import { OpenAiAuthError, resolveActiveOpenAiCredential } from "../../ai/openAiOAuth";
@@ -116,3 +116,4 @@ export async function generateListingPackWithOpenAi(
     result: parseListingPackResult(rawText, validationContext),
   };
 }
+

@@ -20,7 +20,7 @@ describe("connectorApi", () => {
     );
 
     const client = createConnectorApiClient({
-      baseUrl: "http://127.0.0.1:4317",
+      baseUrl: "http://127.0.0.1:4318",
       fetchImpl,
     });
 
@@ -28,7 +28,7 @@ describe("connectorApi", () => {
       status: "online",
       provider: "chatgpt-web",
     });
-    expect(fetchImpl).toHaveBeenCalledWith("http://127.0.0.1:4317/health", undefined);
+    expect(fetchImpl).toHaveBeenCalledWith("http://127.0.0.1:4318/health", undefined);
   });
 
   it("maps connector 409 profile reauth responses to a typed error", async () => {
@@ -42,7 +42,7 @@ describe("connectorApi", () => {
       ),
     );
 
-    const client = createConnectorApiClient({ baseUrl: "http://127.0.0.1:4317" });
+    const client = createConnectorApiClient({ baseUrl: "http://127.0.0.1:4318" });
     await expect(client.generateField({ field: "title", prompt: "Return JSON", context: {} })).rejects.toMatchObject({
       code: "PROFILE_NEEDS_REAUTH",
     });
@@ -57,7 +57,7 @@ describe("connectorApi", () => {
     );
 
     const client = createConnectorApiClient({
-      baseUrl: "http://127.0.0.1:4317",
+      baseUrl: "http://127.0.0.1:4318",
       fetchImpl,
     });
 
@@ -68,7 +68,7 @@ describe("connectorApi", () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledWith(
-      "http://127.0.0.1:4317/generate-field",
+      "http://127.0.0.1:4318/generate-field",
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,7 +86,7 @@ describe("connectorApi", () => {
     );
 
     const client = createConnectorApiClient({
-      baseUrl: "http://127.0.0.1:4317",
+      baseUrl: "http://127.0.0.1:4318",
       fetchImpl,
     });
 
@@ -99,3 +99,4 @@ describe("connectorApi", () => {
     );
   });
 });
+

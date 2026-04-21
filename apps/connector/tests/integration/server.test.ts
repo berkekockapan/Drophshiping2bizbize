@@ -38,7 +38,7 @@ describe("connector server", () => {
       provider,
       config: {
         host: "127.0.0.1",
-        port: 4317,
+        port: 4318,
         provider: "mock",
         stateDir: dir,
         browserChannel: "chrome",
@@ -203,7 +203,7 @@ describe("connector server", () => {
       provider,
       config: {
         host: "127.0.0.1",
-        port: 4317,
+        port: 4318,
         provider: "chatgpt-web",
         stateDir: dir,
         browserChannel: "chrome",
@@ -256,3 +256,4 @@ describe("connector server", () => {
     expect(deletedIds).toEqual(["profile_main"]);
   });
 });
+

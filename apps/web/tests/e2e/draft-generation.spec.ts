@@ -1,4 +1,4 @@
-ï»¿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test("user generates and manually edits an Etsy draft title", async ({ page }) => {
   let currentTitle = "";
@@ -16,8 +16,8 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
           title: "Oversize Hoodie",
           brand: "North Apparel",
           category: "Sweatshirt",
-          descriptionRaw: "YumuÅŸak dokulu oversize hoodie",
-          attributes: [{ key: "KumaÅŸ", value: "Pamuk" }],
+          descriptionRaw: "Yumuþak dokulu oversize hoodie",
+          attributes: [{ key: "Kumaþ", value: "Pamuk" }],
           images: [],
           status: "ACTIVE",
           parseStatus: "OK",
@@ -89,8 +89,8 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
             productTitle: "Oversize Hoodie",
             brand: "North Apparel",
             category: "Sweatshirt",
-            description: "YumuÅŸak dokulu oversize hoodie",
-            attributes: [{ key: "KumaÅŸ", value: "Pamuk" }],
+            description: "Yumuþak dokulu oversize hoodie",
+            attributes: [{ key: "Kumaþ", value: "Pamuk" }],
             variants: [],
           },
           constraints: {
@@ -103,7 +103,7 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
     });
   });
 
-  await page.route("http://127.0.0.1:4317/generate", async (route) => {
+  await page.route("http://127.0.0.1:4318/generate", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -121,7 +121,7 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
     });
   });
 
-  await page.route("http://127.0.0.1:4317/generate-field", async (route) => {
+  await page.route("http://127.0.0.1:4318/generate-field", async (route) => {
     generateFieldCalls += 1;
     await route.fulfill({
       status: 200,
@@ -177,11 +177,12 @@ test("user generates and manually edits an Etsy draft title", async ({ page }) =
     window.history.pushState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, "/products/prod_1/seo");
-  await page.getByRole("button", { name: "BaÅŸlÄ±k Ãœret" }).click();
+  await page.getByRole("button", { name: "Baþlýk Üret" }).click();
 
   await expect(page.getByLabel("English Title")).toHaveValue(/Handmade Hoodie/i);
 
   await page.getByLabel("English Title").fill("Custom edited title");
-  await expect(page.getByText(/Manuel dÃ¼zenleme var/i)).toBeVisible();
+  await expect(page.getByText(/Manuel düzenleme var/i)).toBeVisible();
   expect(generateFieldCalls).toBe(0);
 });
+

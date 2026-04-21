@@ -5,8 +5,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 desktop_dir="${HOME}/Desktop"
 
-start_launcher="${desktop_dir}/dropshiping-win-start.command"
-stop_launcher="${desktop_dir}/dropshiping-win-stop.command"
+start_launcher="${desktop_dir}/dropshiping2bizbize-start.command"
+stop_launcher="${desktop_dir}/dropshiping2bizbize-stop.command"
 
 printf -v escaped_start_script '%q' "$repo_root/scripts/macos/start-dev.sh"
 printf -v escaped_stop_script '%q' "$repo_root/scripts/macos/stop-dev.sh"

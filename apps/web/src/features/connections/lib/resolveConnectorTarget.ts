@@ -1,4 +1,4 @@
-const DEFAULT_CONNECTOR_BASE_URL = "http://127.0.0.1:4317";
+const DEFAULT_CONNECTOR_BASE_URL = "http://127.0.0.1:4318";
 
 export interface ResolvedConnectorTarget {
   baseUrl: string;
@@ -26,3 +26,4 @@ export function resolveConnectorTarget(
     isOverride: false,
   };
 }
+

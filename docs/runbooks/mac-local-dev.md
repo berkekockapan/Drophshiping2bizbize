@@ -1,58 +1,52 @@
 # Mac Yerel Geliştirme ve Desktop Launcher Runbook
 
 ## Amaç
-Bu doküman, projeyi yeni bir Mac üzerinde sıfırdan ayağa kaldırmak, masaüstüne tek tıkla başlat/durdur dosyaları eklemek ve sistemi her gün aynı şekilde çalıştırmak için hazırlanmıştır.
 
-Bu rehber hem kullanıcı hem de ajan için yazıldı. Ben bu dosyayı okuyunca Mac'te ne kurulacağını, hangi sırayla ilerleyeceğimi ve hangi komutları çalıştıracağımı doğrudan anlayabilmeliyim.
+Bu doküman, `dropshiping2bizbize` reposunu yeni bir Mac üzerinde ayağa kaldırmak ve günlük geliştirme akışını tek yerden tarif etmek için hazırlanmıştır.
 
-## Servisler ve Beklenen Adresler
+## Hedef kimlik ve port standardı
 
-| Servis | Komut | Adres |
-| --- | --- | --- |
-| Web | `pnpm dev:web` | `http://127.0.0.1:5173` |
-| API | `pnpm dev:api` | `http://127.0.0.1:8787/health` |
-| Connector | `pnpm dev:connector` | `http://127.0.0.1:4317/health` |
+- Repo klasör hedefi: `~/Projects/dropshiping2bizbize`
+- Scope hedefi: `@dropshiping2bizbize/*`
+- API: `http://127.0.0.1:8788/health`
+- Connector: `http://127.0.0.1:4318/health`
+- Web dev: `http://127.0.0.1:5174`
+- Web preview: `http://127.0.0.1:4175`
 
-## İlk Kurulum
+## Geçici repo gerçeği
+
+21 Nisan 2026 itibarıyla script/config dosyalarında hâlâ `@dropshiping2bizbize/*` ve `8788/5174/4175/4318` değerleri görülebilir. Bu runbook hedef standardı anlatır; fiili değerler farklıysa bunu Faz B/C drift'i olarak raporlayın.
+
+## İlk kurulum
 
 ### 1) Gerekli araçları kur
-Önerilen temel kurulum:
 
 ```bash
 xcode-select --install
 ```
 
-Git yoksa:
+Gerekirse:
 
 ```bash
 brew install git
 ```
 
-Node 22 önerilir. `nvm` kullanacaksan:
+Node 22 önerilir. `pnpm@10.32.1` etkin olmalıdır.
 
-```bash
-brew install nvm
-mkdir -p ~/.nvm
-export NVM_DIR="$HOME/.nvm"
-source "$(brew --prefix nvm)/nvm.sh"
-nvm install 22
-nvm use 22
-```
+### 2) Repoyu hazırla
 
-Alternatif olarak resmi Node 22 kurulumu da kullanılabilir.
-
-### 2) Repoyu klonla
 Örnek çalışma dizini:
 
 ```bash
 mkdir -p ~/Projects
 cd ~/Projects
-git clone https://github.com/berkekockapan/dropshiping-win.git
-cd dropshiping-win
+git clone <repo-url>
+cd dropshiping2bizbize
 ```
 
+> `<repo-url>` bu repo için doğru `origin` adresi olmalıdır. Dokümantasyon turunda URL sabitlemesi yapılmadığı için yanlış repo klonlamayın.
+
 ### 3) pnpm'i etkinleştir
-Repo `pnpm@10.32.1` kullanıyor:
 
 ```bash
 corepack enable
@@ -67,209 +61,100 @@ pnpm install
 ```
 
 ### 5) Connector `.env` dosyasını hazırla
-Varsayılan geliştirme modu `mock` sağlayıcı ile gelir:
 
 ```bash
 cp apps/connector/.env.example apps/connector/.env
 ```
 
-Varsayılan içerik:
+Hedef içerik standardı:
 
 ```env
 CONNECTOR_HOST=127.0.0.1
-CONNECTOR_PORT=4317
+CONNECTOR_PORT=4318
 CONNECTOR_PROVIDER=mock
 CONNECTOR_STATE_DIR=.state
 ```
 
-### 6) İsteğe bağlı: gerçek browser tabanlı connector kullanacaksan
-`chatgpt-web` sağlayıcısı için Playwright Chromium gerekebilir:
+> Eğer örnek dosya bugün `4318` içeriyorsa bu config drift'idir; doküman standardı `4318`dir.
+
+### 6) İsteğe bağlı: gerçek browser tabanlı connector
 
 ```bash
-pnpm --filter @trendyol-etsy/connector exec playwright install chromium
+pnpm --filter <connector-package> exec playwright install chromium
 ```
 
-## Desktop Launcher Kurulumu
+## Desktop launcher kurulumu
 
-Repo içinde Mac için yardımcı scriptler var:
+Repo içindeki yardımcı scriptler:
 
 - `scripts/macos/create-desktop-launchers.sh`
 - `scripts/macos/start-dev.sh`
 - `scripts/macos/stop-dev.sh`
 - `scripts/macos/run-service.sh`
 
-Masaüstüne başlat/durdur dosyalarını üret:
+Launcher üretimi:
 
 ```bash
 bash scripts/macos/create-desktop-launchers.sh
 ```
 
-Bu komut şunları oluşturur:
+Hedef adlandırma:
 
-- `~/Desktop/dropshiping-win-start.command`
-- `~/Desktop/dropshiping-win-stop.command`
+- `~/Desktop/dropshiping2bizbize-start.command`
+- `~/Desktop/dropshiping2bizbize-stop.command`
 
-> Not: Bu `.command` dosyaları oluşturuldukları anda mevcut repo yolunu içine yazar. Repoyu başka klasöre taşırsan bu üretim komutunu tekrar çalıştır.
+> Script bugün eski dosya adı üretirse bu da isimlendirme drift'idir; operasyonel hedef yukarıdaki addır.
 
-## Günlük Kullanım
+## Günlük kullanım
 
 ### Başlatma
-Masaüstündeki `dropshiping-win-start.command` dosyasına çift tıkla.
 
-Başlatıcı şunları yapar:
+Hedef davranış:
 
-1. Gerekli klasörleri oluşturur: `.state/macos-dev/pids` ve `.state/macos-dev/logs`
-2. `apps/connector/.env` yoksa `.env.example` dosyasından üretir
-3. `pnpm`, `node`, `osascript` ve `open` komutlarını kontrol eder
-4. Yerel API veritabanında `products` tablosu var mı diye bakar
-5. Şema yoksa `apps/api/drizzle/0000_initial.sql` ile ilk kurulum yapar
-6. Önce eski PID dosyalarına göre çalışan servisleri durdurmaya çalışır
-7. Ayrı Terminal sekmelerinde şu servisleri açar:
-   - API
-   - Connector
-   - Web
-8. Tarayıcıda `http://127.0.0.1:5173` adresini açar
+1. Gerekli klasörleri oluşturur.
+2. `apps/connector/.env` yoksa üretir.
+3. API, connector ve web servislerini açar.
+4. Tarayıcıda `http://127.0.0.1:5174` adresini açar.
 
 ### Durdurma
-Masaüstündeki `dropshiping-win-stop.command` dosyasına çift tıkla.
 
-Bu dosya:
+PID dosyalarına göre servisleri kapatır ve temizlik yapar.
 
-1. `.state/macos-dev/pids/*.pid` dosyalarını okur
-2. Yaşayan process'lere önce `TERM`, gerekirse `KILL` gönderir
-3. PID dosyalarını temizler
-
-## Manuel Çalıştırma
-
-Launcher yerine terminalden de çalıştırabilirsin:
+## Manuel çalıştırma
 
 ```bash
 bash scripts/macos/start-dev.sh
-```
-
-```bash
 bash scripts/macos/stop-dev.sh
 ```
 
-## Sağlık Kontrolleri
-
-Servisler açıldıktan sonra doğrulama:
+## Sağlık kontrolleri
 
 ```bash
-curl http://127.0.0.1:8787/health
-curl http://127.0.0.1:4317/health
-open http://127.0.0.1:5173
+curl http://127.0.0.1:8788/health
+curl http://127.0.0.1:4318/health
+open http://127.0.0.1:5174
 ```
 
-Beklenen sonuçlar:
+## Sorun giderme
 
-- API: `{"ok":true}`
-- Connector: JSON health cevabı
-- Web: Vite geliştirme ekranı
+- Port doluysa hedef port standardını baz alın.
+- `pnpm` yoksa `corepack` adımlarını tekrar uygulayın.
+- `node_modules` eksikse `pnpm install` çalıştırın.
+- Legacy repo yolu (`dropshiping-win`, `dropshipingtakip2`) görürseniz bunun tarihsel kalıntı olduğunu not edin.
 
-## Loglar ve PID Dosyaları
+## Ajan için uygulama sırası
 
-Runtime dosyaları:
-
-- PID: `.state/macos-dev/pids`
-- Log: `.state/macos-dev/logs`
-
-Örnek log izleme:
-
-```bash
-tail -f .state/macos-dev/logs/api.log
-tail -f .state/macos-dev/logs/web.log
-tail -f .state/macos-dev/logs/connector.log
-```
-
-## Sorun Giderme
-
-### 1) `.command` dosyası açılmıyor
-
-```bash
-chmod +x ~/Desktop/dropshiping-win-start.command
-chmod +x ~/Desktop/dropshiping-win-stop.command
-```
-
-Gerekirse quarantine temizle:
-
-```bash
-xattr -dr com.apple.quarantine ~/Desktop/dropshiping-win-start.command
-xattr -dr com.apple.quarantine ~/Desktop/dropshiping-win-stop.command
-```
-
-### 2) Port doluysa
-
-```bash
-lsof -i :5173 -sTCP:LISTEN
-lsof -i :8787 -sTCP:LISTEN
-lsof -i :4317 -sTCP:LISTEN
-```
-
-Gerekirse ilgili PID'yi kapat:
-
-```bash
-kill -TERM <PID>
-```
-
-### 3) `pnpm` bulunamadıysa
-
-```bash
-corepack enable
-corepack prepare pnpm@10.32.1 --activate
-```
-
-### 4) `node_modules` eksikse
-
-```bash
-pnpm install
-```
-
-### 5) Connector `.env` kaybolduysa
-
-```bash
-cp apps/connector/.env.example apps/connector/.env
-```
-
-### 6) Yerel API veritabanını sıfırlamak gerekirse
-Uyarı: yerel geliştirme verisi silinir.
-
-```bash
-rm -rf apps/api/.wrangler
-```
-
-Sonra tekrar başlat:
-
-```bash
-bash scripts/macos/start-dev.sh
-```
-
-## Ajan İçin Uygulama Sırası
-Kullanıcı Mac'te “bunu yap” dediğinde aşağıdaki sırayı uygula:
-
-1. Repo klasörüne git
+1. Repo klasörüne git.
 2. `corepack enable`
 3. `corepack prepare pnpm@10.32.1 --activate`
 4. `pnpm install`
-5. `apps/connector/.env` yoksa `.env.example` dosyasından oluştur
-6. Gerekirse `pnpm --filter @trendyol-etsy/connector exec playwright install chromium`
+5. `apps/connector/.env` yoksa oluştur.
+6. Gerekirse Playwright Chromium kur.
 7. `bash scripts/macos/create-desktop-launchers.sh`
 8. `bash scripts/macos/start-dev.sh`
-9. `curl http://127.0.0.1:8787/health`
-10. `curl http://127.0.0.1:4317/health`
-11. `open http://127.0.0.1:5173`
-12. Kullanıcıya masaüstünde `dropshiping-win-start.command` ve `dropshiping-win-stop.command` dosyalarının hazır olduğunu bildir
+9. `curl http://127.0.0.1:8788/health`
+10. `curl http://127.0.0.1:4318/health`
+11. `open http://127.0.0.1:5174`
+12. Üretilen launcher adlarının hedef repo kimliğiyle uyumlu olup olmadığını raporla.
 
-## Kısa Özet
-En kısa kurulum akışı:
 
-```bash
-git clone https://github.com/berkekockapan/dropshiping-win.git
-cd dropshiping-win
-corepack enable
-corepack prepare pnpm@10.32.1 --activate
-pnpm install
-cp apps/connector/.env.example apps/connector/.env
-bash scripts/macos/create-desktop-launchers.sh
-open ~/Desktop/dropshiping-win-start.command
-```

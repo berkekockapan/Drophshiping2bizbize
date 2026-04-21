@@ -1,5 +1,5 @@
 {
-  "name": "@trendyol-etsy/shared",
+  "name": "@dropshiping2bizbize/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,3 +8,4 @@
     "zod": "^3.24.4"
   }
 }
+

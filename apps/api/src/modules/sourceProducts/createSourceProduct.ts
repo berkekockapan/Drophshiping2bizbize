@@ -1,4 +1,4 @@
-import type { CreateSourceProductRequest } from "@trendyol-etsy/shared";
+import type { CreateSourceProductRequest } from "@dropshiping2bizbize/shared";
 
 import type { OwnerKey } from "../../contracts/owners";
 import type { D1Database } from "../../config/bindings";
@@ -38,3 +38,4 @@ export async function createSourceProduct(
     updatedAt: now.getTime(),
   });
 }
+

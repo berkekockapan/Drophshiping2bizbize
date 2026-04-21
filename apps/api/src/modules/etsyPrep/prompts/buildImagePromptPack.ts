@@ -1,4 +1,4 @@
-import type { ImagePromptPack } from "@trendyol-etsy/shared";
+import type { ImagePromptPack } from "@dropshiping2bizbize/shared";
 
 import type { EtsyPrepView } from "../buildEtsyPrepView";
 import { buildProductPromptContext } from "./buildProductPromptContext";
@@ -77,3 +77,4 @@ export function buildImagePromptPack(detail: EtsyPrepView): ImagePromptPack {
     guardrailSummary: [...etsyMasterRulebook.imageGuardrails],
   };
 }
+

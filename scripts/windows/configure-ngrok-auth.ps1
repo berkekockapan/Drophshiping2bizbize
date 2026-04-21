@@ -1,5 +1,5 @@
 param(
-  [string]$RepoPath = "C:\dropshipingtakip2",
+  [string]$RepoPath = "C:\dropshiping2bizbize",
   [string]$NgrokAuthToken = $env:NGROK_AUTHTOKEN,
   [string]$NgrokConfigPath = "scripts\windows\.ngrok.project.yml",
   [int]$NgrokWebPort = 4041

@@ -19,9 +19,9 @@ $NodeModulesPaths = @(
   (Join-Path $ProjectRoot "apps\web\node_modules")
 )
 $ServiceWindows = @(
-  "Dropship Connector",
-  "Dropship API",
-  "Dropship Web"
+  "Dropshiping2BizBize Connector",
+  "Dropshiping2BizBize API",
+  "Dropshiping2BizBize Web"
 )
 
 function Write-StartupLog {
@@ -139,13 +139,13 @@ function Get-ConnectorProvider {
 
 function Assert-ChromiumAvailable {
   Write-StartupLog "Chromium kontrolu yapiliyor..."
-  $chromiumPath = & pnpm --filter @trendyol-etsy/connector exec node -e "const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath())"
+  $chromiumPath = & pnpm --filter @dropshiping2bizbize/connector exec node -e "const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath())"
   if (-not $chromiumPath) {
-    Fail-Startup "Playwright Chromium yolu alinamadi. 'pnpm --filter @trendyol-etsy/connector exec playwright install chromium' calistirin."
+    Fail-Startup "Playwright Chromium yolu alinamadi. 'pnpm --filter @dropshiping2bizbize/connector exec playwright install chromium' calistirin."
   }
 
   if (-not (Test-Path -LiteralPath $chromiumPath)) {
-    Fail-Startup "Chromium bulunamadi: $chromiumPath. 'pnpm --filter @trendyol-etsy/connector exec playwright install chromium' calistirin."
+    Fail-Startup "Chromium bulunamadi: $chromiumPath. 'pnpm --filter @dropshiping2bizbize/connector exec playwright install chromium' calistirin."
   }
 
   Write-StartupLog "Chromium hazir: $chromiumPath"
@@ -216,9 +216,9 @@ function Write-ServiceLog {
 Write-ServiceLog 'Servis komutu baslatiliyor.'
 
 switch ('$ServiceName') {
-  'connector' { & pnpm --filter @trendyol-etsy/connector dev 2>&1 | Tee-Object -FilePath `$logFile -Append }
-  'api' { & pnpm --filter @trendyol-etsy/api dev 2>&1 | Tee-Object -FilePath `$logFile -Append }
-  'web' { & pnpm --filter @trendyol-etsy/web dev 2>&1 | Tee-Object -FilePath `$logFile -Append }
+  'connector' { & pnpm --filter @dropshiping2bizbize/connector dev 2>&1 | Tee-Object -FilePath `$logFile -Append }
+  'api' { & pnpm --filter @dropshiping2bizbize/api dev 2>&1 | Tee-Object -FilePath `$logFile -Append }
+  'web' { & pnpm --filter @dropshiping2bizbize/web dev 2>&1 | Tee-Object -FilePath `$logFile -Append }
   default { throw 'Bilinmeyen servis.' }
 }
 
@@ -324,8 +324,8 @@ function Main {
   }
 
   Write-StartupLog "Connector baslatiliyor..."
-  Start-ServiceWindow -Title "Dropship Connector" -ServiceName "connector" -PidFile (Join-Path $PidsDir "connector.pid") -LogFile $ConnectorLog
-  Wait-HttpEndpoint -Url "http://127.0.0.1:4317/health" -Label "Connector" -Validate {
+  Start-ServiceWindow -Title "Dropshiping2BizBize Connector" -ServiceName "connector" -PidFile (Join-Path $PidsDir "connector.pid") -LogFile $ConnectorLog
+  Wait-HttpEndpoint -Url "http://127.0.0.1:4318/health" -Label "Connector" -Validate {
     param($response)
     try {
       ($response.Content | ConvertFrom-Json).status -eq "online"
@@ -335,8 +335,8 @@ function Main {
   }
 
   Write-StartupLog "API baslatiliyor..."
-  Start-ServiceWindow -Title "Dropship API" -ServiceName "api" -PidFile (Join-Path $PidsDir "api.pid") -LogFile $ApiLog
-  Wait-HttpEndpoint -Url "http://127.0.0.1:8787/health" -Label "API" -Validate {
+  Start-ServiceWindow -Title "Dropshiping2BizBize API" -ServiceName "api" -PidFile (Join-Path $PidsDir "api.pid") -LogFile $ApiLog
+  Wait-HttpEndpoint -Url "http://127.0.0.1:8788/health" -Label "API" -Validate {
     param($response)
     try {
       ($response.Content | ConvertFrom-Json).ok -eq $true
@@ -346,13 +346,13 @@ function Main {
   }
 
   Write-StartupLog "Web baslatiliyor..."
-  Start-ServiceWindow -Title "Dropship Web" -ServiceName "web" -PidFile (Join-Path $PidsDir "web.pid") -LogFile $WebLog
-  Wait-HttpEndpoint -Url "http://127.0.0.1:5173" -Label "Web"
+  Start-ServiceWindow -Title "Dropshiping2BizBize Web" -ServiceName "web" -PidFile (Join-Path $PidsDir "web.pid") -LogFile $WebLog
+  Wait-HttpEndpoint -Url "http://127.0.0.1:5174" -Label "Web"
 
-  Open-Browser -Url "http://127.0.0.1:5173"
+  Open-Browser -Url "http://127.0.0.1:5174"
 
-  Write-StartupLog "API health: http://127.0.0.1:8787/health"
-  Write-StartupLog "Connector health: http://127.0.0.1:4317/health"
+  Write-StartupLog "API health: http://127.0.0.1:8788/health"
+  Write-StartupLog "Connector health: http://127.0.0.1:4318/health"
   Write-StartupLog "Log klasoru: $LogsDir"
   Write-StartupLog "Windows dev baslatma tamamlandi."
 }

@@ -5,7 +5,7 @@ import { resolveConnectorTarget } from "./resolveConnectorTarget";
 describe("resolveConnectorTarget", () => {
   it("uses the desktop localhost connector when no override is saved", () => {
     expect(resolveConnectorTarget({ aiTargetBaseUrl: null }, null)).toEqual({
-      baseUrl: "http://127.0.0.1:4317",
+      baseUrl: "http://127.0.0.1:4318",
       source: "desktop_default",
       isOverride: false,
     });
@@ -32,3 +32,4 @@ describe("resolveConnectorTarget", () => {
     });
   });
 });
+

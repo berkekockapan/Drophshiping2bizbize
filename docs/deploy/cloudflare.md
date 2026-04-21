@@ -1,231 +1,157 @@
-# Cloudflare Workers + D1 + Pages Deploy Rehberi
+﻿# Cloudflare Workers + D1 + Pages Deploy Rehberi
 
-Bu doküman `apps/api` uygulamasını Cloudflare Worker olarak, `apps/web` uygulamasını Cloudflare Pages üzerinde yayınlamak için gereken kalıcı kurulum akışını toplar. `apps/connector` bu kapsamda deploy edilmez.
+> Bu belge, **21 Nisan 2026** itibarıyla `dropshiping2bizbize` için gerçek operasyonel Cloudflare referansını tutar. Kod, konfigürasyon ve deploy yüzeyi hedef hesapla hizalanmıştır.
 
-## Canli veri kurali
+## 1) Hedef kimlik
 
-- Production kullanicilari sadece deploy edilmis Pages + deploy edilmis Worker + `trendyol-etsy-prod` uzerinden calisir.
-- `trendyol-etsy-prod` canli veri icin tek dogruluk kaynagidir.
-- `trendyol-etsy-dev`, lokal `wrangler dev` ve lokal D1 sadece gelistirme ve test amaclidir; canli veri kaynagi degildir.
-- `VITE_API_BASE_URL` production Pages ortaminda bos birakilmaz ve canli Worker domainine isaret eder.
-- Tum ortamlarda veri koruma protokolu icin `docs/runbooks/cloudflare-data-safety.md` takip edilir.
+- Repo kimliği: `dropshiping2bizbize`
+- Hedef Cloudflare hesabı: `berkekockapan3535@gmail.com`
+- Hedef `account_id`: `102eaec87235c67e6d7524d859bd92dd`
+- Ayrı tutulacak kardeş repo: `dropshiping-win`
 
-## Hedef kaynaklar
+## 2) Aktif kaynak isimleri
 
-- Worker (production): `trendyol-etsy-api`
-- Worker (remote dev): `trendyol-etsy-api-dev`
-- D1 (production): `trendyol-etsy-prod`
-- D1 (remote dev): `trendyol-etsy-dev`
-- Queue: `trendyol-refresh`
-- Pages project: `trendyol-etsy-web`
-- Connector: deploy edilmeyecek
+- Worker (production): `dropshiping2bizbize-api`
+- Worker (dev): `dropshiping2bizbize-api-dev`
+- D1 (production): `dropshiping2bizbize-prod`
+  - `database_id = "aab63623-ff50-4109-b927-e2fff3f45fbc"`
+- D1 (dev): `dropshiping2bizbize-dev`
+  - `database_id = "ea8b4312-d2f8-47d0-91bd-8b10745c47ff"`
+- Queue (production): `dropshiping2bizbize-refresh`
+- Queue (dev): `dropshiping2bizbize-refresh-dev`
+- Paket scope: `@dropshiping2bizbize/*`
+- Yerel port standardı: API `8788`, web dev `5174`, web preview `4175`, connector `4318`
 
-## Ortam modeli
+## 3) Aktif deploy uçları
 
-Cloudflare Wrangler ortamları ayrı Worker isimleri üretir (`<name>-<environment>`). Bu nedenle production Worker adını `trendyol-etsy-api` olarak korumak için kök `wrangler.toml` production kabul edildi; remote dev veritabanı ve isteğe bağlı dev Worker ayrımı `env.dev` altında tutuldu.
+- Production worker: `https://dropshiping2bizbize-api.berkekockapan3535.workers.dev`
+- Dev worker: `https://dropshiping2bizbize-api-dev.berkekockapan3535.workers.dev`
 
-- Top-level Worker: `trendyol-etsy-api` -> production D1 (`trendyol-etsy-prod`)
-- `--env dev`: `trendyol-etsy-api-dev` -> remote dev D1 (`trendyol-etsy-dev`)
-- Lokal `wrangler dev`: aynı config ile çalışır ama D1 erişimi yerel geliştirme depolamasında simüle edilir
-
-> Not: Migration dosyaları `apps/api/drizzle` altında olduğu için `wrangler.toml` içinde `migrations_dir = "drizzle"` tanımlıdır.
-
-## 1) Cloudflare kaynaklarını oluştur
-
-Önce Wrangler ile oturum aç:
-
-```bash
-pnpm --filter @trendyol-etsy/api exec wrangler login
-```
-
-Ardından kaynakları oluştur:
-
-```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 create trendyol-etsy-dev
-pnpm --filter @trendyol-etsy/api exec wrangler d1 create trendyol-etsy-prod
-pnpm --filter @trendyol-etsy/api exec wrangler queues create trendyol-refresh
-```
-
-Bu komutların çıktısındaki D1 `database_id` değerlerini `apps/api/wrangler.toml` içine yerleştir:
-
-- `REPLACE_PROD_DB_ID`
-- `REPLACE_DEV_DB_ID`
-
-## 2) API Worker yapılandırması
-
-`apps/api/wrangler.toml` şu kurallarla yönetilir:
-
-- Production deploy için top-level binding'ler kullanılır
-- Remote dev deploy için `env.dev` binding'leri kullanılır
-- Queue producer/consumer binding'leri hem top-level hem `env.dev` içinde açıkça tanımlıdır; çünkü Cloudflare ortamlarında binding'ler kalıtılmaz
-- Cron tetiği her saat başı çalışır: `0 * * * *`
-
-API Worker, D1 ve Queue Cloudflare hesabında çalışır; lokal bilgisayar yalnızca geliştirme ve deploy için kullanılır.
-
-## 3) Uzak D1 migration akışı
-
-Production migration:
-
-```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-prod --remote
-```
-
-Remote dev migration:
-
-```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 migrations apply trendyol-etsy-dev --remote --env dev
-```
-
-Veri taşıma gerekiyorsa önerilen akış:
-
-1. Lokal tablo içeriklerini export et
-2. Remote D1 veritabanına migration uygula
-3. Gerekli seed/import script'i ile veriyi aktar
-4. Uzak veriyi `SELECT` sorguları ile doğrula
-
-## 4) API deploy ve doğrulama
-
-Production API deploy:
-
-```bash
-pnpm cf:deploy:api
-```
-
-İsteğe bağlı remote dev deploy:
-
-```bash
-pnpm --filter @trendyol-etsy/api exec wrangler deploy --env dev
-```
-
-Deploy sonrası health check:
-
-```bash
-curl https://<worker-subdomain>.workers.dev/health
-```
-
-Beklenen cevap:
+Health check beklentisi:
 
 ```json
 {"ok":true}
 ```
 
-API public çalışır ve CORS basit tutulur:
+## 4) Başlamadan önce zorunlu kontroller
 
-- `Access-Control-Allow-Origin: *`
-- `Access-Control-Allow-Methods: GET,POST,PATCH,PUT,DELETE,OPTIONS`
-- `Access-Control-Allow-Headers: Content-Type`
+1. `wrangler whoami` çıktısında hedef email ve `account_id` göründüğünü doğrulayın.
+2. Veri etkileyen bir adım varsa önce `docs/runbooks/cloudflare-data-safety.md` kontrol listesini uygulayın.
+3. `dropshiping-win` hesabına ait worker/D1/queue isimlerini bu repo için kullanmayın.
+4. Production deploy öncesi `apps/api/wrangler.toml` içindeki `account_id`, D1 ve queue adlarını doğrulayın.
 
-Binary dönen uçlarda da ek credential kullanılmadığı için bu CORS politikası yeterlidir.
+## 5) Çalışan paket filtreleri
 
-## 5) Frontend deploy akışı
+- API: `@dropshiping2bizbize/api`
+- Web: `@dropshiping2bizbize/web`
+- Connector: `@dropshiping2bizbize/connector`
 
-Pages projesi için önerilen ayarlar:
-
-- Project name: `trendyol-etsy-web`
-- Root directory: `apps/web`
-- Build command: `pnpm build`
-- Build output directory: `dist`
-- Node version: `22.x`
-- Environment variable: `VITE_API_BASE_URL=https://<worker-subdomain>.workers.dev`
-
-İsteğe bağlı yerel build doğrulaması:
+Örnekler:
 
 ```bash
-pnpm cf:build:web
+pnpm --filter @dropshiping2bizbize/api exec wrangler whoami
+pnpm --filter @dropshiping2bizbize/api exec wrangler deploy
+pnpm --filter @dropshiping2bizbize/web build
 ```
 
-Davranış farkı:
+## 6) Cloudflare kaynak oluşturma komutları
 
-- Local: Vite proxy ile `/owners` vb. istekler `http://127.0.0.1:8787` adresine gider
-- Production: Tarayıcı `VITE_API_BASE_URL` üzerinden doğrudan Cloudflare Worker'a gider
-
-## 6) Connector kapsamı ve desteklenen akışlar
-
-Cloudflare deploy kapsamında desteklenen ana akışlar:
-
-- owner bazlı ürün listesi
-- ürün detayları
-- kategori yönetimi
-- bildirimler
-- ayarlar
-- manual refresh
-- scheduled refresh
-
-`AI Bağlantıları` ekranı menüde kalabilir ancak geçici olarak bilgilendirme modundadır:
-
-- masaüstü connector akışı için vardır
-- Cloudflare deploy kapsamında şimdilik aktif kullanılmaz
-- ana takip akışını engellemez
-
-OpenAI OAuth / masaüstü connector detayları gerekirse ek rehber için `docs/runbooks/cloudflare-deploy.md` dosyasına bakılabilir.
-
-## 7) Smoke test kontrol listesi
-
-- Pages ana sayfa açılıyor mu?
-- `https://<worker-subdomain>.workers.dev/health` çağrısı dönüyor mu?
-- Ürün listesi geliyor mu?
-- Yeni ürün eklenebiliyor mu?
-- Ayarlar kaydediliyor mu?
-- Manual refresh run kuyruğa düşüyor mu?
-
-## 8) Günlük çalışma modeli
-
-- Günlük geliştirme lokal ortamda yapılır
-- Değişiklikler lokalde test edilir
-- Sonra Worker ve Pages yeniden deploy edilir
-- Canlı sistem ancak deploy sonrası yeni sürümü görür
-
-## 9) Rollback
-
-- Son çalışan commit'e dön
-- API Worker'ı yeniden deploy et
-- Web için yeni build/deploy al
-- Production D1 verisini silme; yalnızca kodu geri sar
-- Rollback karari ve komutlari veri guvenligi checklist'i ile birlikte dogrulanir (`docs/runbooks/cloudflare-data-safety.md`)
-
-
-## 10) Time Travel ve geri donus
-
-Bookmark durumunu gor:
+Yeni hesap veya sıfır kurulum gerekirse:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel info trendyol-etsy-prod
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 create dropshiping2bizbize-prod
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 create dropshiping2bizbize-dev
+pnpm --filter @dropshiping2bizbize/api exec wrangler queues create dropshiping2bizbize-refresh
+pnpm --filter @dropshiping2bizbize/api exec wrangler queues create dropshiping2bizbize-refresh-dev
 ```
 
-Geri donus uygula:
+## 7) Worker yapılandırma kuralları
+
+`apps/api/wrangler.toml` için aktif beklenti:
+
+- `name = "dropshiping2bizbize-api"`
+- `account_id = "102eaec87235c67e6d7524d859bd92dd"`
+- top-level D1 = `dropshiping2bizbize-prod`
+- top-level queue = `dropshiping2bizbize-refresh`
+- `env.dev.name = "dropshiping2bizbize-api-dev"`
+- `env.dev` D1 = `dropshiping2bizbize-dev`
+- `env.dev` queue = `dropshiping2bizbize-refresh-dev`
+- dev cron tetikleyicisi şu an boş bırakılmıştır: `[env.dev.triggers] crons = []`
+
+Son madde, dev deploy sırasında hesap planı kısıtı nedeniyle bilinçli olarak uygulanmıştır.
+
+## 8) D1 migration akışı
+
+Production:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 time-travel restore trendyol-etsy-prod --bookmark=<bookmark>
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply dropshiping2bizbize-prod --remote
 ```
 
-Veri merkezli bir degisiklik veya bootstrap oncesinde mevcut durumu gormek icin:
+Dev:
 
 ```bash
-pnpm --filter @trendyol-etsy/api exec wrangler d1 info trendyol-etsy-prod
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 migrations apply dropshiping2bizbize-dev --remote --env dev
 ```
 
-## 11) Basari kriterleri
+## 9) API deploy ve doğrulama
 
-Bu iş tamamlanmış sayılırsa:
+Production deploy:
 
-- Uygulama farklı bilgisayardan açılabilir
-- Bilgisayar kapalıyken veri erişimi sürer
-- Ürün ekleme, listeleme ve ayar kaydetme çalışır
-- Veriler uzak D1 üzerinde kalıcı tutulur
-- Connector kullanılmasa da ana iş akışı çalışır
+```bash
+pnpm cf:deploy:api
+```
 
-## 11) Cloudflare notları
+Dev deploy:
 
-- Cloudflare duyurusuna göre Queues, **4 Şubat 2026** itibarıyla Workers Free plan içinde kullanılabiliyor.
-- Cron trigger'lar da Workers Free plan kapsamında kullanılabiliyor; ancak Free plan CPU ve tetik limitleri geçerli.
-- Bu projede tek bir cron kullanıldığı için planlanan `0 * * * *` tetik yapısı ücretsiz plan sınırlarıyla uyumludur.
+```bash
+pnpm --filter @dropshiping2bizbize/api exec wrangler deploy --env dev
+```
 
-## 12) Resmi referanslar
+Doğrulama:
 
-- Cloudflare Wrangler configuration: <https://developers.cloudflare.com/workers/wrangler/configuration/>
-- Cloudflare Workers environments: <https://developers.cloudflare.com/workers/wrangler/environments/>
-- Cloudflare D1 migrations: <https://developers.cloudflare.com/d1/reference/migrations/>
-- Cloudflare Queues Free plan changelog: <https://developers.cloudflare.com/changelog/post/2026-02-04-queues-free-plan/>
-- Cloudflare Workers pricing: <https://developers.cloudflare.com/workers/platform/pricing/>
-- Cloudflare Workers limits: <https://developers.cloudflare.com/workers/platform/limits/>
-- Cloudflare Pages build configuration: <https://developers.cloudflare.com/pages/configuration/build-configuration/>
+```bash
+curl https://dropshiping2bizbize-api.berkekockapan3535.workers.dev/health
+curl https://dropshiping2bizbize-api-dev.berkekockapan3535.workers.dev/health
+```
+
+## 10) Frontend notları
+
+- Production `VITE_API_BASE_URL` production worker alan adına gitmelidir.
+- Yerel geliştirme standardı: web `5174`, API `8788`, connector `4318`
+- Yerel preview standardı: `4175`
+- Web, production ortamında doğrudan Cloudflare Worker'a bağlanır.
+
+## 11) Smoke test kontrol listesi
+
+- `wrangler whoami` doğru hesabı gösteriyor mu?
+- Worker health endpoint dönüyor mu?
+- Web uygulaması API ile konuşuyor mu?
+- Refresh akışı doğru queue adına yazıyor mu?
+- Hiçbir adım `dropshiping-win` hesabındaki kaynaklara temas etmiyor mu?
+
+## 12) Rollback ve Time Travel
+
+Kod rollback'i veri rollback'inden önce düşünülür.
+
+Bilgi komutu:
+
+```bash
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel info dropshiping2bizbize-prod
+```
+
+Geri dönüş komutu:
+
+```bash
+pnpm --filter @dropshiping2bizbize/api exec wrangler d1 time-travel restore dropshiping2bizbize-prod --bookmark=<bookmark>
+```
+
+> `time-travel restore` veri etkileyebileceği için `docs/runbooks/cloudflare-data-safety.md` ve açık kullanıcı onayı olmadan uygulanmaz.
+
+## 13) Operasyonel referans zinciri
+
+1. `docs/runbooks/cloudflare-data-safety.md`
+2. `docs/runbooks/2026-04-21-proje-ayristirma-plani.md`
+3. `docs/deploy/cloudflare.md`
+4. `docs/runbooks/2026-03-28-central-cloud-persistence-rollout.md`
+5. `docs/superpowers/HISTORICAL-NOTE.md`

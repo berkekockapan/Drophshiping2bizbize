@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateSourceProductRequest } from "@trendyol-etsy/shared";
+import type { CreateSourceProductRequest } from "@dropshiping2bizbize/shared";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -234,3 +234,4 @@ export function SourceProductsPage() {
     </div>
   );
 }
+

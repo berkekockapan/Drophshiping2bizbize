@@ -1,22 +1,22 @@
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act } from "react";
 
 import { TrackingCenterPage } from "./TrackingCenterPage";
 import { renderWithProviders } from "../../../test/test-utils";
 
 const trackingPayload = {
   summary: {
-    trackedCount: 186,
-    activeCount: 183,
-    reviewNeededCount: 3,
+    trackedCount: 2,
+    activeCount: 2,
+    reviewNeededCount: 0,
   },
   items: [
     {
       id: "prod_1",
       ownerKey: "berke",
+      sourceProductId: "123",
       title: "Oversize Hoodie",
       brand: "North Apparel",
       trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123",
@@ -29,31 +29,62 @@ const trackingPayload = {
       inStockVariantCount: 12,
       totalVariantCount: 18,
       isFavorite: false,
-      userCategory: null,
+      userCategory: { id: "cat_tracking", name: "Dis Giyim" },
+      lastCheckedAt: 1710000000000,
     },
     {
       id: "prod_2",
       ownerKey: "berke",
-      title: "Favorite Hoodie",
-      brand: "North Apparel",
-      trendyolUrl: "https://www.trendyol.com/north-apparel/favorite-hoodie-p-456",
+      sourceProductId: null,
+      title: "Takipsel Kupa",
+      brand: "Ceramic House",
+      trendyolUrl: "https://www.trendyol.com/ceramic-house/kupa-p-999",
       status: "ACTIVE",
       parseStatus: "OK",
-      thumbnailImage: "https://cdn.example.com/hoodie-2.jpg",
-      currentPrice: 45990,
-      minPrice: 35990,
-      maxPrice: 46990,
-      inStockVariantCount: 8,
-      totalVariantCount: 9,
-      isFavorite: true,
+      thumbnailImage: "https://cdn.example.com/mug.jpg",
+      currentPrice: 25990,
+      minPrice: 20990,
+      maxPrice: 26990,
+      inStockVariantCount: 3,
+      totalVariantCount: 4,
+      isFavorite: false,
       userCategory: null,
+      lastCheckedAt: 1710000000000,
     },
   ],
   filters: {},
 };
 
-const categoriesPayload = {
-  items: [{ id: "cat_bileklik", name: "Bileklik" }],
+const sourceProductsPayload = {
+  items: [
+    {
+      id: "sp_1",
+      ownerKey: "berke",
+      title: "Oversize Hoodie",
+      sourceUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123",
+      platform: "trendyol",
+      notes: null,
+      sourceCategory: { id: "cat_source", name: "Hoodie" },
+      sortOrder: 0,
+      deletedAt: null,
+      linkedEtsyCount: 1,
+      linkedEtsyItems: [{ id: "etsy_1", title: "123456789", url: "https://www.etsy.com/listing/123456789" }],
+    },
+    {
+      id: "sp_2",
+      ownerKey: "berke",
+      title: "Kaynak Canta",
+      sourceUrl: "https://www.trendyol.com/bag-brand/canta-p-456",
+      platform: "trendyol-milla",
+      notes: "canvas",
+      sourceCategory: { id: "cat_bag", name: "Canta" },
+      sortOrder: 1,
+      deletedAt: null,
+      linkedEtsyCount: 0,
+      linkedEtsyItems: [],
+    },
+  ],
+  filters: {},
 };
 
 describe("TrackingCenterPage", () => {
@@ -62,17 +93,10 @@ describe("TrackingCenterPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders owner-scoped products and sends owner-aware requests", async () => {
+  it("renders the unified dashboard and sends owner-aware requests", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
-      if (url.includes("/owners/berke/categories")) {
-        return new Response(JSON.stringify(categoriesPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), {
           status: 200,
@@ -80,137 +104,21 @@ describe("TrackingCenterPage", () => {
         });
       }
 
-      return new Response(JSON.stringify(trackingPayload), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    });
-
-    renderWithProviders(<TrackingCenterPage />, {
-      route: "/owners/berke/products",
-      path: "/owners/:ownerKey/products",
-    });
-
-    expect(await screen.findByText(/takipte/i)).toBeInTheDocument();
-    expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /tüm ürünleri yenile/i })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products"), expect.anything());
-  });
-
-  it("switches favorites tab and uses owner-scoped favorite/delete endpoints", async () => {
-    const user = userEvent.setup();
-    const items = structuredClone(trackingPayload.items);
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-      const method = init?.method ?? "GET";
-
-      if (url.includes("/owners/berke/categories")) {
-        return new Response(JSON.stringify(categoriesPayload), {
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceProductsPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
 
-      if (url.includes("/owners/berke/products/refresh-runs/active")) {
-        return new Response(JSON.stringify({ run: null }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/products/prod_1/favorite") && method === "POST") {
-        const body = JSON.parse(String(init?.body ?? "{}")) as { isFavorite?: boolean };
-        items[0].isFavorite = Boolean(body.isFavorite);
-        return new Response(JSON.stringify({ productId: "prod_1", isFavorite: items[0].isFavorite }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/products/prod_1") && method === "DELETE") {
-        items.splice(0, 1);
-        return new Response(null, { status: 204 });
-      }
-
-      if (url.includes("favorite=true")) {
-        return new Response(
-          JSON.stringify({
-            summary: trackingPayload.summary,
-            items: items.filter((item) => item.isFavorite),
-            filters: { favorite: true },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
-      }
-
-      return new Response(
-        JSON.stringify({
-          summary: trackingPayload.summary,
-          items,
-          filters: {},
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
-    });
-
-    renderWithProviders(<TrackingCenterPage />, {
-      route: "/owners/berke/products",
-      path: "/owners/:ownerKey/products",
-    });
-
-    expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
-
-    await user.click(screen.getAllByRole("button", { name: /favoriye ekle|favoriden çıkar/i })[0]);
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/owners/berke/products/prod_1/favorite"),
-        expect.objectContaining({ method: "POST" }),
-      ),
-    );
-
-    await user.click(screen.getAllByRole("button", { name: /^sil$/i })[0]);
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/owners/berke/products/prod_1"),
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
-    expect(confirmSpy).toHaveBeenCalled();
-
-    await user.click(await screen.findByRole("button", { name: /favoriler/i }));
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products?favorite=true"), expect.anything()),
-    );
-    expect(await screen.findByText(/favorite hoodie/i)).toBeInTheDocument();
-  });
-
-  it("re-fetches the owner list every live-sync interval", async () => {
-    vi.useFakeTimers();
-    let productCalls = 0;
-
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = String(input);
-      if (url.includes("/owners/berke/categories")) {
-        return new Response(JSON.stringify(categoriesPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (url.includes("/owners/berke/products/refresh-runs/active")) {
-        return new Response(JSON.stringify({ run: null }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
       if (url.includes("/owners/berke/products")) {
-        productCalls += 1;
         return new Response(JSON.stringify(trackingPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
-      throw new Error(`Unhandled request: ${url}`);
+
+      return new Response("Not found", { status: 404 });
     });
 
     renderWithProviders(<TrackingCenterPage />, {
@@ -218,34 +126,18 @@ describe("TrackingCenterPage", () => {
       path: "/owners/:ownerKey/products",
     });
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(screen.getByText(/oversize hoodie/i)).toBeInTheDocument();
-    expect(productCalls).toBe(1);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-
-    expect(productCalls).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByRole("heading", { name: /birleşik ürün görünümü/i })).toBeInTheDocument();
+    expect(await screen.findByText(/kaynak canta/i)).toBeInTheDocument();
+    expect(screen.getByText(/etsy bağlı/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products"), expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/source-products"), expect.anything());
   });
 
-  it("loads owner-scoped categories, forwards categoryId to the list request, and opens the manager modal", async () => {
+  it("filters by category tabs and search text", async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-      const method = init?.method ?? "GET";
 
-      if (url.includes("/owners/berke/categories") && method === "GET") {
-        return new Response(JSON.stringify(categoriesPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), {
@@ -254,21 +146,21 @@ describe("TrackingCenterPage", () => {
         });
       }
 
-      if (url.includes("categoryId=cat_bileklik")) {
-        return new Response(
-          JSON.stringify({
-            summary: trackingPayload.summary,
-            items: [],
-            filters: { categoryId: "cat_bileklik" },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceProductsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(JSON.stringify(trackingPayload), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(trackingPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
     });
 
     renderWithProviders(<TrackingCenterPage />, {
@@ -276,18 +168,16 @@ describe("TrackingCenterPage", () => {
       path: "/owners/:ownerKey/products",
     });
 
-    const categoryFilter = await screen.findByLabelText(/kategori filtresi/i);
-    await waitFor(() => expect(within(categoryFilter).getByRole("option", { name: /bileklik/i })).toBeInTheDocument());
-    await user.selectOptions(categoryFilter, "cat_bileklik");
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/owners/berke/products?categoryId=cat_bileklik"),
-        expect.anything(),
-      ),
-    );
+    expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
 
-    await user.click(await screen.findByRole("button", { name: /kategori yönet/i }));
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /kategorileri yönet/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /canta \(1\)/i }));
+    expect(await screen.findByText(/kaynak canta/i)).toBeInTheDocument();
+    expect(screen.queryByText(/takipsel kupa/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /tümü \(3\)/i }));
+    await user.type(screen.getByLabelText(/arama/i), "kupa");
+
+    expect(await screen.findByText(/takipsel kupa/i)).toBeInTheDocument();
+    expect(screen.queryByText(/kaynak canta/i)).not.toBeInTheDocument();
   });
 });

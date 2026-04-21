@@ -28,6 +28,7 @@ describe("SourceProductTrashPage", () => {
                 deletedAt: Date.now(),
                 deletedReason: "user",
                 linkedEtsyCount: 0,
+                linkedEtsyItems: [],
               },
             ],
             total: 1,

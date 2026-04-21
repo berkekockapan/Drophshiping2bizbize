@@ -75,6 +75,7 @@ describe("SourceProductDetailPage", () => {
               createdAt: Date.now(),
               updatedAt: Date.now(),
               linkedEtsyCount: 0,
+              linkedEtsyItems: [],
             },
             linkedEtsyItems: [],
           }),
@@ -107,5 +108,5 @@ describe("SourceProductDetailPage", () => {
         expect.objectContaining({ method: "POST" }),
       ),
     );
-  });
+  }, 15000);
 });

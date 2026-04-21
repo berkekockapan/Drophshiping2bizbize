@@ -16,6 +16,7 @@ test("source products support same-category drag sort and trash flows", async ({
       deletedAt: null,
       deletedReason: null,
       linkedEtsyCount: 0,
+      linkedEtsyItems: [],
     },
     {
       id: "sp_2",
@@ -29,6 +30,7 @@ test("source products support same-category drag sort and trash flows", async ({
       deletedAt: null,
       deletedReason: null,
       linkedEtsyCount: 0,
+      linkedEtsyItems: [],
     },
   ];
 
@@ -45,6 +47,7 @@ test("source products support same-category drag sort and trash flows", async ({
       deletedAt: Date.now(),
       deletedReason: "user",
       linkedEtsyCount: 0,
+      linkedEtsyItems: [],
     },
     {
       id: "sp_delete",
@@ -58,6 +61,7 @@ test("source products support same-category drag sort and trash flows", async ({
       deletedAt: Date.now(),
       deletedReason: "user",
       linkedEtsyCount: 0,
+      linkedEtsyItems: [],
     },
   ];
 

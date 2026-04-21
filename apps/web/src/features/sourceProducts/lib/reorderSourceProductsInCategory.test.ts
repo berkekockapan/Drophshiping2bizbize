@@ -17,6 +17,7 @@ describe("reorderSourceProductsInCategory", () => {
         sortOrder: 0,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
       {
         id: "sp_2",
@@ -29,6 +30,7 @@ describe("reorderSourceProductsInCategory", () => {
         sortOrder: 1,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
       {
         id: "sp_3",
@@ -41,6 +43,7 @@ describe("reorderSourceProductsInCategory", () => {
         sortOrder: 0,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
     ];
 

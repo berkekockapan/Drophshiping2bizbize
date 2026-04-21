@@ -70,6 +70,15 @@ Not: Ayni turuncu vurgu icin birden fazla hover tonu geciyor (`#d95518`, `#d9571
 - Renk kodlu badge yapisi var (`OK/ACTIVE/REVIEW_NEEDED/PARSE_ERROR` vb.).
 - Yukleme/hata mesajlari metin tabanli ve sade.
 
+### 4.5 Sekmeli gezinme
+
+- Kategori veya durum bazli ust seviye gecislerde `rounded-2xl` sekme/buton grubu kullanilabilir.
+- Varsayilan sekme: acik zemin + border (`border-slate-200 bg-slate-50 text-slate-700`).
+- Birincil aktif sekme: turuncu dolu (`bg-[#F1641E] text-white`).
+- Ikincil aktif sekme: koyu lacivert dolu (`bg-[#051125] text-white`).
+- Ozel durum sekmeleri (ornegin `Kategorisiz`) amber tonlariyla vurgulanabilir.
+- Sekme etiketlerinde adet gostergesi ayni satirda yer alabilir: `Kategori (12)`.
+
 ## 5) Tutarlilik Gozlemleri ve Teknik Borc
 
 - Tasarim tokenlari merkezi degil; Tailwind theme `extend` su an bos.
@@ -94,4 +103,3 @@ UI tarafinda yapilacak her yeni gelistirme icin:
 - Birincil aksiyonlar turuncu, riskli aksiyonlar rose tonlarinda mi?
 - Yatay/dikey bosluklar benzer ekranlarla uyumlu mu?
 - Mobil ve masaustu kiriliminda layout bozulmadan calisiyor mu?
-

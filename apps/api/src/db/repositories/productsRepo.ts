@@ -236,7 +236,7 @@ export function createProductsRepo(db: D1Database) {
       const where = clauses.length > 0 ? `where ${clauses.join(" and ")}` : "";
       const result = await db
         .prepare(
-          `select p.id, p.owner_key as ownerKey, p.trendyol_url as trendyolUrl, p.title, p.brand, p.status, p.parse_status as parseStatus,
+          `select p.id, p.owner_key as ownerKey, p.trendyol_url as trendyolUrl, p.source_product_id as sourceProductId, p.title, p.brand, p.status, p.parse_status as parseStatus,
                   p.images_raw as imagesRaw, p.is_favorite as isFavorite, p.deleted_at as deletedAt,
                   p.user_category_id as userCategoryId, pc.name as userCategoryName,
                   pcs.current_price as currentPrice, pcs.min_price as minPrice, pcs.max_price as maxPrice,
@@ -253,6 +253,7 @@ export function createProductsRepo(db: D1Database) {
           id: string;
           ownerKey: OwnerKey;
           trendyolUrl: string;
+          sourceProductId: string | null;
           title: string | null;
           brand: string | null;
           status: string;

@@ -17,6 +17,7 @@ describe("groupSourceProductsByCategory", () => {
         sortOrder: 1,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
       {
         id: "sp_2",
@@ -29,6 +30,7 @@ describe("groupSourceProductsByCategory", () => {
         sortOrder: 0,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
       {
         id: "sp_3",
@@ -41,6 +43,7 @@ describe("groupSourceProductsByCategory", () => {
         sortOrder: 0,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
     ];
 
@@ -60,6 +63,7 @@ describe("groupSourceProductsByCategory", () => {
         sortOrder: 1,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
       {
         id: "sp_2",
@@ -72,6 +76,7 @@ describe("groupSourceProductsByCategory", () => {
         sortOrder: 0,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
       {
         id: "sp_3",
@@ -84,6 +89,7 @@ describe("groupSourceProductsByCategory", () => {
         sortOrder: 0,
         deletedAt: null,
         linkedEtsyCount: 0,
+        linkedEtsyItems: [],
       },
     ];
 

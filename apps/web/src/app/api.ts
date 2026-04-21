@@ -38,6 +38,11 @@ export interface SourceProductItem {
   deletedAt: number | null;
   deletedReason?: string | null;
   linkedEtsyCount: number;
+  linkedEtsyItems: Array<{
+    id: string;
+    title: string;
+    url: string;
+  }>;
   createdAt?: number;
   updatedAt?: number;
 }
@@ -72,6 +77,7 @@ export interface TrackingItem {
   id: string;
   ownerKey: OwnerKey;
   trendyolUrl?: string;
+  sourceProductId?: string | null;
   title: string | null;
   brand: string | null;
   status: string;

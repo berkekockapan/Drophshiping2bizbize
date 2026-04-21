@@ -1,0 +1,21 @@
+
+> @dropshiping2bizbize/web@0.0.0 dev C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize\apps\web
+> vite "--" "--host" "127.0.0.1" "--port" "5173" "--strictPort"
+
+C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize\apps\web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @dropshiping2bizbize/web@0.0.0 dev: `vite "--" "--host[2m23:12:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/app/api.ts[22m
+[2m23:14:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
+[2m23:15:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
+[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:17:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:18:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/app/router.test.tsx[22m
+[2m23:18:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:19:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.test.tsx[22m
+[2m23:20:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
+[2m23:21:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:21:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m23:22:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m

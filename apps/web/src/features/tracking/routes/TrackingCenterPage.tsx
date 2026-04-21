@@ -1,268 +1,251 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
-import {
-  createProductCategory,
-  deleteTrackedProduct,
-  deleteProductCategory,
-  fetchProductCategories,
-  fetchTrackingView,
-  renameProductCategory,
-  setTrackedProductCategory,
-  setTrackedProductFavorite,
-  type TrackingItem,
-} from "../../../app/api";
+import { fetchSourceProductsView, fetchTrackingView } from "../../../app/api";
 import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
+import { StatCard } from "../../shared/components/StatCard";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
-import { StatCard } from "../../shared/components/StatCard";
-import { CategoryManagerDialog } from "../components/CategoryManagerDialog";
 import { AddLinkForm } from "../components/AddLinkForm";
 import { BulkRefreshControl } from "../components/BulkRefreshControl";
-import { ProductCard } from "../components/ProductCard";
-import { TrackingFilters } from "../components/TrackingFilters";
+import { UnifiedDashboardCard } from "../components/UnifiedDashboardCard";
+import { buildUnifiedDashboardItems } from "../lib/buildUnifiedDashboardItems";
 
 function isOwnerKey(value: string | undefined): value is OwnerKey {
   return ownerOptions.some((owner) => owner.key === value);
 }
 
+function matchesSearch(item: ReturnType<typeof buildUnifiedDashboardItems>[number], search: string) {
+  const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  const haystack = [
+    item.title,
+    item.brand,
+    item.sourceUrl,
+    item.platform,
+    item.categoryLabel,
+    item.sourceCategoryLabel,
+    item.trackingCategoryLabel,
+    ...item.etsyLinks.map((etsyLink) => `${etsyLink.title} ${etsyLink.url}`),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLocaleLowerCase("tr-TR");
+
+  return haystack.includes(normalizedSearch);
+}
+
 export function TrackingCenterPage() {
   const { ownerKey: ownerKeyParam } = useParams<{ ownerKey: string }>();
   const ownerKey = isOwnerKey(ownerKeyParam) ? ownerKeyParam : null;
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"all" | "favorites">("all");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | "uncategorized" | null>(null);
-  const [isCategoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<string>("all");
 
-  const categoriesQuery = useQuery({
-    queryKey: ["product-categories", ownerKey],
+  const trackingQuery = useQuery({
+    queryKey: ["tracking-products", ownerKey, "dashboard"],
     enabled: Boolean(ownerKey),
-    queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
+    queryFn: () => fetchTrackingView(ownerKey as OwnerKey, {}),
     ...liveSyncQueryOptions,
   });
 
-  const trackingQuery = useQuery({
-    queryKey: ["tracking-products", ownerKey, view, selectedCategoryId],
+  const sourceProductsQuery = useQuery({
+    queryKey: ["source-products", ownerKey, "dashboard"],
     enabled: Boolean(ownerKey),
     queryFn: () =>
-      fetchTrackingView(ownerKey as OwnerKey, {
-        favoriteOnly: view === "favorites",
-        categoryId: selectedCategoryId,
+      fetchSourceProductsView(ownerKey as OwnerKey, {
+        search: "",
+        categoryId: null,
       }),
     ...liveSyncQueryOptions,
   });
-  const trackingErrorMessage =
-    trackingQuery.error instanceof Error ? trackingQuery.error.message : "Ürünler yüklenemedi.";
 
-  const createCategoryMutation = useMutation({
-    mutationFn: (name: string) => createProductCategory(ownerKey as OwnerKey, name),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["product-categories", ownerKey] });
-    },
-  });
+  const dashboardItems = useMemo(
+    () => buildUnifiedDashboardItems(sourceProductsQuery.data?.items ?? [], trackingQuery.data?.items ?? []),
+    [sourceProductsQuery.data?.items, trackingQuery.data?.items],
+  );
 
-  const renameCategoryMutation = useMutation({
-    mutationFn: ({ categoryId, name }: { categoryId: string; name: string }) =>
-      renameProductCategory(ownerKey as OwnerKey, categoryId, name),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["product-categories", ownerKey] });
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
-    },
-  });
+  const tabs = useMemo(() => {
+    const categoryMap = new Map<string, { key: string; label: string; count: number }>();
 
-  const deleteCategoryMutation = useMutation({
-    mutationFn: (categoryId: string) => deleteProductCategory(ownerKey as OwnerKey, categoryId),
-    onSuccess: async (_data, categoryId) => {
-      if (selectedCategoryId === categoryId) {
-        setSelectedCategoryId(null);
+    for (const item of dashboardItems) {
+      if (!item.categoryKey || !item.categoryLabel) {
+        continue;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["product-categories", ownerKey] });
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
-    },
-  });
+      const current = categoryMap.get(item.categoryKey) ?? {
+        key: item.categoryKey,
+        label: item.categoryLabel,
+        count: 0,
+      };
 
-  const categoryAssignmentMutation = useMutation({
-    mutationFn: ({ productId, categoryId }: { productId: string; categoryId: string | null }) =>
-      setTrackedProductCategory(ownerKey as OwnerKey, productId, categoryId),
-    onSuccess: async (_result, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
-      await queryClient.invalidateQueries({ queryKey: ["product-detail", ownerKey, variables.productId] });
-    },
-  });
-
-  const favoriteMutation = useMutation({
-    mutationFn: ({ productId, isFavorite }: { productId: string; isFavorite: boolean }) =>
-      setTrackedProductFavorite(ownerKey as OwnerKey, productId, isFavorite),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (productId: string) => deleteTrackedProduct(ownerKey as OwnerKey, productId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
-      await queryClient.invalidateQueries({ queryKey: ["tracking-trash", ownerKey] });
-    },
-  });
-
-  const filteredItems = useMemo(() => {
-    const items = trackingQuery.data?.items ?? [];
-    if (!search.trim()) {
-      return items;
+      current.count += 1;
+      categoryMap.set(item.categoryKey, current);
     }
 
-    const normalizedSearch = search.toLowerCase();
-    return items.filter((item) =>
-      [item.title ?? "", item.brand ?? ""].some((value) => value.toLowerCase().includes(normalizedSearch)),
-    );
-  }, [search, trackingQuery.data?.items]);
+    return [...categoryMap.values()].sort((left, right) => left.label.localeCompare(right.label, "tr"));
+  }, [dashboardItems]);
 
-  const actionErrorMessage = favoriteMutation.error instanceof Error
-    ? favoriteMutation.error.message
-    : deleteMutation.error instanceof Error
-      ? deleteMutation.error.message
-      : categoryAssignmentMutation.error instanceof Error
-        ? categoryAssignmentMutation.error.message
-      : null;
+  const filteredItems = useMemo(() => {
+    return dashboardItems.filter((item) => {
+      if (selectedTab === "uncategorized" && item.categoryKey !== null) {
+        return false;
+      }
+
+      if (selectedTab !== "all" && selectedTab !== "uncategorized" && item.categoryKey !== selectedTab) {
+        return false;
+      }
+
+      return matchesSearch(item, search);
+    });
+  }, [dashboardItems, search, selectedTab]);
+
+  const liveSyncHasData = Boolean(trackingQuery.data || sourceProductsQuery.data);
+  const liveSyncFetching = trackingQuery.isFetching || sourceProductsQuery.isFetching;
+  const liveSyncBackgroundError = Boolean(
+    (trackingQuery.data && trackingQuery.failureCount > 0) ||
+      (sourceProductsQuery.data && sourceProductsQuery.failureCount > 0),
+  );
+
+  const latestUpdatedAt = Math.max(trackingQuery.dataUpdatedAt || 0, sourceProductsQuery.dataUpdatedAt || 0);
+  const uncategorizedCount = dashboardItems.filter((item) => item.categoryKey === null).length;
+  const linkedEtsyCount = dashboardItems.filter((item) => item.etsyLinks.length > 0).length;
+  const matchedRecordCount = dashboardItems.filter((item) => item.sourceProduct && item.trackedProduct).length;
 
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Geçersiz owner seçimi.</p>;
   }
 
-  function handleToggleFavorite(item: TrackingItem) {
-    favoriteMutation.mutate({ productId: item.id, isFavorite: !item.isFavorite });
-  }
-
-  function handleDelete(item: TrackingItem) {
-    const title = item.title ?? "Başlıksız ürün";
-    if (!window.confirm(`"${title}" ürününü çöp kutusuna taşımak istiyor musunuz?`)) {
-      return;
-    }
-
-    deleteMutation.mutate(item.id);
-  }
-
   return (
     <div className="space-y-6">
       <section className="rounded-[28px] border border-slate-200 bg-white px-6 py-7 shadow-sm">
-        <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Dashboard</p>
-        <h2 className="mt-3 text-3xl font-semibold text-slate-900">Link Tracking Center</h2>
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Trendyol linklerinizi takip edin, fiyat/stok hareketlerini görün ve Etsy hazırlık işlerinizi bu panelden başlatın.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.28em] text-slate-400">Ürün Dashboard</p>
+            <h1 className="mt-3 text-3xl font-semibold text-slate-900">Birleşik ürün görünümü</h1>
+            <p className="mt-2 max-w-3xl text-sm text-slate-500">
+              Trendyol kaynak ürünlerini, Etsy linklerini ve takip kayıtlarını tek panelde kategori sekmeleriyle görüntüleyin.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to={`/owners/${ownerKey}/source-products`}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300"
+            >
+              Kaynak ürünleri yönet
+            </Link>
+            <Link
+              to={`/owners/${ownerKey}/source-products/trash`}
+              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+            >
+              Kaynak ürün çöp kutusu
+            </Link>
+          </div>
+        </div>
       </section>
 
       <AddLinkForm ownerKey={ownerKey} />
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <StatCard label="Takipte" value={trackingQuery.data?.summary.trackedCount ?? 0} helper="Ürün sayısı" />
-        <StatCard label="Aktif" value={trackingQuery.data?.summary.activeCount ?? 0} helper="Aktif kayıtlar" />
-        <StatCard
-          label="İnceleme gerekli"
-          value={trackingQuery.data?.summary.reviewNeededCount ?? 0}
-          helper="Parse veya veri kontrolü bekleyen ürünler"
-        />
+        <StatCard label="Toplam kayıt" value={dashboardItems.length} helper="Birleşik ürün kartı" />
+        <StatCard label="Etsy bağlı" value={linkedEtsyCount} helper="En az 1 Etsy linki olan ürün" />
+        <StatCard label="Eşleşen kayıt" value={matchedRecordCount} helper="Kaynak ve takip kaydı birlikte bulunan" />
       </div>
 
-      <TrackingFilters
-        search={search}
-        selectedCategoryId={selectedCategoryId}
-        categories={categoriesQuery.data ?? []}
-        onSearchChange={setSearch}
-        onCategoryChange={setSelectedCategoryId}
-        onManageCategories={() => setCategoryManagerOpen(true)}
-      />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <label className="block text-sm font-medium text-slate-600" htmlFor="dashboard-search">
+              Arama
+            </label>
+            <input
+              id="dashboard-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Ürün, kategori, marka, kaynak URL veya Etsy linki ara"
+              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#F1641E]"
+            />
+          </div>
+          <BulkRefreshControl ownerKey={ownerKey} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setView("all")}
+            onClick={() => setSelectedTab("all")}
             className={[
               "rounded-2xl px-4 py-2 text-sm font-medium transition",
-              view === "all" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300",
+              selectedTab === "all"
+                ? "bg-[#F1641E] text-white"
+                : "border border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300",
             ].join(" ")}
           >
-            Tüm Ürünler
+            Tümü ({dashboardItems.length})
           </button>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setSelectedTab(tab.key)}
+              className={[
+                "rounded-2xl px-4 py-2 text-sm font-medium transition",
+                selectedTab === tab.key
+                  ? "bg-[#051125] text-white"
+                  : "border border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300",
+              ].join(" ")}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
           <button
             type="button"
-            onClick={() => setView("favorites")}
+            onClick={() => setSelectedTab("uncategorized")}
             className={[
               "rounded-2xl px-4 py-2 text-sm font-medium transition",
-              view === "favorites"
+              selectedTab === "uncategorized"
                 ? "bg-amber-500 text-slate-950"
                 : "border border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300",
             ].join(" ")}
           >
-            Favoriler
+            Kategorisiz ({uncategorizedCount})
           </button>
         </div>
-        <BulkRefreshControl ownerKey={ownerKey} />
       </div>
 
       <LiveSyncStatus
-        hasData={Boolean(trackingQuery.data)}
-        isFetching={trackingQuery.isFetching}
-        hasBackgroundError={Boolean(trackingQuery.data && trackingQuery.failureCount > 0)}
-        updatedAt={trackingQuery.dataUpdatedAt}
+        hasData={liveSyncHasData}
+        isFetching={liveSyncFetching}
+        hasBackgroundError={liveSyncBackgroundError}
+        updatedAt={latestUpdatedAt}
       />
 
-      {trackingQuery.isLoading ? <p className="text-sm text-slate-500">Ürünler yükleniyor...</p> : null}
-      {trackingQuery.isError && !trackingQuery.data ? <p className="text-sm text-rose-600">{trackingErrorMessage}</p> : null}
-      {actionErrorMessage ? <p className="text-sm text-rose-600">{actionErrorMessage}</p> : null}
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        {filteredItems.map((item) => {
-          const favoritePending = favoriteMutation.isPending && favoriteMutation.variables?.productId === item.id;
-          const deletePending = deleteMutation.isPending && deleteMutation.variables === item.id;
-          const categoryPending =
-            categoryAssignmentMutation.isPending && categoryAssignmentMutation.variables?.productId === item.id;
-
-          return (
-            <ProductCard
-              key={item.id}
-              ownerKey={ownerKey}
-              item={item}
-              categories={categoriesQuery.data ?? []}
-              onToggleFavorite={handleToggleFavorite}
-              onDelete={handleDelete}
-              onCategoryChange={(selectedItem, categoryId) =>
-                categoryAssignmentMutation.mutate({ productId: selectedItem.id, categoryId })
-              }
-              favoritePending={favoritePending}
-              deletePending={deletePending}
-              categoryPending={categoryPending}
-            />
-          );
-        })}
-      </div>
-      {!trackingQuery.isLoading && !trackingQuery.isError && filteredItems.length === 0 ? (
-        <p className="rounded-3xl border border-dashed border-slate-200 bg-white px-5 py-6 text-sm text-slate-500">
-          {view === "favorites" ? "Henüz favori ürün yok." : "Henüz takip edilen ürün yok."}
-        </p>
+      {trackingQuery.isLoading || sourceProductsQuery.isLoading ? (
+        <p className="text-sm text-slate-500">Birleşik ürün dashboard&apos;ı yükleniyor...</p>
       ) : null}
 
-      <CategoryManagerDialog
-        open={isCategoryManagerOpen}
-        categories={categoriesQuery.data ?? []}
-        errorMessage={
-          createCategoryMutation.error instanceof Error
-            ? createCategoryMutation.error.message
-            : renameCategoryMutation.error instanceof Error
-              ? renameCategoryMutation.error.message
-              : deleteCategoryMutation.error instanceof Error
-                ? deleteCategoryMutation.error.message
-                : null
-        }
-        onClose={() => setCategoryManagerOpen(false)}
-        onCreate={(name) => createCategoryMutation.mutate(name)}
-        onRename={(categoryId, name) => renameCategoryMutation.mutate({ categoryId, name })}
-        onDelete={(categoryId) => deleteCategoryMutation.mutate(categoryId)}
-      />
+      {(trackingQuery.isError && !trackingQuery.data) || (sourceProductsQuery.isError && !sourceProductsQuery.data) ? (
+        <p className="text-sm text-rose-600">Birleşik ürün dashboard&apos;ı yüklenemedi.</p>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {filteredItems.map((item) => (
+          <UnifiedDashboardCard key={item.key} ownerKey={ownerKey} item={item} />
+        ))}
+      </div>
+
+      {!trackingQuery.isLoading &&
+      !sourceProductsQuery.isLoading &&
+      !trackingQuery.isError &&
+      !sourceProductsQuery.isError &&
+      filteredItems.length === 0 ? (
+        <p className="rounded-3xl border border-dashed border-slate-200 bg-white px-5 py-6 text-sm text-slate-500">
+          Seçili sekme ve arama filtresi için ürün bulunamadı.
+        </p>
+      ) : null}
     </div>
   );
 }

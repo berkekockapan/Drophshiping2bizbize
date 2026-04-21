@@ -1,15 +1,14 @@
-export type OwnerKey = "berke" | "kaan";
+export type OwnerKey = "berke";
 
 export const ownerOptions = [
   { key: "berke", label: "Berke" },
-  { key: "kaan", label: "Kaan" },
 ] as const satisfies ReadonlyArray<{ key: OwnerKey; label: string }>;
 
 const OWNER_STORAGE_KEY = "tracking:last-owner-key";
 const DEFAULT_OWNER_KEY: OwnerKey = "berke";
 
 export function isOwnerKey(value: unknown): value is OwnerKey {
-  return value === "berke" || value === "kaan";
+  return value === "berke";
 }
 
 export function readLastOwnerKey(): OwnerKey | null {

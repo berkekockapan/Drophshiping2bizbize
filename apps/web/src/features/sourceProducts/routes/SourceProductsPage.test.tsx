@@ -35,6 +35,7 @@ describe("SourceProductsPage", () => {
                 sortOrder: 0,
                 deletedAt: null,
                 linkedEtsyCount: 1,
+                linkedEtsyItems: [{ id: "etsy_1", title: "123456789", url: "https://etsy.com/listing/123456789" }],
               },
             ],
             filters: { categoryId: "cat_textile" },
@@ -58,6 +59,7 @@ describe("SourceProductsPage", () => {
                 sortOrder: 0,
                 deletedAt: null,
                 linkedEtsyCount: 1,
+                linkedEtsyItems: [{ id: "etsy_1", title: "123456789", url: "https://etsy.com/listing/123456789" }],
               },
               {
                 id: "sp_2",
@@ -70,6 +72,7 @@ describe("SourceProductsPage", () => {
                 sortOrder: 0,
                 deletedAt: null,
                 linkedEtsyCount: 0,
+                linkedEtsyItems: [],
               },
             ],
             filters: {},
@@ -159,7 +162,7 @@ describe("SourceProductsPage", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/owners/berke/source-products",
+        expect.stringContaining("/owners/berke/source-products"),
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify({

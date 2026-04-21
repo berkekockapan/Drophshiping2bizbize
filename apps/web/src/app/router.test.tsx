@@ -15,6 +15,7 @@ const trackingPayload = {
     {
       id: "prod_1",
       ownerKey: "berke",
+      sourceProductId: "123",
       title: "Oversize Hoodie",
       brand: "North Apparel",
       trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123",
@@ -32,6 +33,25 @@ const trackingPayload = {
   filters: {},
 };
 
+const sourceProductsPayload = {
+  items: [
+    {
+      id: "sp_1",
+      ownerKey: "berke",
+      title: "Oversize Hoodie",
+      sourceUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123",
+      platform: "trendyol",
+      notes: null,
+      sourceCategory: { id: "cat_1", name: "Hoodie" },
+      sortOrder: 0,
+      deletedAt: null,
+      linkedEtsyCount: 1,
+      linkedEtsyItems: [{ id: "etsy_1", title: "123456789", url: "https://www.etsy.com/listing/123456789" }],
+    },
+  ],
+  filters: {},
+};
+
 describe("AppRouter", () => {
   beforeEach(() => {
     installMockLocalStorage();
@@ -42,7 +62,7 @@ describe("AppRouter", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("renders the tracking page for the owner products alias route", async () => {
+  it("renders the unified dashboard for the owner products route", async () => {
     window.history.pushState({}, "", "/owners/berke/products");
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
@@ -50,6 +70,13 @@ describe("AppRouter", () => {
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceProductsPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -67,6 +94,7 @@ describe("AppRouter", () => {
 
     render(<AppRouter />);
 
+    expect(await screen.findByRole("heading", { name: /birleşik ürün görünümü/i })).toBeInTheDocument();
     expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
   });
 
@@ -94,7 +122,17 @@ describe("AppRouter", () => {
       }
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
-        return new Response(JSON.stringify({ run: null }), { status: 200, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify({ items: [], filters: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       if (url.includes("/owners/berke/products")) {
@@ -143,5 +181,42 @@ describe("AppRouter", () => {
 
     expect(await screen.findByRole("heading", { name: /kaynak ürünler/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /kaynak ürünler/i })).toBeInTheDocument();
+  });
+
+  it("redirects kaan owner routes to the default owner and hides kaan sidebar entry", async () => {
+    window.history.pushState({}, "", "/owners/kaan/products");
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceProductsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(trackingPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    render(<AppRouter />);
+
+    expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/owners/berke/products");
+    expect(screen.queryByRole("link", { name: /kaan/i })).not.toBeInTheDocument();
   });
 });

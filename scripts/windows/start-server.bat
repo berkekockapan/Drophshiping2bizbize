@@ -18,7 +18,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" ^
   -CloudApiBaseUrl "https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev" ^
   -CloudWranglerConfigPath "apps/api/wrangler.isolated.toml" ^
   -CloudD1ProdName "dropshipingtakip2-berkecanta-prod" ^
-  -NgrokLocalScriptPath "scripts/windows/.ngrok.local.ps1"
+  -NgrokLocalScriptPath "scripts/windows/.ngrok.local.ps1" ^
+  -NgrokConfigPath "scripts/windows/.ngrok.project.yml" ^
+  -NgrokWebPort 4041
 
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" exit /b %EXIT_CODE%

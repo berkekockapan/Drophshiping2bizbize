@@ -13,3 +13,4 @@ dist
 .superpowers
 apps/connector/.env
 scripts/windows/.ngrok.local.ps1
+scripts/windows/.ngrok.project.yml

@@ -1,163 +1,204 @@
-# uzakpc
+# uzakpc operasyon hafizasi (guncel)
 
-Bu dosya, projeyi uzaktan yayinladigimiz Windows makineyi (`uzakpc`) unutmamak icin kisa operasyon hafizasidir.
+Son guncelleme: 2026-04-21  
+Bu dosya, `uzakpc` (Windows server) ustundeki canli calisma modelini unutmayalim diye hazirlanmistir.
 
-## Sistem Tanimi
+## 1) Aktif Mimari (su an ne calisiyor?)
 
-- Ad: `uzakpc`
-- Rol: Projeyi calistiran uzak Windows makine
-- Yayin modeli:
-  - `Cloud`: `web (build + vite preview @ 4174)` + `Cloud Worker API` + `ngrok`
-  - `Local`: `web (vite dev @ 5173)` + `api (wrangler dev @ 8787)` + `ngrok`
-- Hedef: `Cloud` modda tek tikla guncel ve prod-benzeri uzaktan yayin acmak
+Su an varsayilan calisma sekli tamamen `Cloud` odaklidir:
 
-### Cloud mode notu (yeni varsayilan)
+- Kod kaynagi: `C:\dropshipingtakip2`
+- Web: Windows server uzerinde `vite preview` (`http://127.0.0.1:4174`)
+- API: Cloudflare Worker (`dropshipingtakip2-berkecanta-api`)
+- Dis erisim: `ngrok http 4174`
 
-- `restart-main-server.ps1` varsayilan olarak `Mode=Cloud` calisir.
-- `Mode=Cloud` akisi varsayilan olarak once Cloud D1 migrationlarini uygular, sonra `pnpm --filter @trendyol-etsy/api deploy` ile Cloud API'yi guncel committen deploy eder.
-- Otomatik migration/deploy icin `CLOUDFLARE_API_TOKEN` (veya `CF_API_TOKEN`) tanimli olmalidir; token yoksa script migration/deploy adimini loglayip atlar ve mevcut Worker surumuyle devam eder.
-- Deploy adimini atlamak gerekirse `-SkipCloudDeploy` parametresi kullanilabilir.
-- Bu modda script once Cloud API health kontrolu yapar.
-- Sonra `VITE_API_BASE_URL` ile `pnpm.cmd --filter @trendyol-etsy/web build` alir.
-- Ardindan `vite preview --host 0.0.0.0 --port 4174` ile preview acip `ngrok http 4174` baslatir.
-- Build ya da preview health kontrolu basarisizsa script durur; yari-hazir yayin acik birakilmaz.
+Pratikte bu ne demek:
 
-## Hangi Dal?
+- Lokal `wrangler dev` API sureci acilmiyor (standart start akisinda).
+- Web, dogrudan Cloud API'ye (`VITE_API_BASE_URL`) baglaniyor.
+- Dis dunyaya tek giris ngrok URL'si.
 
-- Varsayilan ve istenen dal: `main`
-- `windows-selfhost-ngrok-no-ai` dalı farkli davranir (AI menusunu gizleyen self-host MVP akisi).
-- `uzakpc` icin normalde `main` kullanilmali.
+## 2) Cloudflare Kaynaklari (izole ortam: `berkecanta`)
 
-## Guncel Kodu Zorla Senkronlama (Windows)
+- Account: `berkekockapan3535@gmail.com`
+- Account ID: `102eaec87235c67e6d7524d859bd92dd`
+- Worker prod: `dropshipingtakip2-berkecanta-api`
+- Worker dev: `dropshipingtakip2-berkecanta-api-dev`
+- D1 prod: `dropshipingtakip2-berkecanta-prod` (`f3d48e00-6fc4-4ab5-b57c-170a0964e4bf`)
+- D1 dev: `dropshipingtakip2-berkecanta-dev` (`78a15c3d-c290-4564-8586-0a31f7329e99`)
+- Queue prod: `dropshipingtakip2-berkecanta-refresh`
+- Queue dev: `dropshipingtakip2-berkecanta-refresh-dev`
+
+Izole wrangler config:
+
+- `apps/api/wrangler.isolated.toml`
+
+Web env (Cloud API'ye bakiyor):
+
+- `apps/web/.env.production`
+- `apps/web/.env.local`
+- `VITE_API_BASE_URL=https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev`
+
+## 3) Kritik Windows Scriptleri
+
+- `scripts/windows/start-server.bat`
+  - Cloud modda restart scriptini cagirir.
+  - Varsayilan olarak `-SkipGitSync -SkipInstall -SkipCloudDeploy` ile calisir.
+  - `NgrokLocalScriptPath` olarak `scripts/windows/.ngrok.local.ps1` gonderir.
+  - `NgrokConfigPath` olarak `scripts/windows/.ngrok.project.yml` ve `NgrokWebPort=4041` gonderir.
+
+- `scripts/windows/restart-main-server.ps1`
+  - Sadece bu projeye ait pencereleri kapatir (global `taskkill node/ngrok` yapmaz).
+  - Cloud API health kontrolu yapar.
+  - Web preview (`4174`) acip hazir olmasini bekler.
+  - ngrok'u projeye ozel config ile acar: `ngrok http 4174 --config scripts/windows/.ngrok.project.yml`
+  - Public URL'yi `http://127.0.0.1:4041/api/tunnels` uzerinden bekler.
+  - Gerekirse local token dosyasindan alip projeye ozel config dosyasini uretir.
+
+- `scripts/windows/stop-server.bat`
+  - `stop-main-server.ps1` cagirir.
+
+- `scripts/windows/stop-main-server.ps1`
+  - Sadece bu projenin pencerelerini kapatir:
+    - `DropshipTakip2 Web (Cloud Preview)`
+    - `DropshipTakip2 Web`
+    - `DropshipTakip2 API`
+    - `DropshipTakip2 ngrok`
+
+- `scripts/windows/configure-ngrok-auth.ps1`
+  - Verilen authtoken'i `scripts/windows/.ngrok.local.ps1` icine yazar.
+  - Projeye ozel `scripts/windows/.ngrok.project.yml` dosyasini yazar (`web_addr: 127.0.0.1:4041`).
+  - Secret dosyasini `.git/info/exclude` ile local ignore eder.
+  - `ngrok config check --config ...` ile proje configini dogrular.
+
+## 4) Standart Operasyon Akisi
+
+### 4.1 Sunucuda kodu guncelle
 
 ```powershell
-cd C:\dropshiping-win
-git fetch origin
-git reset --hard origin/main
-git clean -fd
-git rev-parse --short HEAD
-git rev-parse --short origin/main
+Set-Location C:\dropshipingtakip2
+git pull --ff-only origin main
 ```
 
-`HEAD` ve `origin/main` ayni degilse, guncel kod calismiyor demektir.
+### 4.2 Ngrok authtoken'i bir kere ayarla
 
-## Temiz Yeniden Baslatma Sirasi
+Not:
 
-Once eski surecleri kapat:
+- Burada gereken deger `Authtoken`dir.
+- `API key` ayni sey degildir.
 
 ```powershell
-taskkill /IM node.exe /F
-taskkill /IM ngrok.exe /F
-taskkill /IM caddy.exe /F
+Set-Location C:\dropshipingtakip2
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\configure-ngrok-auth.ps1 `
+  -RepoPath C:\dropshipingtakip2 `
+  -NgrokAuthToken "BURAYA_AUTHTOKEN"
 ```
 
-Sonra 3 terminal ile ac:
-
-1) API terminali
+### 4.3 Servisi baslat / durdur
 
 ```powershell
-cd C:\dropshiping-win
-$env:Path += ";C:\Program Files\Git\bin"
+Set-Location C:\dropshipingtakip2
+.\scripts\windows\stop-server.bat
+.\scripts\windows\start-server.bat
+```
+
+## 5) Hizli Dogrulama Checklisti
+
+Baslatmadan sonra:
+
+1. Cloud API health OK:
+`https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev/health`
+2. Local preview cevap veriyor:
+`http://127.0.0.1:4174`
+3. ngrok penceresinde:
+`Session Status: online` ve `Forwarding https://... -> http://localhost:4174`
+4. Tarayicida ngrok URL aciliyor.
+
+Opsiyonel terminal kontrolu:
+
+```powershell
+Invoke-WebRequest "http://127.0.0.1:4174" -UseBasicParsing | Select-Object StatusCode
+Invoke-RestMethod "http://127.0.0.1:4041/api/tunnels" | ConvertTo-Json -Depth 5
+```
+
+## 6) Sik Hatalar ve Net Cozum
+
+### Hata: `ERR_NGROK_105`
+
+Sebep: placeholder veya bozuk token (`BURAYA_GERCEK_AUTHTOKEN` gibi) kullanimi.
+
+Cozum:
+
+- `scripts/windows/.ngrok.local.ps1` dosyasina gercek authtoken yaz.
+- `configure-ngrok-auth.ps1` scriptini tekrar calistir.
+
+### Hata: `ERR_NGROK_107`
+
+Sebep: token formati dogru ama gecersiz/revoke.
+
+Cozum:
+
+- Dashboarddan yeni authtoken al.
+- `configure-ngrok-auth.ps1` ile yeniden uygula.
+
+### Durum: `4041 API hatasi: Uzak sunucuya baglanilamiyor`
+
+Sebep: ngrok sureci ayakta degil.
+
+Cozum:
+
+```powershell
+Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force
+ngrok http 4174 --config .\scripts\windows\.ngrok.project.yml
+```
+
+### Hata: `tsc is not recognized` veya `node_modules missing`
+
+Sebep: `start-server.bat` varsayilaninda `-SkipInstall` aktif oldugu icin bagimliliklar yoksa build fail eder.
+
+Cozum:
+
+```powershell
+Set-Location C:\dropshipingtakip2
 pnpm.cmd install
-pnpm.cmd dev:api
 ```
 
-Beklenen: `Ready on http://127.0.0.1:8787`
+Sonra `start-server.bat` tekrar calistir.
 
-2) Web terminali
+## 7) Bilincli Tasarim Notlari
+
+- `start-server.bat` hiz icin sync/install/deploy adimlarini atliyor.
+- Uretim benzeri hizli yayinda bu tercih dogru.
+- Ama asagidaki senaryolarda full akis calistirilabilir:
+  - Yeni commit geldi ve server guncellenmedi.
+  - Bagimliliklar degisti.
+  - Cloud deploy de ayni akista yapilmak isteniyor.
+
+Full cloud akis ornegi:
 
 ```powershell
-cd C:\dropshiping-win
-pnpm.cmd dev:web
+Set-Location C:\dropshipingtakip2
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\restart-main-server.ps1 `
+  -RepoPath C:\dropshipingtakip2 `
+  -Mode Cloud `
+  -CloudApiBaseUrl "https://dropshipingtakip2-berkecanta-api.berkekockapan3535.workers.dev" `
+  -CloudWranglerConfigPath "apps/api/wrangler.isolated.toml" `
+  -CloudD1ProdName "dropshipingtakip2-berkecanta-prod"
 ```
 
-Beklenen: `Local: http://127.0.0.1:5173/`
+## 8) Guvenlik ve Secret Kurallari
 
-3) Dis erisim terminali
+- `scripts/windows/.ngrok.local.ps1` secret icerir, commit edilmez.
+- `scripts/windows/.ngrok.project.yml` secret icerir, commit edilmez.
+- Bu dosya hem `.gitignore` hem `.git/info/exclude` ile korunur.
+- Tokenlarin chat/gecmis kaydina dusmesi risklidir; mumkunse rotate edilmelidir.
 
-```powershell
-cd C:\dropshiping-win
-ngrok http 5173
-```
+## 9) Eski Sistemden Kalanlar (kullanilmayacak)
 
-Beklenen: `Forwarding https://...`
+Asagidaki yol artik aktif sistemin parcasi degil:
 
-## Tek Tik Restart (Onerilen)
+- `C:\dropshiping-win`
 
-`uzakpc` tarafinda tum temiz restart adimlarini tek komutla calistirmak icin:
+Bu klasor baska bir proje/gecmis kurulum baglami olabilir. Aktif operasyon daima:
 
-```bat
-scripts\windows\restart-main-server.bat
-```
-
-### Cloud mode notu (yeni varsayilan)
-
-- `restart-main-server.ps1` artik varsayilan olarak `Mode=Cloud` calisir.
-- Bu modda lokal API (`wrangler dev`) acilmaz; web, `VITE_API_BASE_URL` ile dogrudan cloud Worker'a baglanir.
-- URL kaynagi:
-  1. Once `DROPSHIP_CLOUD_API_BASE_URL` ortam degiskeni,
-  2. Yoksa `apps/api/wrangler.toml` icindeki `name` alanindan turetilen `https://<name>.workers.dev`.
-- Cloud URL yanlis/erisilemezse script hata verip durur (sessizce local moda dusmez).
-
-Bu akista script su sirayi uygular:
-
-1. Eski `node/ngrok/caddy` sureclerini kapatir
-2. `main` dalini `origin/main` ile zorla senkronlar
-3. `pnpm install` calistirir
-4. `Mode=Cloud` ise: once Cloud D1 migration + Cloud API deploy + health kontrolu yapar, sonra WEB preview, en son ngrok acar
-   - Token yoksa migration/deploy adimi atlanir.
-5. `Mode=Local` ise: once API, sonra WEB, en son ngrok acar
-6. ngrok public URL'yi terminale yazar
-
-Not: restart scripti `bash.exe` yolunu otomatik bulur; API'yi PATH bagimsiz baslatir.
-
-## Hızlı Sağlık Kontrolü
-
-- Cloud web preview: `http://127.0.0.1:4174`
-- Local web dev: `http://127.0.0.1:5173`
-- Local API health: `http://127.0.0.1:8787/health`
-- Dış erişim: script sonunda loglanan `ngrok public URL`
-
-## Sık Karşılaşılan Sorunlar
-
-### 1) `bash is not recognized`
-
-API terminalinde çalıştır:
-
-```powershell
-$env:Path += ";C:\Program Files\Git\bin"
-```
-
-### 2) `wrangler is not recognized`
-
-Global yerine proje içinden çağır:
-
-```powershell
-cd C:\dropshiping-win\apps\api
-pnpm.cmd exec wrangler dev --port 8787
-```
-
-### 3) Web açık ama `ECONNREFUSED 127.0.0.1:8787`
-
-API çalışmıyor demektir. Önce API terminalini ayağa kaldır.
-
-### 4) `ngrok endpoint already online` (ERR_NGROK_334)
-
-Eski ngrok sürecini kapat:
-
-```powershell
-taskkill /IM ngrok.exe /F
-```
-
-### 5) `ngrok agent too old` (ERR_NGROK_121)
-
-```powershell
-ngrok update
-ngrok version
-```
-
-## Operasyon Notları
-
-- `uzakpc` için “güncel değil” şikayetinde ilk kontrol her zaman commit eşleşmesidir.
-- Kod güncel olsa bile eski süreçler açık kalırsa eski davranış görülebilir; bu yüzden süreç temizliği kritiktir.
-- Gerekirse ngrok authtoken döndür (rotate) ve yeniden `ngrok config add-authtoken ...` çalıştır.
+- `C:\dropshipingtakip2`

@@ -8,7 +8,9 @@ param(
   [string]$CloudWranglerConfigPath = $env:DROPSHIP_CLOUD_WRANGLER_CONFIG_PATH,
   [string]$CloudD1ProdName = $env:DROPSHIP_CLOUD_D1_PROD_NAME,
   [string]$NgrokAuthToken = $env:NGROK_AUTHTOKEN,
-  [string]$NgrokLocalScriptPath = $env:DROPSHIP_NGROK_LOCAL_SCRIPT_PATH
+  [string]$NgrokLocalScriptPath = $env:DROPSHIP_NGROK_LOCAL_SCRIPT_PATH,
+  [string]$NgrokConfigPath = $env:DROPSHIP_NGROK_CONFIG_PATH,
+  [int]$NgrokWebPort = 4041
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,6 +18,10 @@ $ErrorActionPreference = "Stop"
 $CloudPreviewPort = 4174
 $LocalWebPort = 5173
 $LocalApiPort = 8787
+$CloudWebWindowTitle = "DropshipTakip2 Web (Cloud Preview)"
+$LocalWebWindowTitle = "DropshipTakip2 Web"
+$LocalApiWindowTitle = "DropshipTakip2 API"
+$NgrokWindowTitle = "DropshipTakip2 ngrok"
 
 function Write-Log {
   param([Parameter(Mandatory = $true)][string]$Message)
@@ -117,6 +123,24 @@ function Resolve-NgrokLocalScriptPath {
   return Join-Path $ResolvedRepoPath $candidate
 }
 
+function Resolve-NgrokConfigPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
+    [string]$ProvidedNgrokConfigPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($ProvidedNgrokConfigPath)) {
+    return Join-Path $ResolvedRepoPath "scripts\windows\.ngrok.project.yml"
+  }
+
+  $candidate = $ProvidedNgrokConfigPath.Trim()
+  if ([System.IO.Path]::IsPathRooted($candidate)) {
+    return $candidate
+  }
+
+  return Join-Path $ResolvedRepoPath $candidate
+}
+
 function Resolve-NgrokAuthToken {
   param(
     [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
@@ -146,39 +170,68 @@ function Resolve-NgrokAuthToken {
   return $null
 }
 
-function Configure-NgrokAuthToken {
-  param([string]$ResolvedNgrokAuthToken)
+function Ensure-NgrokConfig {
+  param(
+    [Parameter(Mandatory = $true)][string]$ResolvedNgrokConfigPath,
+    [string]$ResolvedNgrokAuthToken,
+    [int]$ResolvedNgrokWebPort
+  )
+
+  if ($ResolvedNgrokWebPort -lt 1 -or $ResolvedNgrokWebPort -gt 65535) {
+    throw "Ngrok web port gecersiz: $ResolvedNgrokWebPort"
+  }
+
+  $webAddr = "127.0.0.1:$ResolvedNgrokWebPort"
 
   if ([string]::IsNullOrWhiteSpace($ResolvedNgrokAuthToken)) {
-    Write-Log "NGROK_AUTHTOKEN tanimli degil; mevcut ngrok hesabi kullanilacak."
+    if (-not (Test-Path -LiteralPath $ResolvedNgrokConfigPath)) {
+      throw "NGROK_AUTHTOKEN tanimli degil ve ngrok config bulunamadi: $ResolvedNgrokConfigPath"
+    }
+
+    Write-Log "Ngrok config korunuyor: $ResolvedNgrokConfigPath"
     return
   }
 
-  if (-not (Get-Command ngrok -ErrorAction SilentlyContinue)) {
-    throw "ngrok bulunamadi. PATH veya ngrok kurulumu kontrol edilmeli."
+  $configDir = Split-Path -Parent $ResolvedNgrokConfigPath
+  if (-not [string]::IsNullOrWhiteSpace($configDir)) {
+    New-Item -ItemType Directory -Path $configDir -Force | Out-Null
   }
 
-  Write-Log "ngrok auth token guncelleniyor..."
-  & ngrok config add-authtoken $ResolvedNgrokAuthToken
-  if ($LASTEXITCODE -ne 0) {
-    throw "ngrok auth token guncellenemedi (exit code: $LASTEXITCODE)."
-  }
+  Write-Log "Projeye ozel ngrok config yaziliyor: $ResolvedNgrokConfigPath (web_addr=$webAddr)"
+  $content = @(
+    "version: `"2`"",
+    "authtoken: $ResolvedNgrokAuthToken",
+    "web_addr: $webAddr"
+  )
+  Set-Content -LiteralPath $ResolvedNgrokConfigPath -Value $content -Encoding ASCII
 }
 
 function Stop-StaleProcesses {
-  Write-Log "Eski surecler kapatiliyor (node/ngrok/caddy)..."
-  foreach ($processName in @("node", "ngrok", "caddy")) {
-    $running = Get-Process -Name $processName -ErrorAction SilentlyContinue
-    if (-not $running) {
-      Write-Log "Acilan kayit bulunamadi (normal): $processName.exe"
+  Write-Log "Bu projeye ait acik pencereler kapatiliyor..."
+  $windowTitles = @(
+    $CloudWebWindowTitle,
+    $LocalWebWindowTitle,
+    $LocalApiWindowTitle,
+    $NgrokWindowTitle
+  )
+
+  foreach ($title in $windowTitles) {
+    $matching = Get-Process -ErrorAction SilentlyContinue | Where-Object {
+      $_.MainWindowTitle -and $_.MainWindowTitle -eq $title
+    }
+
+    if (-not $matching) {
+      Write-Log "Acilan pencere bulunamadi (normal): $title"
       continue
     }
 
-    $taskkillResult = Start-Process -FilePath "taskkill.exe" -ArgumentList "/IM", "$processName.exe", "/F", "/T" -NoNewWindow -Wait -PassThru
-    if ($taskkillResult.ExitCode -eq 0) {
-      Write-Log "Kapatildi: $processName.exe"
-    } else {
-      Write-Log "Kapatma denemesi basarisiz oldu (exit=$($taskkillResult.ExitCode)): $processName.exe"
+    foreach ($process in $matching) {
+      try {
+        Stop-Process -Id $process.Id -Force -ErrorAction Stop
+        Write-Log "Kapatildi: $title (PID $($process.Id))"
+      } catch {
+        Write-Log "Kapatma denemesi basarisiz oldu: $title (PID $($process.Id))"
+      }
     }
   }
 }
@@ -249,14 +302,16 @@ function Deploy-CloudApi {
 function Start-ServiceWindows {
   param(
     [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
-    [Parameter(Mandatory = $true)][string]$BashExecutable
+    [Parameter(Mandatory = $true)][string]$BashExecutable,
+    [Parameter(Mandatory = $true)][string]$ResolvedNgrokConfigPath,
+    [int]$ResolvedNgrokWebPort
   )
 
   $apiHealthUrl = "http://127.0.0.1:$LocalApiPort/health"
   $webLocalUrl = "http://127.0.0.1:$LocalWebPort"
-  $apiCmd = "title Dropship API && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @trendyol-etsy/api exec wrangler dev --port $LocalApiPort"
-  $webCmd = "title Dropship Web && cd /d `"$ResolvedRepoPath`" && pnpm.cmd dev:web"
-  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http $LocalWebPort"
+  $apiCmd = "title $LocalApiWindowTitle && cd /d `"$ResolvedRepoPath`" && `"$BashExecutable`" ./apps/api/scripts/ensure-local-d1.sh && pnpm.cmd --filter @trendyol-etsy/api exec wrangler dev --port $LocalApiPort"
+  $webCmd = "title $LocalWebWindowTitle && cd /d `"$ResolvedRepoPath`" && pnpm.cmd dev:web"
+  $ngrokCmd = "title $NgrokWindowTitle && cd /d `"$ResolvedRepoPath`" && ngrok http $LocalWebPort --config `"$ResolvedNgrokConfigPath`""
 
   Write-Log "API penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $apiCmd | Out-Null
@@ -273,7 +328,7 @@ function Start-ServiceWindows {
   Write-Log "ngrok penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $ngrokCmd | Out-Null
 
-  $publicUrl = Wait-NgrokPublicUrl
+  $publicUrl = Wait-NgrokPublicUrl -NgrokWebPort $ResolvedNgrokWebPort
   Write-Log "ngrok public URL: $publicUrl"
 
   return [pscustomobject]@{
@@ -287,13 +342,15 @@ function Start-ServiceWindows {
 function Start-ServiceWindowsCloud {
   param(
     [Parameter(Mandatory = $true)][string]$ResolvedRepoPath,
-    [Parameter(Mandatory = $true)][string]$ResolvedCloudApiBaseUrl
+    [Parameter(Mandatory = $true)][string]$ResolvedCloudApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$ResolvedNgrokConfigPath,
+    [int]$ResolvedNgrokWebPort
   )
 
   $apiHealthUrl = "$ResolvedCloudApiBaseUrl/health"
   $webLocalUrl = "http://127.0.0.1:$CloudPreviewPort"
-  $webCmd = "title Dropship Web (Cloud Preview) && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd --filter @trendyol-etsy/web build && pnpm.cmd --filter @trendyol-etsy/web exec vite preview --host 0.0.0.0 --port $CloudPreviewPort --strictPort"
-  $ngrokCmd = "title Dropship ngrok && cd /d `"$ResolvedRepoPath`" && ngrok http $CloudPreviewPort"
+  $webCmd = "title $CloudWebWindowTitle && cd /d `"$ResolvedRepoPath`" && set `"VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl`" && pnpm.cmd --filter @trendyol-etsy/web build && pnpm.cmd --filter @trendyol-etsy/web exec vite preview --host 0.0.0.0 --port $CloudPreviewPort --strictPort"
+  $ngrokCmd = "title $NgrokWindowTitle && cd /d `"$ResolvedRepoPath`" && ngrok http $CloudPreviewPort --config `"$ResolvedNgrokConfigPath`""
 
   Write-Log "Cloud API saglik kontrolu yapiliyor..."
   if ((Wait-HttpEndpoint -Label "Cloud API" -Url $apiHealthUrl) -eq $false) {
@@ -309,7 +366,7 @@ function Start-ServiceWindowsCloud {
   Write-Log "ngrok penceresi aciliyor..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $ngrokCmd | Out-Null
 
-  $publicUrl = Wait-NgrokPublicUrl
+  $publicUrl = Wait-NgrokPublicUrl -NgrokWebPort $ResolvedNgrokWebPort
   Write-Log "ngrok public URL: $publicUrl"
 
   return [pscustomobject]@{
@@ -362,9 +419,12 @@ function Wait-HttpEndpoint {
 }
 
 function Wait-NgrokPublicUrl {
-  param([int]$TimeoutSeconds = 120)
+  param(
+    [int]$TimeoutSeconds = 120,
+    [int]$NgrokWebPort = 4041
+  )
 
-  $statusUrl = "http://127.0.0.1:4040/api/tunnels"
+  $statusUrl = "http://127.0.0.1:$NgrokWebPort/api/tunnels"
   Write-Log "ngrok public URL bekleniyor: $statusUrl"
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $lastError = $null
@@ -403,6 +463,9 @@ function Main {
     -ResolvedRepoPath $resolvedRepoPath `
     -ProvidedNgrokAuthToken $NgrokAuthToken `
     -ProvidedNgrokLocalScriptPath $NgrokLocalScriptPath
+  $resolvedNgrokConfigPath = Resolve-NgrokConfigPath `
+    -ResolvedRepoPath $resolvedRepoPath `
+    -ProvidedNgrokConfigPath $NgrokConfigPath
 
   Write-Log "Repo: $resolvedRepoPath"
   Write-Log "Calisma modu: $Mode"
@@ -413,12 +476,19 @@ function Main {
     Sync-MainBranch
   }
   Install-Dependencies
-  Configure-NgrokAuthToken -ResolvedNgrokAuthToken $resolvedNgrokAuthToken
+  Ensure-NgrokConfig `
+    -ResolvedNgrokConfigPath $resolvedNgrokConfigPath `
+    -ResolvedNgrokAuthToken $resolvedNgrokAuthToken `
+    -ResolvedNgrokWebPort $NgrokWebPort
 
   $runtime = if ($Mode -eq "Local") {
     $bashExecutable = Resolve-BashExecutable
     Write-Log "bash: $bashExecutable"
-    Start-ServiceWindows -ResolvedRepoPath $resolvedRepoPath -BashExecutable $bashExecutable
+    Start-ServiceWindows `
+      -ResolvedRepoPath $resolvedRepoPath `
+      -BashExecutable $bashExecutable `
+      -ResolvedNgrokConfigPath $resolvedNgrokConfigPath `
+      -ResolvedNgrokWebPort $NgrokWebPort
   } else {
     Deploy-CloudApi `
       -ResolvedRepoPath $resolvedRepoPath `
@@ -426,7 +496,11 @@ function Main {
       -ProvidedCloudD1ProdName $CloudD1ProdName
     $resolvedCloudApiBaseUrl = Resolve-CloudApiBaseUrl -ProvidedCloudApiBaseUrl $CloudApiBaseUrl
     Write-Log "Cloud API: $resolvedCloudApiBaseUrl"
-    Start-ServiceWindowsCloud -ResolvedRepoPath $resolvedRepoPath -ResolvedCloudApiBaseUrl $resolvedCloudApiBaseUrl
+    Start-ServiceWindowsCloud `
+      -ResolvedRepoPath $resolvedRepoPath `
+      -ResolvedCloudApiBaseUrl $resolvedCloudApiBaseUrl `
+      -ResolvedNgrokConfigPath $resolvedNgrokConfigPath `
+      -ResolvedNgrokWebPort $NgrokWebPort
   }
 
   $head = (& git rev-parse --short HEAD).Trim()

@@ -38,6 +38,21 @@ Describe "restart-main-server Local mode" {
 }
 
 Describe "restart-main-server Cloud mode" {
+  It "repo worker URL'sini wrangler.toml icinden cozer ve global env override'ini yok sayar" {
+    $previous = $env:DROPSHIP_CLOUD_API_BASE_URL
+    try {
+      $env:DROPSHIP_CLOUD_API_BASE_URL = "https://trendyol-etsy-api.berkekockapan35.workers.dev"
+
+      $resolved = Resolve-CloudApiBaseUrl `
+        -ProvidedCloudApiBaseUrl "" `
+        -ResolvedRepoPath "C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize"
+
+      $resolved | Should Be "https://dropshiping2bizbize-api.workers.dev"
+    } finally {
+      $env:DROPSHIP_CLOUD_API_BASE_URL = $previous
+    }
+  }
+
   It "builds the web app against the cloud URL and serves preview on 4175" {
     Mock Start-Process {}
     Mock Wait-HttpEndpoint {}

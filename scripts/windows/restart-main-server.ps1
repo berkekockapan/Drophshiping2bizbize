@@ -4,7 +4,7 @@ param(
   [switch]$SkipInstall,
   [switch]$SkipCloudDeploy,
   [ValidateSet("Cloud", "Local")][string]$Mode = "Cloud",
-  [string]$CloudApiBaseUrl = $env:DROPSHIP_CLOUD_API_BASE_URL,
+  [string]$CloudApiBaseUrl = "",
   [string]$CloudWranglerConfigPath = "apps/api/wrangler.toml",
   [string]$CloudD1ProdName = "dropshiping2bizbize-prod",
   [string]$CloudAuthEnvPath = "apps/api/.cloudflare.env",
@@ -113,7 +113,7 @@ function Resolve-CloudApiBaseUrl {
   }
 
   if ([string]::IsNullOrWhiteSpace($resolved)) {
-    throw "Cloud API URL zorunlu. -CloudApiBaseUrl veya DROPSHIP_CLOUD_API_BASE_URL verin."
+    throw "Cloud API URL belirlenemedi. -CloudApiBaseUrl verin veya apps/api/wrangler.toml icinde name tanimlayin."
   }
 
   $resolved = $resolved.Trim()

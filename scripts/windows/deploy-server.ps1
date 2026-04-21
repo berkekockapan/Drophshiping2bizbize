@@ -10,58 +10,60 @@ function Write-DeployLog {
   Write-Host ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message)
 }
 
-function Ensure-Command {
+function Ensure-Tool {
   param(
     [Parameter(Mandatory = $true)][string]$Name,
-    [Parameter(Mandatory = $true)][string]$Message
-  )
-
-  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-    throw $Message
-  }
-}
-
-function Invoke-CheckedGit {
-  param(
-    [Parameter(Mandatory = $true)][string[]]$Arguments,
     [Parameter(Mandatory = $true)][string]$ErrorMessage
   )
 
-  $output = $null
-  $exitCode = 0
-  $previousErrorActionPreference = $ErrorActionPreference
-
-  try {
-    # git bazen basarili durumda bilgi mesajlarini stderr'e yazar (or: "Already on 'main'").
-    # Bu durumda scriptin yanlislikla durmamasini saglamak icin gecici olarak Continue kullan.
-    $ErrorActionPreference = "Continue"
-    $output = & git @Arguments 2>&1
-    $exitCode = $LASTEXITCODE
-  } finally {
-    $ErrorActionPreference = $previousErrorActionPreference
+  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    throw $ErrorMessage
   }
+}
+
+function Invoke-Git {
+  param(
+    [Parameter(Mandatory = $true)][string]$CommandLine,
+    [Parameter(Mandatory = $true)][string]$ErrorMessage
+  )
+
+  $output = & cmd.exe /d /s /c "git $CommandLine 2>&1"
+  $exitCode = $LASTEXITCODE
 
   if ($output) {
-    $output | ForEach-Object {
-      if ($_ -is [System.Management.Automation.ErrorRecord]) {
-        Write-Host $_.ToString()
-      } else {
-        Write-Host $_
-      }
-    }
+    $output | ForEach-Object { Write-Host $_ }
   }
 
   if ($exitCode -ne 0) {
     throw "$ErrorMessage (exit code: $exitCode)"
   }
 
-  return $output
+  return @($output)
+}
+
+function Has-DependencyChange {
+  param([Parameter(Mandatory = $true)][string[]]$Files)
+
+  foreach ($file in $Files) {
+    $trimmed = "$file".Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
+
+    if (
+      $trimmed -eq "pnpm-lock.yaml" -or
+      $trimmed -eq "pnpm-workspace.yaml" -or
+      $trimmed -match "(^|/)package\.json$"
+    ) {
+      return $true
+    }
+  }
+
+  return $false
 }
 
 function Main {
-  Ensure-Command -Name "git" -Message "git bulunamadi."
-  Ensure-Command -Name "pnpm.cmd" -Message "pnpm.cmd bulunamadi."
-  Ensure-Command -Name "cmd.exe" -Message "cmd.exe bulunamadi."
+  Ensure-Tool -Name "git" -ErrorMessage "git bulunamadi."
+  Ensure-Tool -Name "pnpm.cmd" -ErrorMessage "pnpm.cmd bulunamadi."
+  Ensure-Tool -Name "cmd.exe" -ErrorMessage "cmd.exe bulunamadi."
 
   if (-not (Test-Path -LiteralPath $RepoPath)) {
     throw "Repo yolu bulunamadi: $RepoPath"
@@ -75,16 +77,17 @@ function Main {
 
   Set-Location -LiteralPath $resolvedRepoPath
   Write-DeployLog "Repo: $resolvedRepoPath"
+
   Write-DeployLog "main dalina geciliyor..."
-  Invoke-CheckedGit -Arguments @("checkout", "main") -ErrorMessage "main dalina gecis basarisiz oldu"
-  Write-DeployLog "Git pull baslatiliyor (origin/main, --ff-only)..."
+  Invoke-Git -CommandLine "checkout main" -ErrorMessage "main dalina gecis basarisiz oldu" | Out-Null
 
   $headBefore = (& git rev-parse HEAD).Trim()
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($headBefore)) {
     throw "Mevcut HEAD okunamadi."
   }
 
-  Invoke-CheckedGit -Arguments @("pull", "--ff-only", "origin", "main") -ErrorMessage "git pull basarisiz oldu"
+  Write-DeployLog "Git pull baslatiliyor (origin/main, --ff-only)..."
+  Invoke-Git -CommandLine "pull --ff-only origin main" -ErrorMessage "git pull basarisiz oldu" | Out-Null
 
   $headAfter = (& git rev-parse HEAD).Trim()
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($headAfter)) {
@@ -98,20 +101,14 @@ function Main {
     Write-DeployLog "Repo zaten gunceldi (HEAD degismedi)."
   }
 
-  $changedFiles = @()
-  if ($commitChanged) {
-    $changedFiles = @(
-      (Invoke-CheckedGit -Arguments @("diff", "--name-only", $headBefore, $headAfter) -ErrorMessage "Commit degisiklik listesi alinamadi") |
-      ForEach-Object { "$_".Trim() } |
-      Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-    )
-  }
-
   $installReason = $null
   if (-not (Test-Path -LiteralPath (Join-Path $resolvedRepoPath "node_modules"))) {
     $installReason = "node_modules klasoru bulunamadi"
-  } elseif ($changedFiles | Where-Object { $_ -eq "pnpm-lock.yaml" -or $_ -eq "pnpm-workspace.yaml" -or $_ -match "(^|/)package\.json$" }) {
-    $installReason = "bagimlilik dosyalarinda degisiklik var"
+  } elseif ($commitChanged) {
+    $changedFiles = Invoke-Git -CommandLine "diff --name-only $headBefore $headAfter" -ErrorMessage "Commit degisiklik listesi alinamadi"
+    if (Has-DependencyChange -Files $changedFiles) {
+      $installReason = "bagimlilik dosyalarinda degisiklik var"
+    }
   }
 
   if ($installReason) {

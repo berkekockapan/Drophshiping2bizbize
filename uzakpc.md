@@ -102,6 +102,24 @@ Set-Location C:\dropshipingtakip2
 .\scripts\windows\start-server.bat
 ```
 
+### 4.4 Tek tus deploy (onerilen gunluk akis)
+
+Bu komut tek adimda su islemleri yapar:
+
+1. `git pull --ff-only origin main`
+2. Gerekirse (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml` degismisse veya `node_modules` yoksa) `pnpm install --frozen-lockfile`
+3. `start-server.bat` ile servisleri yeniden baslatir ve health kontrollerini calistirir
+
+Onemli davranis:
+
+- `git pull` veya `pnpm install` hata verirse restart adimina gecmez.
+- Boylece o anda calisan surum kesilmez.
+
+```powershell
+Set-Location C:\dropshipingtakip2
+.\scripts\windows\deploy-server.bat
+```
+
 ## 5) Hizli Dogrulama Checklisti
 
 Baslatmadan sonra:

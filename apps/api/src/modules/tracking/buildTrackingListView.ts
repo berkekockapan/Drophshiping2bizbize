@@ -9,6 +9,7 @@ export interface TrackingFilters {
   search?: string | null;
   favorite?: boolean;
   categoryId?: string | "uncategorized" | null;
+  shopId?: string | null;
 }
 
 function getThumbnailImage(imagesRaw: string | null): string | null {

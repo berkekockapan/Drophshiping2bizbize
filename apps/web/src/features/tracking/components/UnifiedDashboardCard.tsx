@@ -14,21 +14,55 @@ interface UnifiedDashboardCardProps {
 export function UnifiedDashboardCard({ ownerKey, item }: UnifiedDashboardCardProps) {
   const sourceDetailHref = item.sourceProduct ? `/owners/${ownerKey}/source-products/${item.sourceProduct.id}` : null;
   const trackedDetailHref = item.trackedProduct ? `/owners/${ownerKey}/products/${item.trackedProduct.id}` : null;
+  const primaryDetailHref = trackedDetailHref ?? sourceDetailHref;
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-medium uppercase tracking-[0.22em] text-slate-400">Birleşik Ürün Kaydı</p>
-          <h3 className="mt-2 text-lg font-semibold text-slate-900">{item.title}</h3>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {item.categoryLabel ?? "Kategorisiz"}
-            </span>
-            {item.platform ? (
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{item.platform}</span>
-            ) : null}
-            {item.brand ? <span>{item.brand}</span> : null}
+        <div className="flex min-w-0 items-start gap-4">
+          {primaryDetailHref ? (
+            <Link
+              to={primaryDetailHref}
+              aria-label={`Ürün görseli: ${item.title}`}
+              className="block h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              {item.thumbnailImage ? (
+                <img src={item.thumbnailImage} alt={item.title} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs text-slate-400">
+                  Görsel yok
+                </div>
+              )}
+            </Link>
+          ) : (
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-2 text-center text-xs text-slate-400">
+              {item.thumbnailImage ? <img src={item.thumbnailImage} alt={item.title} className="h-full w-full object-cover" /> : "Görsel yok"}
+            </div>
+          )}
+
+          <div className="min-w-0">
+            <p className="text-sm font-medium uppercase tracking-[0.22em] text-slate-400">Birleşik Ürün Kaydı</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">
+              {primaryDetailHref ? (
+                <Link
+                  to={primaryDetailHref}
+                  className="inline-block hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                >
+                  {item.title}
+                </Link>
+              ) : (
+                item.title
+              )}
+            </h3>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                {item.categoryLabel ?? "Kategorisiz"}
+              </span>
+              {item.platform ? (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{item.platform}</span>
+              ) : null}
+              {item.brand ? <span>{item.brand}</span> : null}
+            </div>
           </div>
         </div>
 
@@ -49,10 +83,22 @@ export function UnifiedDashboardCard({ ownerKey, item }: UnifiedDashboardCardPro
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Kayıt Durumu</p>
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            <span className={item.sourceProduct ? "rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700" : "rounded-full bg-slate-200 px-3 py-1 font-medium text-slate-600"}>
+            <span
+              className={
+                item.sourceProduct
+                  ? "rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700"
+                  : "rounded-full bg-slate-200 px-3 py-1 font-medium text-slate-600"
+              }
+            >
               {item.sourceProduct ? "Kaynak kaydı var" : "Kaynak kaydı yok"}
             </span>
-            <span className={item.trackedProduct ? "rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800" : "rounded-full bg-slate-200 px-3 py-1 font-medium text-slate-600"}>
+            <span
+              className={
+                item.trackedProduct
+                  ? "rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800"
+                  : "rounded-full bg-slate-200 px-3 py-1 font-medium text-slate-600"
+              }
+            >
               {item.trackedProduct ? "Takip kaydı var" : "Takip kaydı yok"}
             </span>
           </div>

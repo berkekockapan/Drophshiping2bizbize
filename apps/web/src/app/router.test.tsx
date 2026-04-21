@@ -33,6 +33,19 @@ const trackingPayload = {
   filters: {},
 };
 
+
+const etsyShopsPayload = {
+  items: [
+    {
+      id: "shop_1",
+      name: "Cozy Prints",
+      etsyShopUrl: "https://www.etsy.com/shop/cozyprints",
+      description: "Ana Etsy magazasi",
+      productCount: 1,
+    },
+  ],
+};
+
 const sourceProductsPayload = {
   items: [
     {
@@ -70,6 +83,20 @@ describe("AppRouter", () => {
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -128,6 +155,18 @@ describe("AppRouter", () => {
         });
       }
 
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
       if (url.includes("/owners/berke/source-products")) {
         return new Response(JSON.stringify({ items: [], filters: {} }), {
           status: 200,
@@ -154,17 +193,60 @@ describe("AppRouter", () => {
     expect(screen.queryByRole("heading", { name: /abd ithalat vergisi/i })).not.toBeInTheDocument();
   });
 
+
+  it("renders the etsy shops route and sidebar entry", async () => {
+    window.history.pushState({}, "", "/owners/berke/etsy-shops");
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    render(<AppRouter />);
+
+    expect(await screen.findByRole("heading", { name: /coklu magaza yonetimi/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /etsy mağazaları/i })).toBeInTheDocument();
+    expect(screen.getByText(/cozy prints/i)).toBeInTheDocument();
+  });
+
   it("renders the source-products route and sidebar entry", async () => {
     window.history.pushState({}, "", "/owners/berke/source-products");
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       if (url.includes("/owners/berke/source-product-categories")) {
         return new Response(JSON.stringify({ items: [] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200, headers: { "Content-Type": "application/json" } });
       }
 
       if (url.includes("/owners/berke/source-products")) {
@@ -191,6 +273,20 @@ describe("AppRouter", () => {
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });

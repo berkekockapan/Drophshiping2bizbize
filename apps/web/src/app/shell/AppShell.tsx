@@ -42,6 +42,9 @@ export function AppShell({ children }: PropsWithChildren) {
                 Ürünler / {owner.label}
               </NavLink>
             ))}
+            <NavLink to={`/owners/${activeOwner}/etsy-shops`} className={({ isActive }) => linkClassName(isActive)}>
+              Etsy Mağazaları
+            </NavLink>
             <NavLink to={`/owners/${activeOwner}/notifications`} className={({ isActive }) => linkClassName(isActive)}>
               Bildirimler
             </NavLink>

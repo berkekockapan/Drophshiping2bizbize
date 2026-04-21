@@ -34,6 +34,12 @@ describe("schema integration", () => {
     const sourceProductEtsyLinkColumns = database
       .prepare("pragma table_info(source_product_etsy_links)")
       .all() as Array<{ name: string; dflt_value: string | null }>;
+    const etsyShopColumns = database
+      .prepare("pragma table_info(etsy_shops)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
+    const productEtsyShopColumns = database
+      .prepare("pragma table_info(product_etsy_shops)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
     const productIndexes = database
       .prepare("pragma index_list(products)")
       .all() as Array<{ name: string; partial: number }>;
@@ -42,6 +48,12 @@ describe("schema integration", () => {
       .all() as Array<{ name: string; partial: number }>;
     const sourceProductEtsyLinkIndexes = database
       .prepare("pragma index_list(source_product_etsy_links)")
+      .all() as Array<{ name: string; partial: number }>;
+    const etsyShopIndexes = database
+      .prepare("pragma index_list(etsy_shops)")
+      .all() as Array<{ name: string; partial: number }>;
+    const productEtsyShopIndexes = database
+      .prepare("pragma index_list(product_etsy_shops)")
       .all() as Array<{ name: string; partial: number }>;
     const priceColumns = database.prepare("pragma table_info(price_history)").all() as Array<{ name: string }>;
     const stockColumns = database.prepare("pragma table_info(stock_history)").all() as Array<{ name: string }>;
@@ -57,6 +69,8 @@ describe("schema integration", () => {
         { name: "product_content_history" },
         { name: "product_categories" },
         { name: "source_product_categories" },
+        { name: "etsy_shops" },
+        { name: "product_etsy_shops" },
         { name: "tariff_master_us_entries" },
         { name: "product_variant_cost_overrides" },
       ]),
@@ -105,6 +119,21 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "etsy_listing_id" }),
       ]),
     );
+    expect(etsyShopColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "owner_key" }),
+        expect.objectContaining({ name: "name" }),
+        expect.objectContaining({ name: "etsy_shop_url" }),
+        expect.objectContaining({ name: "description" }),
+      ]),
+    );
+    expect(productEtsyShopColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "product_id" }),
+        expect.objectContaining({ name: "shop_id" }),
+        expect.objectContaining({ name: "owner_key" }),
+      ]),
+    );
     expect(notificationsColumns).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: "owner_key", dflt_value: "'berke'" })]),
     );
@@ -131,6 +160,19 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "source_product_etsy_links_owner_etsy_url_unique" }),
         expect.objectContaining({ name: "source_product_etsy_links_source_product_id_idx" }),
         expect.objectContaining({ name: "source_product_etsy_links_owner_listing_id_idx" }),
+      ]),
+    );
+    expect(etsyShopIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "etsy_shops_owner_name_unique" }),
+        expect.objectContaining({ name: "etsy_shops_owner_created_idx" }),
+      ]),
+    );
+    expect(productEtsyShopIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "sqlite_autoindex_product_etsy_shops_1" }),
+        expect.objectContaining({ name: "product_etsy_shops_shop_created_idx" }),
+        expect.objectContaining({ name: "product_etsy_shops_owner_product_idx" }),
       ]),
     );
     expect(priceColumns).toEqual(expect.arrayContaining([expect.objectContaining({ name: "refresh_audit_id" })]));

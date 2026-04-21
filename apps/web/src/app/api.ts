@@ -21,6 +21,24 @@ export interface ProductCategory {
   name: string;
 }
 
+export interface EtsyShop {
+  id: string;
+  name: string;
+  etsyShopUrl: string;
+  description: string | null;
+  productCount?: number;
+  assignedAt?: number;
+}
+
+export interface EtsyShopListResponse {
+  items: EtsyShop[];
+}
+
+export interface EtsyShopDetailResponse {
+  shop: EtsyShop;
+  products: TrackingViewResponse;
+}
+
 export interface SourceProductCategory {
   id: string;
   name: string;
@@ -90,6 +108,7 @@ export interface TrackingItem {
   totalVariantCount: number | null;
   isFavorite: boolean;
   userCategory?: ProductCategory | null;
+  shops?: EtsyShop[];
   lastCheckedAt?: number | null;
 }
 
@@ -102,6 +121,7 @@ export interface TrackingViewResponse {
     search?: string | null;
     favorite?: boolean;
     categoryId?: string | null;
+    shopId?: string | null;
   };
 }
 
@@ -301,6 +321,7 @@ export interface ProductDetailResponse {
     status: string;
     parseStatus: string;
     lastCheckedAt: number | null;
+    shops: EtsyShop[];
   };
   currentState: {
     currentPrice: number | null;
@@ -310,6 +331,7 @@ export interface ProductDetailResponse {
     totalVariantCount: number;
     lastChangeAt: number | null;
     lastCheckedAt: number | null;
+    shops: EtsyShop[];
   };
   variants: Array<{
     id: string;
@@ -744,7 +766,7 @@ async function assertConnectorOkResponse(response: Response): Promise<Response> 
 
 export async function fetchTrackingView(
   ownerKey: OwnerKey,
-  options: { favoriteOnly?: boolean; categoryId?: string | "uncategorized" | null } = {},
+  options: { favoriteOnly?: boolean; categoryId?: string | "uncategorized" | null; shopId?: string | null } = {},
 ): Promise<TrackingViewResponse> {
   const search = new URLSearchParams();
   if (options.favoriteOnly) {
@@ -752,6 +774,9 @@ export async function fetchTrackingView(
   }
   if (options.categoryId) {
     search.set("categoryId", options.categoryId);
+  }
+  if (options.shopId) {
+    search.set("shopId", options.shopId);
   }
 
   const suffix = search.toString() ? `?${search.toString()}` : "";
@@ -770,7 +795,6 @@ export async function fetchSourceProductsView(
   if (options.categoryId) {
     search.set("categoryId", options.categoryId);
   }
-
   const suffix = search.toString() ? `?${search.toString()}` : "";
   const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products${suffix}`);
   return parseJson<SourceProductsViewResponse>(response);
@@ -939,16 +963,65 @@ export async function setTrackedProductCategory(ownerKey: OwnerKey, productId: s
   return parseJson<{ productId: string; userCategory: ProductCategory | null }>(response);
 }
 
-export async function createTrackedProduct(ownerKey: OwnerKey, trendyolUrl: string): Promise<CreateTrackedProductResponse> {
+export async function createTrackedProduct(
+  ownerKey: OwnerKey,
+  trendyolUrl: string,
+  options: { shopIds?: string[] } = {},
+): Promise<CreateTrackedProductResponse> {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/products`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ trendyolUrl }),
+    body: JSON.stringify({ trendyolUrl, shopIds: options.shopIds ?? [] }),
   });
 
   return parseJson<CreateTrackedProductResponse>(response);
+}
+
+export async function fetchEtsyShops(ownerKey: OwnerKey) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/etsy-shops`);
+  return parseJson<EtsyShopListResponse>(response);
+}
+
+export async function createEtsyShop(
+  ownerKey: OwnerKey,
+  payload: { name: string; etsyShopUrl: string; description?: string | null },
+) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/etsy-shops`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{ shop: EtsyShop }>(response);
+}
+
+export async function fetchEtsyShopDetail(ownerKey: OwnerKey, shopId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/etsy-shops/${shopId}`);
+  return parseJson<EtsyShopDetailResponse>(response);
+}
+
+export async function updateProductShops(ownerKey: OwnerKey, productId: string, shopIds: string[]) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-shops`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ shopIds }),
+  });
+
+  return parseJson<{ productId: string; shops: EtsyShop[] }>(response);
+}
+
+export async function assignProductToShop(ownerKey: OwnerKey, shopId: string, productId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/etsy-shops/${shopId}/products/${productId}`, {
+    method: "POST",
+  });
+
+  return parseJson<{ productId: string; shops: EtsyShop[] }>(response);
 }
 
 export async function fetchProductDetail(ownerKey: OwnerKey, productId: string): Promise<ProductDetailResponse> {
@@ -957,6 +1030,14 @@ export async function fetchProductDetail(ownerKey: OwnerKey, productId: string):
 
   return {
     ...payload,
+    product: {
+      ...payload.product,
+      shops: Array.isArray(payload.product?.shops) ? payload.product.shops : [],
+    },
+    currentState: {
+      ...payload.currentState,
+      shops: Array.isArray(payload.currentState?.shops) ? payload.currentState.shops : [],
+    },
     tariffAnalysis: normalizeTariffAnalysis(payload.tariffAnalysis),
   };
 }

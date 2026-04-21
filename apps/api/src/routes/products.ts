@@ -3,6 +3,7 @@ import { ownerKeySchema, type OwnerKey } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
 import { OpenAiAuthError } from "../modules/ai/openAiOAuth";
+import { createEtsyShopsRepo } from "../db/repositories/etsyShopsRepo";
 import { createProductVariantCostOverridesRepo } from "../db/repositories/productVariantCostOverridesRepo";
 import { createProductsRepo } from "../db/repositories/productsRepo";
 import { buildEtsyPrepAnalysis } from "../modules/etsyPrep/buildEtsyPrepAnalysis";
@@ -237,6 +238,32 @@ export function createProductsRouter() {
     }
 
     return c.json(detail);
+  });
+
+
+  app.put("/:productId/etsy-shops", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req.json<{ shopIds?: string[] }>().catch(() => null);
+    if (!body || !Array.isArray(body.shopIds)) {
+      return c.json({ error: "shopIds gereklidir" }, 400);
+    }
+
+    const shops = await createEtsyShopsRepo(c.env.DB).setProductShops(
+      ownerKey,
+      c.req.param("productId"),
+      body.shopIds,
+      new Date(),
+    );
+
+    if (!shops) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    return c.json({ productId: c.req.param("productId"), shops });
   });
 
   app.put("/:productId/variants/:variantId/cost-overrides", async (c) => {

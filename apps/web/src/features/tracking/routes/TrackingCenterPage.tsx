@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { fetchSourceProductsView, fetchTrackingView } from "../../../app/api";
+import { fetchEtsyShops, fetchSourceProductsView, fetchTrackingView } from "../../../app/api";
 import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { StatCard } from "../../shared/components/StatCard";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
@@ -49,6 +49,14 @@ export function TrackingCenterPage() {
     queryKey: ["tracking-products", ownerKey, "dashboard"],
     enabled: Boolean(ownerKey),
     queryFn: () => fetchTrackingView(ownerKey as OwnerKey, {}),
+    ...liveSyncQueryOptions,
+  });
+
+
+  const shopsQuery = useQuery({
+    queryKey: ["etsy-shops", ownerKey],
+    enabled: Boolean(ownerKey),
+    queryFn: async () => (await fetchEtsyShops(ownerKey as OwnerKey)).items,
     ...liveSyncQueryOptions,
   });
 
@@ -148,7 +156,7 @@ export function TrackingCenterPage() {
         </div>
       </section>
 
-      <AddLinkForm ownerKey={ownerKey} />
+      <AddLinkForm ownerKey={ownerKey} shops={shopsQuery.data ?? []} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <StatCard label="Toplam kayıt" value={dashboardItems.length} helper="Birleşik ürün kartı" />

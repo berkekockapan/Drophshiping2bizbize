@@ -1,13 +1,13 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { formatDateTime, formatPrice, type ProductCategory, type ProductDetailResponse } from "../../../app/api";
 import type { OwnerKey } from "../../shared/lib/ownerRouteState";
-import { ProductImageGallery } from "./ProductImageGallery";
 import { StatCard } from "../../shared/components/StatCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLink";
 import { ProductCategorySelect } from "../../tracking/components/ProductCategorySelect";
+import { ProductImageGallery } from "./ProductImageGallery";
 
 interface ProductSummaryProps {
   ownerKey: OwnerKey;

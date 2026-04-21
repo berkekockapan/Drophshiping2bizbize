@@ -1,9 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import type { AutoSelectedTariffProfile } from "../../../app/api";
-import { fetchProductCategories, fetchProductDetail, setTrackedProductCategory } from "../../../app/api";
+import {
+  fetchEtsyShops,
+  fetchProductCategories,
+  fetchProductDetail,
+  setTrackedProductCategory,
+  updateProductShops,
+} from "../../../app/api";
 import { EtsyPrepWorkspace } from "../../etsyPrep/components/EtsyPrepWorkspace";
 import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
@@ -11,6 +17,7 @@ import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
 import { ChangeTimeline } from "../components/ChangeTimeline";
 import { ProductCostPanel } from "../components/ProductCostPanel";
 import { ProductTariffPanel } from "../components/ProductTariffPanel";
+import { ProductShopAssignmentPanel } from "../components/ProductShopAssignmentPanel";
 import { ProductSummary } from "../components/ProductSummary";
 import { VariantTable } from "../components/VariantTable";
 
@@ -26,11 +33,20 @@ export function ProductDetailPage() {
   const [hasOpenedPrep, setHasOpenedPrep] = useState(false);
   const detailHasLoadedRef = useRef(false);
   const [hasBackgroundRefreshError, setHasBackgroundRefreshError] = useState(false);
+  const [shopMutationError, setShopMutationError] = useState<string | null>(null);
 
   const categoriesQuery = useQuery({
     queryKey: ["product-categories", ownerKey],
     enabled: Boolean(ownerKey),
     queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
+    ...liveSyncQueryOptions,
+  });
+
+
+  const shopsQuery = useQuery({
+    queryKey: ["etsy-shops", ownerKey],
+    enabled: Boolean(ownerKey),
+    queryFn: async () => (await fetchEtsyShops(ownerKey as OwnerKey)).items,
     ...liveSyncQueryOptions,
   });
 
@@ -63,7 +79,24 @@ export function ProductDetailPage() {
   useEffect(() => {
     setMode("overview");
     setHasOpenedPrep(false);
+    setShopMutationError(null);
   }, [ownerKey, productId]);
+
+
+  const shopsMutation = useMutation({
+    mutationFn: (shopIds: string[]) => updateProductShops(ownerKey as OwnerKey, productId as string, shopIds),
+    onSuccess: async () => {
+      setShopMutationError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["product-detail", ownerKey, productId] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["etsy-shops", ownerKey] }),
+      ]);
+    },
+    onError: (error) => {
+      setShopMutationError(error instanceof Error ? error.message : "Magaza atamalari kaydedilemedi.");
+    },
+  });
 
   useEffect(() => {
     if (!detailQuery.data) {
@@ -165,6 +198,14 @@ export function ProductDetailPage() {
             }
           />
 
+          <ProductShopAssignmentPanel
+            shops={shopsQuery.data ?? []}
+            assignedShops={detailQuery.data.product.shops ?? []}
+            isPending={shopsMutation.isPending}
+            errorMessage={shopMutationError}
+            onSave={(shopIds) => shopsMutation.mutate(shopIds)}
+          />
+
           <ProductCostPanel ownerKey={ownerKey} productId={productId} costContext={displayedCostContext ?? detailQuery.data.costContext} />
 
           <ProductTariffPanel ownerKey={ownerKey} productId={productId} analysis={detailQuery.data.tariffAnalysis} />
@@ -184,3 +225,4 @@ export function ProductDetailPage() {
     </div>
   );
 }
+

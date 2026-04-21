@@ -21,6 +21,7 @@ import { setTrackedProductCategory } from "../modules/tracking/setTrackedProduct
 import { startManualRefreshRun } from "../modules/tracking/startManualRefreshRun";
 import { createCategoriesRouter } from "./categories";
 import { createDraftsRouter } from "./drafts";
+import { createEtsyShopsRouter } from "./etsyShops";
 import { createProductsRouter } from "./products";
 import { createSourceProductCategoriesRouter } from "./sourceProductCategories";
 import { createSourceProductsRouter } from "./sourceProducts";
@@ -42,6 +43,7 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
     const favoriteQuery = c.req.query("favorite");
     const favorite = favoriteQuery === "true" ? true : favoriteQuery === "false" ? false : undefined;
     const categoryId = c.req.query("categoryId");
+    const shopId = c.req.query("shopId");
 
     const view = await buildTrackingListView(c.env.DB, ownerKey, {
       status: c.req.query("status"),
@@ -49,6 +51,7 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
       search: c.req.query("search"),
       favorite,
       categoryId: categoryId === "" ? null : categoryId,
+      shopId: shopId === "" ? null : shopId,
     });
 
     return c.json(view);
@@ -60,14 +63,14 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
       return c.json({ error: "Kayit bulunamadi" }, 404);
     }
 
-    const body = await c.req.json<{ trendyolUrl?: string }>().catch(() => null);
+    const body = await c.req.json<{ trendyolUrl?: string; shopIds?: string[] }>().catch(() => null);
 
     if (!body?.trendyolUrl) {
       return c.json({ error: "trendyolUrl is required" }, 400);
     }
 
     try {
-      const result = await createTrackedProduct(c.env, { ownerKey, trendyolUrl: body.trendyolUrl }, options);
+      const result = await createTrackedProduct(c.env, { ownerKey, trendyolUrl: body.trendyolUrl, shopIds: body.shopIds }, options);
       return c.json(result, 201);
     } catch (error) {
       if (error instanceof DuplicateProductError && error.reason === "TRASH_DUPLICATE") {
@@ -258,6 +261,7 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
   });
 
   app.route("/products", createProductsRouter());
+  app.route("/etsy-shops", createEtsyShopsRouter());
   app.route("/source-products", createSourceProductsRouter());
   app.route("/source-product-categories", createSourceProductCategoriesRouter());
   app.route("/categories", createCategoriesRouter());

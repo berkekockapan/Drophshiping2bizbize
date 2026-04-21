@@ -1,5 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+function expectFetchCalledWithPath(
+  fetchMock: { mock: { calls: Array<[unknown, unknown?]> } },
+  path: string,
+  init?: unknown,
+) {
+  if (init === undefined) {
+    const matchingCall = fetchMock.mock.calls.find(([input]) => String(input).includes(path));
+    expect(matchingCall).toBeTruthy();
+    expect(matchingCall?.[1]).toEqual(expect.anything());
+    return;
+  }
+
+  const matchingCall = fetchMock.mock.calls.find(([input, requestInit]) => {
+    if (!String(input).includes(path)) {
+      return false;
+    }
+
+    try {
+      expect(requestInit).toEqual(init);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  expect(matchingCall).toBeTruthy();
+  expect(matchingCall?.[1]).toEqual(init);
+}
+
 describe("app api", () => {
   afterEach(() => {
     vi.resetModules();
@@ -36,7 +65,7 @@ describe("app api", () => {
       "Merkezi bulut verisine erisilemedi. Internet baglantisini ve canli API ayarlarini kontrol edip tekrar deneyin.",
     );
 
-    expect(fetchMock).toHaveBeenCalledWith("/owners/berke/products", expect.anything());
+    expectFetchCalledWithPath(fetchMock, "/owners/berke/products");
   });
 
   it("forwards etsyCostCalculator in patchSettings payload", async () => {
@@ -71,7 +100,8 @@ describe("app api", () => {
     const { patchSettings } = await import("./api");
     await patchSettings({ etsyCostCalculator: storage as never });
 
-    expect(fetchMock).toHaveBeenCalledWith(
+    expectFetchCalledWithPath(
+      fetchMock,
       "/settings",
       expect.objectContaining({
         method: "PATCH",
@@ -177,7 +207,8 @@ describe("app api", () => {
     const { fetchEtsyPromptPack } = await import("./api");
     const result = await fetchEtsyPromptPack("berke", "prod_1");
 
-    expect(fetchMock).toHaveBeenCalledWith(
+    expectFetchCalledWithPath(
+      fetchMock,
       "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
       expect.objectContaining({ method: "POST" }),
     );
@@ -204,7 +235,8 @@ describe("app api", () => {
     const { generateEtsyListingPack } = await import("./api");
     const result = await generateEtsyListingPack("berke", "prod_1");
 
-    expect(fetchMock).toHaveBeenCalledWith(
+    expectFetchCalledWithPath(
+      fetchMock,
       "/owners/berke/products/prod_1/etsy-prep/generate-listing-pack",
       expect.objectContaining({ method: "POST" }),
     );
@@ -291,19 +323,19 @@ describe("app api", () => {
     await addSourceProductEtsyLink("berke", "src_1", { etsyUrl: "https://www.etsy.com/listing/123456789" });
     await deleteSourceProductEtsyLink("berke", "src_1", "etsy_1");
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/owners/berke/source-products/src_1",
-      expect.anything(),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
+    expectFetchCalledWithPath(fetchMock, "/owners/berke/source-products/src_1");
+    expectFetchCalledWithPath(
+      fetchMock,
       "/owners/berke/source-products/src_1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(fetchMock).toHaveBeenCalledWith(
+    expectFetchCalledWithPath(
+      fetchMock,
       "/owners/berke/source-products/src_1/etsy-links",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchMock).toHaveBeenCalledWith(
+    expectFetchCalledWithPath(
+      fetchMock,
       "/owners/berke/source-products/src_1/etsy-links/etsy_1",
       expect.objectContaining({ method: "DELETE" }),
     );

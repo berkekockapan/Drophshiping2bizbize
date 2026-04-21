@@ -1,6 +1,7 @@
 import type { OwnerKey } from "../../contracts/owners";
 
 import type { D1Database } from "../../config/bindings";
+import { createEtsyShopsRepo } from "../../db/repositories/etsyShopsRepo";
 import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
 import { createProductVariantCostOverridesRepo } from "../../db/repositories/productVariantCostOverridesRepo";
@@ -86,6 +87,7 @@ function getTariffRecommendations(latestRun: LatestTariffRun) {
 
 export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey, productId: string) {
   const productsRepo = createProductsRepo(db);
+  const etsyShopsRepo = createEtsyShopsRepo(db);
   const historyRepo = createHistoryRepo(db);
   const notificationsRepo = createNotificationsRepo(db);
   const refreshAuditRepo = createRefreshAuditRepo(db);
@@ -118,6 +120,7 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   );
   const tariffSelection = await tariffSelectionRepo.getSelection(productId);
   const overrides = await overridesRepo.listByProductId(productId);
+  const productShops = await etsyShopsRepo.listProductShops(ownerKey, productId);
   const { userCategoryId, userCategoryName, ...product } = detail.product;
   const attributes = safeParseJson(detail.product.attributesRaw) ?? [];
   const images = safeParseJson(detail.product.imagesRaw);
@@ -154,6 +157,13 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
               name: userCategoryName,
             }
           : null,
+      shops: productShops.map((shop) => ({
+        id: shop.id,
+        name: shop.name,
+        etsyShopUrl: shop.etsyShopUrl,
+        description: shop.description,
+        assignedAt: shop.assignedAt,
+      })),
     },
     currentState: detail.currentState,
     variants,

@@ -201,6 +201,7 @@ export function createProductsRepo(db: D1Database) {
         search?: string | null;
         favorite?: boolean;
         categoryId?: string | "uncategorized" | null;
+        shopId?: string | null;
       } = {},
     ) {
       const clauses: string[] = ["p.owner_key = ?", "p.deleted_at is null"];
@@ -231,6 +232,13 @@ export function createProductsRepo(db: D1Database) {
       } else if (filters.categoryId) {
         clauses.push("p.user_category_id = ?");
         values.push(filters.categoryId);
+      }
+
+      if (filters.shopId) {
+        clauses.push(
+          "exists (select 1 from product_etsy_shops ps where ps.product_id = p.id and ps.owner_key = p.owner_key and ps.shop_id = ?)",
+        );
+        values.push(filters.shopId);
       }
 
       const where = clauses.length > 0 ? `where ${clauses.join(" and ")}` : "";

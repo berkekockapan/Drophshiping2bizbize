@@ -1,4 +1,4 @@
-import type { ConnectionViewState } from "../hooks/useAIConnections";
+﻿import type { ConnectionViewState } from "../hooks/useAIConnections";
 
 interface ConnectorStatusCardProps {
   viewState: ConnectionViewState;

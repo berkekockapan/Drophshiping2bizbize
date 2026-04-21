@@ -1,11 +1,24 @@
-import "@testing-library/jest-dom/vitest";
+ï»¿import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AIConnectionsPage } from "./AIConnectionsPage";
 import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
+import { AIConnectionsPage } from "./AIConnectionsPage";
+
+function normalizeTurkishText(value: string) {
+  return value.normalize("NFKD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+function textMatcher(expected: string) {
+  return (_content: string, element: Element | null) =>
+    normalizeTurkishText(element?.textContent ?? "") === normalizeTurkishText(expected);
+}
+
+function nameMatcher(expected: string) {
+  return (accessibleName: string) => normalizeTurkishText(accessibleName) === normalizeTurkishText(expected);
+}
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -198,10 +211,10 @@ describe("AIConnectionsPage", () => {
     renderWithProviders(<AIConnectionsPage />);
 
     expect(screen.getByText("Cloudflare deploy notu")).toBeInTheDocument();
-    expect(await screen.findByText("OpenAI baðlantýsý hazýr")).toBeInTheDocument();
+    expect(await screen.findByText(textMatcher("OpenAI baÄŸlantÄ±sÄ± hazÄ±r"))).toBeInTheDocument();
     expect(screen.getAllByText(/wo\*\*\*@company.com/i)).not.toHaveLength(0);
-    expect(screen.queryByLabelText("Baðlantý Servisi URL")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Baðlantýyý Kaldýr" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("BaÄŸlantÄ± Servisi URL")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: nameMatcher("BaÄŸlantÄ±yÄ± KaldÄ±r") })).toBeInTheDocument();
   });
 
   it("keeps advanced settings collapsed until the user opens them", async () => {
@@ -214,12 +227,14 @@ describe("AIConnectionsPage", () => {
     renderWithProviders(<AIConnectionsPage />);
 
     expect(
-      await screen.findByText("Merkezi bulut verisine erisilemedi. Internet baglantisini ve canli API ayarlarini kontrol edip tekrar deneyin."),
+      await screen.findByText(
+        "Merkezi bulut verisine erisilemedi. Internet baglantisini ve canli API ayarlarini kontrol edip tekrar deneyin.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText("Baðlantý Servisi URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("BaÄŸlantÄ± Servisi URL")).not.toBeInTheDocument();
 
-    await user.click(screen.getByText("Geliþmiþ Ayarlar"));
-    expect(screen.getByLabelText("Baðlantý Servisi URL")).toBeInTheDocument();
+    await user.click(screen.getByText("GeliÅŸmiÅŸ Ayarlar", { selector: "summary" }));
+    expect(screen.getByLabelText("BaÄŸlantÄ± Servisi URL")).toBeInTheDocument();
   });
 
   it("shows the disconnected desktop state with a single connect action", async () => {
@@ -234,9 +249,9 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    expect(await screen.findByText("OpenAI baðlantýsý gerekli")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "OpenAI ile giriþ yap" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Baðlantýyý Kaldýr" })).not.toBeInTheDocument();
+    expect(await screen.findByText(textMatcher("OpenAI baÄŸlantÄ±sÄ± gerekli"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: nameMatcher("OpenAI ile giriÅŸ yap") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: nameMatcher("BaÄŸlantÄ±yÄ± KaldÄ±r") })).not.toBeInTheDocument();
   });
 
   it("opens the authorization URL in a synchronously opened popup", async () => {
@@ -272,7 +287,7 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    await user.click(await screen.findByRole("button", { name: "OpenAI ile giriþ yap" }));
+    await user.click(await screen.findByRole("button", { name: nameMatcher("OpenAI ile giriÅŸ yap") }));
 
     await waitFor(() => {
       expect(openSpy).toHaveBeenCalledWith("", "_blank", "noopener");
@@ -280,7 +295,7 @@ describe("AIConnectionsPage", () => {
       expect(popupFocus).toHaveBeenCalled();
     });
 
-    expect(await screen.findByText("OpenAI baðlantýsý kuruluyor")).toBeInTheDocument();
+    expect(await screen.findByText(textMatcher("OpenAI baÄŸlantÄ±sÄ± kuruluyor"))).toBeInTheDocument();
   });
 
   it("shows a product error when the browser blocks the popup", async () => {
@@ -298,12 +313,12 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    await user.click(await screen.findByRole("button", { name: "OpenAI ile giriþ yap" }));
+    await user.click(await screen.findByRole("button", { name: nameMatcher("OpenAI ile giriÅŸ yap") }));
 
     expect(
-      await screen.findByText("Giriþ sekmesi açýlamadý. Tarayýcý izinlerini kontrol edip tekrar deneyin."),
+      await screen.findByText(textMatcher("GiriÅŸ sekmesi aÃ§Ä±lamadÄ±. TarayÄ±cÄ± izinlerini kontrol edip tekrar deneyin.")),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tekrar Dene" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: nameMatcher("Tekrar Dene") })).toBeInTheDocument();
   });
 
   it("falls back to the local connector flow when cloud oauth config is invalid", async () => {
@@ -320,7 +335,7 @@ describe("AIConnectionsPage", () => {
           provider: "openai",
           status: "failed",
           profileId: null,
-          error: "OPENAI_OAUTH_CLIENT_ID örnek placeholder görünüyor.",
+          error: "OPENAI_OAUTH_CLIENT_ID Ã¶rnek placeholder gÃ¶rÃ¼nÃ¼yor.",
           createdAt: Date.now(),
           updatedAt: Date.now(),
         },
@@ -335,7 +350,7 @@ describe("AIConnectionsPage", () => {
 
     renderWithProviders(<AIConnectionsPage />);
 
-    await user.click(await screen.findByRole("button", { name: "OpenAI ile giriþ yap" }));
+    await user.click(await screen.findByRole("button", { name: nameMatcher("OpenAI ile giriÅŸ yap") }));
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -344,7 +359,6 @@ describe("AIConnectionsPage", () => {
       );
     });
     expect(openSpy).not.toHaveBeenCalled();
-    expect(await screen.findByText("OpenAI baðlantýsý kuruluyor")).toBeInTheDocument();
+    expect(await screen.findByText(textMatcher("OpenAI baÄŸlantÄ±sÄ± kuruluyor"))).toBeInTheDocument();
   });
 });
-

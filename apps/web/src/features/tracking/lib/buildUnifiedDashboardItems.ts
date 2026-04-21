@@ -4,6 +4,7 @@ export interface UnifiedDashboardItem {
   key: string;
   title: string;
   brand: string | null;
+  thumbnailImage: string | null;
   sourceUrl: string | null;
   platform: string | null;
   categoryLabel: string | null;
@@ -71,6 +72,7 @@ function createUnifiedItem(sourceProduct: SourceProductItem | null, trackedProdu
     key: sourceProduct?.id ?? trackedProduct?.id ?? crypto.randomUUID(),
     title: sourceProduct?.title ?? trackedProduct?.title ?? "Başlıksız ürün",
     brand: trackedProduct?.brand ?? null,
+    thumbnailImage: trackedProduct?.thumbnailImage ?? null,
     sourceUrl: sourceProduct?.sourceUrl ?? trackedProduct?.trendyolUrl ?? null,
     platform: sourceProduct?.platform ?? null,
     categoryLabel: category.label,
@@ -113,6 +115,7 @@ export function buildUnifiedDashboardItems(sourceProducts: SourceProductItem[], 
       matchedItem.trackedProduct = trackedProduct;
       matchedItem.title = matchedItem.sourceProduct?.title ?? trackedProduct.title ?? matchedItem.title;
       matchedItem.brand = trackedProduct.brand ?? matchedItem.brand;
+      matchedItem.thumbnailImage = trackedProduct.thumbnailImage ?? matchedItem.thumbnailImage;
       matchedItem.sourceUrl = matchedItem.sourceProduct?.sourceUrl ?? trackedProduct.trendyolUrl ?? matchedItem.sourceUrl;
       const category = getDisplayCategory(matchedItem.sourceProduct, trackedProduct);
       matchedItem.categoryLabel = category.label;

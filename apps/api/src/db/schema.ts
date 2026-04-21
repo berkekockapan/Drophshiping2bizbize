@@ -126,6 +126,38 @@ export const sourceProductEtsyLinks = sqliteTable(
   }),
 );
 
+export const etsyShops = sqliteTable(
+  "etsy_shops",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    name: text("name").notNull(),
+    etsyShopUrl: text("etsy_shop_url").notNull(),
+    description: text("description"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    ownerNameUnique: uniqueIndex("etsy_shops_owner_name_unique").on(table.ownerKey, table.name),
+    ownerCreatedIdx: index("etsy_shops_owner_created_idx").on(table.ownerKey, table.createdAt),
+  }),
+);
+
+export const productEtsyShops = sqliteTable(
+  "product_etsy_shops",
+  {
+    productId: text("product_id").notNull(),
+    shopId: text("shop_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    productShopPk: uniqueIndex("product_etsy_shops_product_shop_pk").on(table.productId, table.shopId),
+    shopCreatedIdx: index("product_etsy_shops_shop_created_idx").on(table.shopId, table.createdAt),
+    ownerProductIdx: index("product_etsy_shops_owner_product_idx").on(table.ownerKey, table.productId),
+  }),
+);
+
 export const productVariants = sqliteTable(
   "product_variants",
   {
@@ -570,6 +602,8 @@ export const schema = {
   sourceProducts,
   sourceProductCategories,
   sourceProductEtsyLinks,
+  etsyShops,
+  productEtsyShops,
 };
 
 export const schemaTableNames = [
@@ -577,6 +611,8 @@ export const schemaTableNames = [
   "source_products",
   "source_product_categories",
   "source_product_etsy_links",
+  "etsy_shops",
+  "product_etsy_shops",
   "product_variants",
   "product_current_state",
   "price_history",

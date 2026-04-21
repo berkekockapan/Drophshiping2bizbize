@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useParams } from "react
 
 import { AIConnectionsPage } from "../features/connections/routes/AIConnectionsPage";
 import { SeoEditorPage } from "../features/drafts/routes/SeoEditorPage";
+import { EtsyShopDetailPage } from "../features/etsyShops/routes/EtsyShopDetailPage";
+import { EtsyShopsPage } from "../features/etsyShops/routes/EtsyShopsPage";
 import { ImageMetadataCleanerPage } from "../features/mediaMetadataCleaner/routes/ImageMetadataCleanerPage";
 import { NotificationsPage } from "../features/notifications/routes/NotificationsPage";
 import { ProductDetailPage } from "../features/product/routes/ProductDetailPage";
@@ -43,6 +45,8 @@ export function AppRouter() {
               <Route path="source-products" element={<SourceProductsPage />} />
               <Route path="source-products/trash" element={<SourceProductTrashPage />} />
               <Route path="source-products/:sourceProductId" element={<SourceProductDetailPage />} />
+              <Route path="etsy-shops" element={<EtsyShopsPage />} />
+              <Route path="etsy-shops/:shopId" element={<EtsyShopDetailPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="trash" element={<TrashPage />} />
             </Route>

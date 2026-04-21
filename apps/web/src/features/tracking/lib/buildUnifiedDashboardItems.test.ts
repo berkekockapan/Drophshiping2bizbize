@@ -30,7 +30,7 @@ describe("buildUnifiedDashboardItems", () => {
           trendyolUrl: "https://www.trendyol.com/brand/hoodie-p-123",
           status: "ACTIVE",
           parseStatus: "OK",
-          thumbnailImage: null,
+          thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
           currentPrice: 1000,
           minPrice: 900,
           maxPrice: 1100,
@@ -48,6 +48,7 @@ describe("buildUnifiedDashboardItems", () => {
       expect.objectContaining({
         title: "Kaynak Hoodie",
         brand: "North Apparel",
+        thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
         categoryLabel: "Hoodie",
         etsyLinks: [{ id: "etsy_1", title: "123456789", url: "https://www.etsy.com/listing/123456789" }],
       }),
@@ -67,7 +68,7 @@ describe("buildUnifiedDashboardItems", () => {
         trendyolUrl: "https://www.trendyol.com/brand/product-p-999",
         status: "ACTIVE",
         parseStatus: "OK",
-        thumbnailImage: null,
+        thumbnailImage: "https://cdn.example.com/product-1.jpg",
         currentPrice: null,
         minPrice: null,
         maxPrice: null,
@@ -83,6 +84,7 @@ describe("buildUnifiedDashboardItems", () => {
     expect(items[0]).toEqual(
       expect.objectContaining({
         title: "Tek basina takip",
+        thumbnailImage: "https://cdn.example.com/product-1.jpg",
         categoryLabel: null,
         sourceProduct: null,
       }),

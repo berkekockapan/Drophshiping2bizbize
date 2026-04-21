@@ -70,11 +70,11 @@ export function ProductImageGallery({ ownerKey, productId, title, images }: Prod
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+        <div className="flex h-[24rem] items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-4">
           {selectedImage ? (
-            <img src={selectedImage} alt={`${displayTitle} ana görsel`} className="h-[24rem] w-full object-cover" />
+            <img src={selectedImage} alt={`${displayTitle} ana görsel`} className="max-h-full w-full object-contain" />
           ) : (
-            <div className="flex min-h-[24rem] items-center justify-center px-6 text-sm text-slate-400">Görsel bulunamadı</div>
+            <div className="flex h-full items-center justify-center px-6 text-sm text-slate-400">Görsel bulunamadı</div>
           )}
         </div>
 

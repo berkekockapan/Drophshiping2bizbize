@@ -1,6 +1,7 @@
 import type { OwnerKey } from "../../contracts/owners";
 
 import type { Env } from "../../config/bindings";
+import { createEtsyShopsRepo } from "../../db/repositories/etsyShopsRepo";
 import { runWithWriteRetry } from "../../db/runWithWriteRetry";
 import { fetchTrendyolHtml } from "../scraping/fetchTrendyolHtml";
 import { parseTrendyolProduct } from "../scraping/parseTrendyolProduct";
@@ -10,6 +11,7 @@ import { normalizeTrendyolUrl } from "./normalizeTrendyolUrl";
 export interface CreateTrackedProductInput {
   ownerKey?: OwnerKey;
   trendyolUrl: string;
+  shopIds?: string[];
 }
 
 export interface CreateTrackedProductOptions {
@@ -60,6 +62,14 @@ export async function createTrackedProduct(
 
   if (existing && existing.deletedAt != null) {
     throw new DuplicateProductError(normalizedUrl, "TRASH_DUPLICATE", existing.id);
+  }
+
+  const shopIds = [...new Set(input.shopIds ?? [])];
+  if (shopIds.length > 0) {
+    const shops = await createEtsyShopsRepo(env.DB).validateShopIds(ownerKey, shopIds);
+    if (shops.length !== shopIds.length) {
+      throw new Error("Secilen Etsy magazasi bulunamadi.");
+    }
   }
 
   const html = await fetchTrendyolHtml(normalizedUrl, {
@@ -136,6 +146,15 @@ export async function createTrackedProduct(
         now.getTime(),
         now.getTime(),
       ),
+    ...shopIds.map((shopId) =>
+      env.DB
+        .prepare(
+          `insert into product_etsy_shops (
+            product_id, shop_id, owner_key, created_at
+          ) values (?, ?, ?, ?)`,
+        )
+        .bind(productId, shopId, ownerKey, now.getTime()),
+    ),
   ];
 
   await runWithWriteRetry(async () => {

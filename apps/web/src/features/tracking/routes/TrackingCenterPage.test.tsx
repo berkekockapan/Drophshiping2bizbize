@@ -529,4 +529,122 @@ describe("TrackingCenterPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("retries category update with refreshed tracked product id when initial id is stale", async () => {
+    const user = userEvent.setup();
+    const staleId = "prod_stale";
+    const freshId = "prod_fresh";
+
+    let trackingState: TrackingItem[] = [
+      {
+        ...trackingItems[0],
+        id: staleId,
+        sourceProductId: "123",
+        userCategory: { id: "cat_tracking", name: "Dis Giyim" },
+      },
+    ];
+
+    const stalePatchSpy = vi.fn();
+    const freshPatchSpy = vi.fn();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceProductsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes(`/owners/berke/products/${staleId}/category`) && method === "PATCH") {
+        stalePatchSpy();
+        trackingState = [
+          {
+            ...trackingState[0],
+            id: freshId,
+            userCategory: { id: "cat_home", name: "Ev Dekor" },
+          },
+        ];
+
+        return new Response(JSON.stringify({ error: "Kayit bulunamadi" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes(`/owners/berke/products/${freshId}/category`) && method === "PATCH") {
+        freshPatchSpy();
+        trackingState = [
+          {
+            ...trackingState[0],
+            id: freshId,
+            userCategory: { id: "cat_home", name: "Ev Dekor" },
+          },
+        ];
+
+        return new Response(
+          JSON.stringify({
+            productId: freshId,
+            userCategory: { id: "cat_home", name: "Ev Dekor" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(buildTrackingPayloadFrom(trackingState, null)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    renderWithProviders(<TrackingCenterPage />, {
+      route: "/owners/berke/products",
+      path: "/owners/:ownerKey/products",
+    });
+
+    const hoodieHeading = await screen.findByRole("heading", { name: /oversize hoodie/i });
+    const hoodieCard = hoodieHeading.closest("article");
+    expect(hoodieCard).not.toBeNull();
+    if (!hoodieCard) {
+      throw new Error("Expected hoodie card to exist");
+    }
+
+    await user.selectOptions(within(hoodieCard).getByLabelText(/takip kategorisi/i), "cat_home");
+
+    expect(stalePatchSpy).toHaveBeenCalledTimes(1);
+    expect(freshPatchSpy).toHaveBeenCalledTimes(1);
+    expect(
+      await within(hoodieCard).findByText((content, node) => node?.tagName === "DD" && /ev dekor/i.test(content)),
+    ).toBeInTheDocument();
+  });
+
 });

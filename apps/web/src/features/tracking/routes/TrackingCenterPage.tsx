@@ -157,6 +157,28 @@ function updateTrackingItemShops(
   };
 }
 
+function updateTrackingItemCategory(
+  previous: TrackingViewResponse | undefined,
+  productId: string,
+  userCategory: TrackingItem["userCategory"],
+) {
+  if (!previous) {
+    return previous;
+  }
+
+  return {
+    ...previous,
+    items: previous.items.map((trackingItem) =>
+      trackingItem.id === productId
+        ? {
+            ...trackingItem,
+            userCategory: userCategory ?? null,
+          }
+        : trackingItem,
+    ),
+  };
+}
+
 export function TrackingCenterPage() {
   const { ownerKey: ownerKeyParam } = useParams<{ ownerKey: string }>();
   const ownerKey = isOwnerKey(ownerKeyParam) ? ownerKeyParam : null;
@@ -296,13 +318,64 @@ export function TrackingCenterPage() {
     },
   });
 
-  const categoryMutation = useMutation<unknown, Error, { item: UnifiedDashboardItem; categoryId: string | null }>({
+  const categoryMutation = useMutation<
+    { productId: string; userCategory: TrackingItem["userCategory"] },
+    Error,
+    { item: UnifiedDashboardItem; categoryId: string | null },
+    { previousTrackingData?: TrackingViewResponse }
+  >({
     mutationFn: async ({ item, categoryId }) => {
-      if (!ownerKey || !item.trackedProduct) {
+      if (!ownerKey) {
+        throw new Error("Geçersiz owner seçimi.");
+      }
+
+      const updateCategory = async (trackedProductId: string) => {
+        try {
+          return await setTrackedProductCategory(ownerKey, trackedProductId, categoryId);
+        } catch (error) {
+          const latestTracking = await fetchTrackingView(ownerKey, {});
+          const refreshedTrackedProduct = findTrackedProductForItem(item, latestTracking.items);
+          if (!refreshedTrackedProduct || refreshedTrackedProduct.id === trackedProductId) {
+            throw error;
+          }
+
+          return setTrackedProductCategory(ownerKey, refreshedTrackedProduct.id, categoryId);
+        }
+      };
+
+      const trackedProduct = findTrackedProductForItem(item, trackingQuery.data?.items ?? []);
+      if (!trackedProduct) {
         throw new Error("Kategori güncellemesi için takip kaydı bulunamadı.");
       }
 
-      return setTrackedProductCategory(ownerKey, item.trackedProduct.id, categoryId);
+      return updateCategory(trackedProduct.id);
+    },
+    onMutate: async ({ item, categoryId }) => {
+      if (!ownerKey) {
+        return { previousTrackingData: undefined };
+      }
+
+      const optimisticTrackedProductId = findTrackedProductForItem(item, trackingQuery.data?.items ?? [])?.id;
+      if (!optimisticTrackedProductId) {
+        return { previousTrackingData: undefined };
+      }
+
+      const queryKey = ["tracking-products", ownerKey, "dashboard"] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previousTrackingData = queryClient.getQueryData<TrackingViewResponse>(queryKey);
+
+      const selectedCategory =
+        categoryId == null ? null : (categoriesQuery.data ?? []).find((category) => category.id === categoryId) ?? null;
+
+      queryClient.setQueryData<TrackingViewResponse>(queryKey, (current) =>
+        updateTrackingItemCategory(
+          current,
+          optimisticTrackedProductId,
+          selectedCategory ? { id: selectedCategory.id, name: selectedCategory.name } : null,
+        ),
+      );
+
+      return { previousTrackingData };
     },
     onSuccess: async () => {
       setCategoryMutationError(null);
@@ -311,7 +384,10 @@ export function TrackingCenterPage() {
         queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
       ]);
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (ownerKey && context?.previousTrackingData) {
+        queryClient.setQueryData(["tracking-products", ownerKey, "dashboard"], context.previousTrackingData);
+      }
       setCategoryMutationError(error instanceof Error ? error.message : "Kategori güncellemesi kaydedilemedi.");
     },
   });

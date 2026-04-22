@@ -27,15 +27,44 @@ describe("vite preview config", () => {
       isSsrBuild: false,
     });
 
-    expect(config.server.proxy).toMatchObject({
-      "/owners": expect.objectContaining({
-        target: "http://127.0.0.1:8788",
-        changeOrigin: true,
-      }),
-      "/health": expect.objectContaining({
-        target: "http://127.0.0.1:8788",
-        changeOrigin: true,
-      }),
+    const ownersProxy = config.server.proxy["/owners"];
+    const healthProxy = config.server.proxy["/health"];
+
+    expect(ownersProxy).toMatchObject({
+      target: "http://127.0.0.1:8788",
+      changeOrigin: true,
     });
+    expect(healthProxy).toMatchObject({
+      target: "http://127.0.0.1:8788",
+      changeOrigin: true,
+    });
+
+    expect(
+      ownersProxy.bypass(
+        {
+          headers: {
+            "sec-fetch-dest": "document",
+            accept: "text/html",
+          },
+          url: "/owners/berke/products",
+        },
+        undefined,
+        ownersProxy,
+      ),
+    ).toBe("/owners/berke/products");
+
+    expect(
+      ownersProxy.bypass(
+        {
+          headers: {
+            "sec-fetch-dest": "empty",
+            accept: "application/json",
+          },
+          url: "/owners/berke/products",
+        },
+        undefined,
+        ownersProxy,
+      ),
+    ).toBeUndefined();
   });
 });

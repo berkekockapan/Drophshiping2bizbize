@@ -217,6 +217,65 @@ function mapManagementRow(row: SourceProductRecord) {
 }
 
 export function createSourceProductsRepo(db: D1Database) {
+  let assignmentSchemaEnsurePromise: Promise<void> | null = null;
+
+  async function ensureSourceProductAssignmentsSchema() {
+    if (assignmentSchemaEnsurePromise) {
+      return assignmentSchemaEnsurePromise;
+    }
+
+    assignmentSchemaEnsurePromise = (async () => {
+      const sourceProductColumns = (
+        await db
+          .prepare(`pragma table_info(source_products)`)
+          .all<{ name: string }>()
+      ).results;
+      const hasUserCategoryId = sourceProductColumns.some((column) => column.name === "user_category_id");
+
+      if (!hasUserCategoryId) {
+        try {
+          await db.prepare(`alter table source_products add column user_category_id text`).run();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!message.toLowerCase().includes("duplicate column name")) {
+            throw error;
+          }
+        }
+      }
+
+      await db
+        .prepare(
+          `create table if not exists source_product_etsy_shops (
+            source_product_id text not null,
+            shop_id text not null,
+            owner_key text not null check (owner_key in ('berke', 'kaan')),
+            created_at integer not null,
+            primary key (source_product_id, shop_id)
+          )`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists source_product_etsy_shops_owner_source_product_idx
+           on source_product_etsy_shops(owner_key, source_product_id)`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists source_product_etsy_shops_shop_created_idx
+           on source_product_etsy_shops(shop_id, created_at desc)`,
+        )
+        .run();
+    })().catch((error) => {
+      assignmentSchemaEnsurePromise = null;
+      throw error;
+    });
+
+    return assignmentSchemaEnsurePromise;
+  }
+
   async function loadLinkedEtsyItems(ownerKey: OwnerKey, sourceProductIds: string[]) {
     if (sourceProductIds.length === 0) {
       return new Map<string, Array<{ id: string; title: string; url: string }>>();
@@ -646,6 +705,7 @@ export function createSourceProductsRepo(db: D1Database) {
       return repo.getDetail(ownerKey, sourceProductId);
     },
     async get(ownerKey: OwnerKey, sourceProductId: string) {
+      await ensureSourceProductAssignmentsSchema();
       const row = await db
         .prepare(
           `select p.id,
@@ -715,6 +775,7 @@ export function createSourceProductsRepo(db: D1Database) {
       ownerKey: OwnerKey,
       filters: { search?: string | null; categoryId?: string | "uncategorized" | null } = {},
     ) {
+      await ensureSourceProductAssignmentsSchema();
       const clauses: string[] = ["p.owner_key = ?", "p.deleted_at is null"];
       const searchClause = buildSearchClause(filters.search ?? null);
       const values: unknown[] = [ownerKey, ...searchClause.values];
@@ -788,6 +849,7 @@ export function createSourceProductsRepo(db: D1Database) {
       }));
     },
     async listTrash(ownerKey: OwnerKey) {
+      await ensureSourceProductAssignmentsSchema();
       const rows = await db
         .prepare(
           `select p.id,
@@ -839,6 +901,7 @@ export function createSourceProductsRepo(db: D1Database) {
       }));
     },
     async setUserCategory(ownerKey: OwnerKey, sourceProductId: string, categoryId: string | null, now: Date) {
+      await ensureSourceProductAssignmentsSchema();
       const current = await repo.get(ownerKey, sourceProductId);
       if (!current || current.deletedAt) {
         return null;
@@ -883,6 +946,7 @@ export function createSourceProductsRepo(db: D1Database) {
       return repo.get(ownerKey, sourceProductId);
     },
     async setShops(ownerKey: OwnerKey, sourceProductId: string, shopIds: string[], now: Date) {
+      await ensureSourceProductAssignmentsSchema();
       const current = await repo.get(ownerKey, sourceProductId);
       if (!current || current.deletedAt) {
         return null;

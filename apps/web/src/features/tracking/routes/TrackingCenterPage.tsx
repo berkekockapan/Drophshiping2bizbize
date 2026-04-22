@@ -2,11 +2,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { createTrackedProduct, fetchEtsyShops, fetchSourceProductsView, fetchTrackingView, updateProductShops } from "../../../app/api";
+import {
+  createTrackedProduct,
+  fetchEtsyShops,
+  fetchProductCategories,
+  fetchSourceProductsView,
+  fetchTrackingView,
+  setTrackedProductCategory,
+  updateProductShops,
+  type TrackingViewResponse,
+} from "../../../app/api";
 import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
 import { StatCard } from "../../shared/components/StatCard";
-import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
+import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { AddLinkForm } from "../components/AddLinkForm";
 import { BulkRefreshControl } from "../components/BulkRefreshControl";
 import { UnifiedDashboardCard } from "../components/UnifiedDashboardCard";
@@ -40,6 +49,28 @@ function matchesSearch(item: UnifiedDashboardItem, search: string) {
   return haystack.includes(normalizedSearch);
 }
 
+function updateTrackingItemShops(
+  previous: TrackingViewResponse | undefined,
+  productId: string,
+  shops: Array<{ id: string; name: string; etsyShopUrl: string; description: string | null }>,
+) {
+  if (!previous) {
+    return previous;
+  }
+
+  return {
+    ...previous,
+    items: previous.items.map((trackingItem) =>
+      trackingItem.id === productId
+        ? {
+            ...trackingItem,
+            shops,
+          }
+        : trackingItem,
+    ),
+  };
+}
+
 export function TrackingCenterPage() {
   const { ownerKey: ownerKeyParam } = useParams<{ ownerKey: string }>();
   const ownerKey = isOwnerKey(ownerKeyParam) ? ownerKeyParam : null;
@@ -48,11 +79,19 @@ export function TrackingCenterPage() {
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [shopAssignmentError, setShopAssignmentError] = useState<string | null>(null);
+  const [categoryMutationError, setCategoryMutationError] = useState<string | null>(null);
 
   const trackingQuery = useQuery({
     queryKey: ["tracking-products", ownerKey, "dashboard"],
     enabled: Boolean(ownerKey),
     queryFn: () => fetchTrackingView(ownerKey as OwnerKey, {}),
+    ...liveSyncQueryOptions,
+  });
+
+  const categoriesQuery = useQuery({
+    queryKey: ["product-categories", ownerKey],
+    enabled: Boolean(ownerKey),
+    queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
     ...liveSyncQueryOptions,
   });
 
@@ -74,14 +113,20 @@ export function TrackingCenterPage() {
     ...liveSyncQueryOptions,
   });
 
-  const shopAssignmentMutation = useMutation<unknown, Error, { item: UnifiedDashboardItem; shopId: string | null }>({
+  const shopAssignmentMutation = useMutation<
+    { productId: string; shops: Array<{ id: string; name: string; etsyShopUrl: string; description: string | null }> } | null,
+    Error,
+    { item: UnifiedDashboardItem; shopId: string | null },
+    { previousTrackingData?: TrackingViewResponse }
+  >({
     mutationFn: async ({ item, shopId }) => {
       if (!ownerKey) {
         throw new Error("Geçersiz owner seçimi.");
       }
 
       if (item.trackedProduct) {
-        return updateProductShops(ownerKey, item.trackedProduct.id, shopId ? [shopId] : []);
+        const response = await updateProductShops(ownerKey, item.trackedProduct.id, shopId ? [shopId] : []);
+        return { productId: response.productId, shops: response.shops };
       }
 
       if (!item.sourceUrl) {
@@ -92,18 +137,71 @@ export function TrackingCenterPage() {
         throw new Error("Kaynak ürün için bir mağaza seçmelisiniz.");
       }
 
-      return createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: [shopId] });
+      await createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: [shopId] });
+      return null;
+    },
+    onMutate: async ({ item, shopId }) => {
+      if (!item.trackedProduct || !ownerKey) {
+        return { previousTrackingData: undefined };
+      }
+
+      const queryKey = ["tracking-products", ownerKey, "dashboard"] as const;
+      await queryClient.cancelQueries({ queryKey });
+      const previousTrackingData = queryClient.getQueryData<TrackingViewResponse>(queryKey);
+
+      const selectedShop = (shopsQuery.data ?? []).find((shop) => shop.id === shopId);
+      const optimisticShops = selectedShop
+        ? [
+            {
+              id: selectedShop.id,
+              name: selectedShop.name,
+              etsyShopUrl: selectedShop.etsyShopUrl,
+              description: selectedShop.description,
+            },
+          ]
+        : [];
+
+      queryClient.setQueryData<TrackingViewResponse>(queryKey, (current) =>
+        updateTrackingItemShops(current, item.trackedProduct!.id, optimisticShops),
+      );
+
+      return { previousTrackingData };
     },
     onSuccess: async () => {
       setShopAssignmentError(null);
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey, "dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey, "dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
         queryClient.invalidateQueries({ queryKey: ["etsy-shops", ownerKey] }),
       ]);
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (ownerKey && context?.previousTrackingData) {
+        queryClient.setQueryData(["tracking-products", ownerKey, "dashboard"], context.previousTrackingData);
+      }
       setShopAssignmentError(error instanceof Error ? error.message : "Mağaza ataması kaydedilemedi.");
+    },
+  });
+
+  const categoryMutation = useMutation<unknown, Error, { item: UnifiedDashboardItem; categoryId: string | null }>({
+    mutationFn: async ({ item, categoryId }) => {
+      if (!ownerKey || !item.trackedProduct) {
+        throw new Error("Kategori güncellemesi için takip kaydı bulunamadı.");
+      }
+
+      return setTrackedProductCategory(ownerKey, item.trackedProduct.id, categoryId);
+    },
+    onSuccess: async () => {
+      setCategoryMutationError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+      ]);
+    },
+    onError: (error) => {
+      setCategoryMutationError(error instanceof Error ? error.message : "Kategori güncellemesi kaydedilemedi.");
     },
   });
 
@@ -167,19 +265,26 @@ export function TrackingCenterPage() {
     });
   }, [search, selectedTab, shopScopedItems]);
 
-  const liveSyncHasData = Boolean(trackingQuery.data || sourceProductsQuery.data || shopsQuery.data);
-  const liveSyncFetching = trackingQuery.isFetching || sourceProductsQuery.isFetching || shopsQuery.isFetching;
+  const liveSyncHasData = Boolean(trackingQuery.data || sourceProductsQuery.data || shopsQuery.data || categoriesQuery.data);
+  const liveSyncFetching = trackingQuery.isFetching || sourceProductsQuery.isFetching || shopsQuery.isFetching || categoriesQuery.isFetching;
   const liveSyncBackgroundError = Boolean(
     (trackingQuery.data && trackingQuery.failureCount > 0) ||
       (sourceProductsQuery.data && sourceProductsQuery.failureCount > 0) ||
-      (shopsQuery.data && shopsQuery.failureCount > 0),
+      (shopsQuery.data && shopsQuery.failureCount > 0) ||
+      (categoriesQuery.data && categoriesQuery.failureCount > 0),
   );
 
-  const latestUpdatedAt = Math.max(trackingQuery.dataUpdatedAt || 0, sourceProductsQuery.dataUpdatedAt || 0, shopsQuery.dataUpdatedAt || 0);
+  const latestUpdatedAt = Math.max(
+    trackingQuery.dataUpdatedAt || 0,
+    sourceProductsQuery.dataUpdatedAt || 0,
+    shopsQuery.dataUpdatedAt || 0,
+    categoriesQuery.dataUpdatedAt || 0,
+  );
   const uncategorizedCount = shopScopedItems.filter((item) => item.categoryKey === null).length;
   const linkedEtsyCount = shopScopedItems.filter((item) => item.etsyLinks.length > 0).length;
   const matchedRecordCount = shopScopedItems.filter((item) => item.sourceProduct && item.trackedProduct).length;
   const assigningItemKey = shopAssignmentMutation.isPending ? shopAssignmentMutation.variables?.item.key ?? null : null;
+  const categoryUpdatingItemKey = categoryMutation.isPending ? categoryMutation.variables?.item.key ?? null : null;
 
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Geçersiz owner seçimi.</p>;
@@ -326,17 +431,19 @@ export function TrackingCenterPage() {
         updatedAt={latestUpdatedAt}
       />
 
-      {trackingQuery.isLoading || sourceProductsQuery.isLoading || shopsQuery.isLoading ? (
+      {trackingQuery.isLoading || sourceProductsQuery.isLoading || shopsQuery.isLoading || categoriesQuery.isLoading ? (
         <p className="text-sm text-slate-500">Birleşik ürün dashboard&apos;ı yükleniyor...</p>
       ) : null}
 
       {(trackingQuery.isError && !trackingQuery.data) ||
       (sourceProductsQuery.isError && !sourceProductsQuery.data) ||
-      (shopsQuery.isError && !shopsQuery.data) ? (
+      (shopsQuery.isError && !shopsQuery.data) ||
+      (categoriesQuery.isError && !categoriesQuery.data) ? (
         <p className="text-sm text-rose-600">Birleşik ürün dashboard&apos;ı yüklenemedi.</p>
       ) : null}
 
       {shopAssignmentError ? <p className="text-sm text-rose-600">{shopAssignmentError}</p> : null}
+      {categoryMutationError ? <p className="text-sm text-rose-600">{categoryMutationError}</p> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         {filteredItems.map((item) => (
@@ -345,11 +452,17 @@ export function TrackingCenterPage() {
             ownerKey={ownerKey}
             item={item}
             shops={shopsQuery.data ?? []}
+            categories={categoriesQuery.data ?? []}
             showAssignedShopLabel={!selectedShopId}
             isAssigningShop={assigningItemKey === item.key}
+            isCategoryUpdating={categoryUpdatingItemKey === item.key}
             onAssignShop={(selectedItem, shopId) => {
               setShopAssignmentError(null);
               shopAssignmentMutation.mutate({ item: selectedItem, shopId });
+            }}
+            onCategoryChange={(selectedItem, categoryId) => {
+              setCategoryMutationError(null);
+              categoryMutation.mutate({ item: selectedItem, categoryId });
             }}
           />
         ))}
@@ -358,9 +471,11 @@ export function TrackingCenterPage() {
       {!trackingQuery.isLoading &&
       !sourceProductsQuery.isLoading &&
       !shopsQuery.isLoading &&
+      !categoriesQuery.isLoading &&
       !trackingQuery.isError &&
       !sourceProductsQuery.isError &&
       !shopsQuery.isError &&
+      !categoriesQuery.isError &&
       filteredItems.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-slate-200 bg-white px-5 py-6 text-sm text-slate-500">
           Seçili sekme ve arama filtresi için ürün bulunamadı.

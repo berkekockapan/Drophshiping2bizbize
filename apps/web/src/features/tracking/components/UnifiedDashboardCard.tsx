@@ -1,27 +1,34 @@
 import { Link } from "react-router-dom";
 
-import { formatDateTime, type EtsyShop } from "../../../app/api";
+import { formatDateTime, type EtsyShop, type ProductCategory } from "../../../app/api";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLink";
 import type { OwnerKey } from "../../shared/lib/ownerRouteState";
 import type { UnifiedDashboardItem } from "../lib/buildUnifiedDashboardItems";
+import { ProductCategorySelect } from "./ProductCategorySelect";
 
 interface UnifiedDashboardCardProps {
   ownerKey: OwnerKey;
   item: UnifiedDashboardItem;
   shops: EtsyShop[];
+  categories: ProductCategory[];
   showAssignedShopLabel: boolean;
   isAssigningShop?: boolean;
+  isCategoryUpdating?: boolean;
   onAssignShop: (item: UnifiedDashboardItem, shopId: string | null) => void;
+  onCategoryChange: (item: UnifiedDashboardItem, categoryId: string | null) => void;
 }
 
 export function UnifiedDashboardCard({
   ownerKey,
   item,
   shops,
+  categories,
   showAssignedShopLabel,
   isAssigningShop = false,
+  isCategoryUpdating = false,
   onAssignShop,
+  onCategoryChange,
 }: UnifiedDashboardCardProps) {
   const sourceDetailHref = item.sourceProduct ? `/owners/${ownerKey}/source-products/${item.sourceProduct.id}` : null;
   const trackedDetailHref = item.trackedProduct ? `/owners/${ownerKey}/products/${item.trackedProduct.id}` : null;
@@ -106,6 +113,23 @@ export function UnifiedDashboardCard({
             ))}
           </select>
           {shops.length === 0 ? <p className="text-xs text-slate-500">Atama için önce Etsy mağazası ekleyin.</p> : null}
+
+          {item.trackedProduct ? (
+            categories.length > 0 ? (
+              <ProductCategorySelect
+                label="Takip kategorisi"
+                inputId={`tracking-category-${item.trackedProduct.id}`}
+                categories={categories}
+                value={item.trackedProduct.userCategory?.id ?? null}
+                disabled={isCategoryUpdating}
+                onChange={(categoryId) => onCategoryChange(item, categoryId)}
+              />
+            ) : (
+              <p className="text-xs text-slate-500">Kategori listesi yükleniyor...</p>
+            )
+          ) : (
+            <p className="text-xs text-slate-500">Kategori seçimi için önce takip kaydı oluşturun.</p>
+          )}
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {item.trackedProduct ? <StatusBadge status={item.trackedProduct.status} /> : null}

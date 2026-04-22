@@ -55,6 +55,11 @@ const baseItem: UnifiedDashboardItem = {
   },
 };
 
+const categories = [
+  { id: "cat_tracking", name: "Dis Giyim" },
+  { id: "cat_home", name: "Ev Dekor" },
+];
+
 describe("UnifiedDashboardCard", () => {
   it("renders the tracked thumbnail in the unified product card", () => {
     const { container } = renderWithProviders(
@@ -62,8 +67,10 @@ describe("UnifiedDashboardCard", () => {
         ownerKey="berke"
         item={baseItem}
         shops={[{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }]}
+        categories={categories}
         showAssignedShopLabel
         onAssignShop={() => {}}
+        onCategoryChange={() => {}}
       />,
       {
         route: "/owners/berke/products",
@@ -123,8 +130,10 @@ describe("UnifiedDashboardCard", () => {
         ownerKey="berke"
         item={item}
         shops={[{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }]}
+        categories={categories}
         showAssignedShopLabel
         onAssignShop={() => {}}
+        onCategoryChange={() => {}}
       />,
       {
         route: "/owners/berke/products",
@@ -160,8 +169,10 @@ describe("UnifiedDashboardCard", () => {
           { id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null },
           { id: "shop_2", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordic-lane", description: null },
         ]}
+        categories={categories}
         showAssignedShopLabel={false}
         onAssignShop={onAssignShop}
+        onCategoryChange={() => {}}
       />,
       {
         route: "/owners/berke/products",

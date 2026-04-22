@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TrackingCenterPage } from "./TrackingCenterPage";
@@ -100,8 +100,15 @@ const etsyShopsPayload = {
   ],
 };
 
-function buildTrackingPayload(shopId: string | null) {
-  const items = shopId ? trackingItems.filter((item) => item.shops.some((shop) => shop.id === shopId)) : trackingItems;
+const categoriesPayload = {
+  items: [
+    { id: "cat_tracking", name: "Dis Giyim" },
+    { id: "cat_home", name: "Ev Dekor" },
+  ],
+};
+
+function buildTrackingPayloadFrom(items: typeof trackingItems, shopId: string | null) {
+  const filteredItems = shopId ? items.filter((item) => item.shops.some((shop) => shop.id === shopId)) : items;
 
   return {
     summary: {
@@ -109,9 +116,13 @@ function buildTrackingPayload(shopId: string | null) {
       activeCount: 2,
       reviewNeededCount: 0,
     },
-    items,
+    items: filteredItems,
     filters: shopId ? { shopId } : {},
   };
+}
+
+function buildTrackingPayload(shopId: string | null) {
+  return buildTrackingPayloadFrom(trackingItems, shopId);
 }
 
 describe("TrackingCenterPage", () => {
@@ -134,6 +145,13 @@ describe("TrackingCenterPage", () => {
 
       if (url.includes("/owners/berke/etsy-shops")) {
         return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -185,6 +203,13 @@ describe("TrackingCenterPage", () => {
 
       if (url.includes("/owners/berke/etsy-shops")) {
         return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -246,6 +271,13 @@ describe("TrackingCenterPage", () => {
         });
       }
 
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       if (url.includes("/owners/berke/source-products")) {
         return new Response(JSON.stringify(sourceProductsPayload), {
           status: 200,
@@ -275,5 +307,101 @@ describe("TrackingCenterPage", () => {
     expect(await screen.findByText(/oversize hoodie/i)).toBeInTheDocument();
     expect(screen.queryByText(/takipsel kupa/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/kaynak canta/i)).not.toBeInTheDocument();
+  });
+
+  it("assigns selected etsy shop on the card", async () => {
+    const user = userEvent.setup();
+    const mutableTrackingItems = trackingItems.map((item) => ({
+      ...item,
+      shops: item.shops.map((shop) => ({ ...shop })),
+    }));
+
+    const updateRequestSpy = vi.fn();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const parsedUrl = new URL(url, "https://example.com");
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceProductsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/products/prod_1/etsy-shops") && method === "PUT") {
+        updateRequestSpy();
+        const selectedShop = etsyShopsPayload.items.find((shop) => shop.id === "shop_nordic");
+        if (selectedShop) {
+          mutableTrackingItems[0].shops = [
+            {
+              id: selectedShop.id,
+              name: selectedShop.name,
+              etsyShopUrl: selectedShop.etsyShopUrl,
+              description: null,
+            },
+          ];
+        }
+
+        return new Response(
+          JSON.stringify({
+            productId: "prod_1",
+            shops: mutableTrackingItems[0].shops,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(buildTrackingPayloadFrom(mutableTrackingItems, parsedUrl.searchParams.get("shopId"))), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    renderWithProviders(<TrackingCenterPage />, {
+      route: "/owners/berke/products",
+      path: "/owners/:ownerKey/products",
+    });
+
+    const hoodieHeading = await screen.findByRole("heading", { name: /oversize hoodie/i });
+    const hoodieCard = hoodieHeading.closest("article");
+    expect(hoodieCard).not.toBeNull();
+    if (!hoodieCard) {
+      throw new Error("Expected hoodie card to exist");
+    }
+
+    await user.selectOptions(within(hoodieCard).getByLabelText(/etsy mağazası/i), "shop_nordic");
+
+    expect(updateRequestSpy).toHaveBeenCalledTimes(1);
+    expect(await within(hoodieCard).findByText(/etsy mağazası: nordic lane/i)).toBeInTheDocument();
   });
 });

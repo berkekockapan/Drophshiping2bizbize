@@ -986,6 +986,18 @@ export async function createTrackedProduct(
   return parseJson<CreateTrackedProductResponse>(response);
 }
 
+export async function assignShopBySourceUrl(ownerKey: OwnerKey, trendyolUrl: string, shopId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/assign-shop`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ trendyolUrl, shopId }),
+  });
+
+  return parseJson<{ productId: string; shops: EtsyShop[] }>(response);
+}
+
 export async function fetchEtsyShops(ownerKey: OwnerKey) {
   const response = await fetchWithTimeout(`/owners/${ownerKey}/etsy-shops`);
   return parseJson<EtsyShopListResponse>(response);

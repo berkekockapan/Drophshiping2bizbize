@@ -406,7 +406,7 @@ describe("TrackingCenterPage", () => {
     expect(await within(hoodieCard).findByText(/etsy mağazası: nordic lane/i)).toBeInTheDocument();
   });
 
-  it("falls back to existing tracked product assignment when create returns duplicate", async () => {
+  it("assigns source-only card via assign-shop endpoint", async () => {
     const user = userEvent.setup();
     const sourceOnlyProducts = {
       items: [
@@ -428,7 +428,7 @@ describe("TrackingCenterPage", () => {
     };
 
     let trackingState: TrackingItem[] = [];
-    const updateRequestSpy = vi.fn();
+    const assignByUrlSpy = vi.fn();
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
@@ -462,30 +462,8 @@ describe("TrackingCenterPage", () => {
         });
       }
 
-      if (url.includes("/owners/berke/products/prod_dup/etsy-shops") && method === "PUT") {
-        updateRequestSpy();
-        trackingState = trackingState.map((item) =>
-          item.id === "prod_dup"
-            ? {
-                ...item,
-                shops: [{ id: "shop_nordic", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordiclane", description: null }],
-              }
-            : item,
-        );
-
-        return new Response(
-          JSON.stringify({
-            productId: "prod_dup",
-            shops: trackingState.find((item) => item.id === "prod_dup")?.shops ?? [],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      if (url.endsWith("/owners/berke/products") && method === "POST") {
+      if (url.endsWith("/owners/berke/products/assign-shop") && method === "POST") {
+        assignByUrlSpy();
         trackingState = [
           {
             id: "prod_dup",
@@ -504,15 +482,21 @@ describe("TrackingCenterPage", () => {
             totalVariantCount: 8,
             isFavorite: false,
             userCategory: null,
-            shops: [],
+            shops: [{ id: "shop_nordic", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordiclane", description: null }],
             lastCheckedAt: 1710000000000,
           },
         ];
 
-        return new Response(JSON.stringify({ error: "Tracked product already exists for https://www.trendyol.com/brand/canta-p-456" }), {
-          status: 409,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            productId: "prod_dup",
+            shops: trackingState[0]?.shops ?? [],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
       if (url.includes("/owners/berke/products")) {
@@ -537,155 +521,12 @@ describe("TrackingCenterPage", () => {
       throw new Error("Expected source-only card to exist");
     }
 
-    await user.selectOptions(within(bagCard).getByLabelText(/etsy mağazası/i), "shop_nordic");
+    await user.selectOptions(within(bagCard).getByRole("combobox", { name: /etsy/i }), "shop_nordic");
 
-    expect(updateRequestSpy).toHaveBeenCalledTimes(1);
-    expect(await within(bagCard).findByText(/etsy mağazası: nordic lane/i)).toBeInTheDocument();
-  });
-
-  it("retries assignment with refreshed tracked product when first product id is stale", async () => {
-    const user = userEvent.setup();
-    const sourceOnlyProducts = {
-      items: [
-        {
-          id: "sp_stale",
-          ownerKey: "berke",
-          title: "Stale Hoodie",
-          sourceUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123",
-          platform: "trendyol",
-          notes: null,
-          sourceCategory: { id: "cat_source", name: "Hoodie" },
-          sortOrder: 0,
-          deletedAt: null,
-          linkedEtsyCount: 0,
-          linkedEtsyItems: [],
-        },
-      ],
-      filters: {},
-    };
-
-    let trackingState: TrackingItem[] = [
-      {
-        id: "prod_stale",
-        ownerKey: "berke",
-        sourceProductId: "123",
-        title: "Old Hoodie",
-        brand: "North Apparel",
-        trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123",
-        status: "ACTIVE",
-        parseStatus: "OK",
-        thumbnailImage: "https://cdn.example.com/hoodie-old.jpg",
-        currentPrice: 42990,
-        minPrice: 34990,
-        maxPrice: 44990,
-        inStockVariantCount: 12,
-        totalVariantCount: 18,
-        isFavorite: false,
-        userCategory: null,
-        shops: [],
-        lastCheckedAt: 1710000000000,
-      },
-    ];
-
-    const stalePutSpy = vi.fn();
-    const refreshedPutSpy = vi.fn();
-
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
-      const method = (init?.method ?? "GET").toUpperCase();
-
-      if (url.includes("/owners/berke/products/refresh-runs/active")) {
-        return new Response(JSON.stringify({ run: null }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/etsy-shops")) {
-        return new Response(JSON.stringify(etsyShopsPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/categories")) {
-        return new Response(JSON.stringify(categoriesPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/source-products")) {
-        return new Response(JSON.stringify(sourceOnlyProducts), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/products/prod_stale/etsy-shops") && method === "PUT") {
-        stalePutSpy();
-        trackingState = [
-          {
-            ...trackingState[0],
-            id: "prod_real",
-          },
-        ];
-
-        return new Response(JSON.stringify({ error: "Kayit bulunamadi" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (url.includes("/owners/berke/products/prod_real/etsy-shops") && method === "PUT") {
-        refreshedPutSpy();
-        trackingState = trackingState.map((item) =>
-          item.id === "prod_real"
-            ? {
-                ...item,
-                shops: [{ id: "shop_nordic", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordiclane", description: null }],
-              }
-            : item,
-        );
-
-        return new Response(
-          JSON.stringify({
-            productId: "prod_real",
-            shops: trackingState.find((item) => item.id === "prod_real")?.shops ?? [],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      if (url.includes("/owners/berke/products")) {
-        return new Response(JSON.stringify(buildTrackingPayloadFrom(trackingState, null)), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response("Not found", { status: 404 });
-    });
-
-    renderWithProviders(<TrackingCenterPage />, {
-      route: "/owners/berke/products",
-      path: "/owners/:ownerKey/products",
-    });
-
-    const cardHeading = await screen.findByRole("heading", { name: /stale hoodie/i });
-    const card = cardHeading.closest("article");
-    expect(card).not.toBeNull();
-    if (!card) {
-      throw new Error("Expected stale card to exist");
-    }
-
-    await user.selectOptions(within(card).getByLabelText(/etsy ma/i), "shop_nordic");
-
-    expect(stalePutSpy).toHaveBeenCalledTimes(1);
-    expect(refreshedPutSpy).toHaveBeenCalledTimes(1);
+    expect(assignByUrlSpy).toHaveBeenCalledTimes(1);
+    expect(
+      await within(bagCard).findByText((content, node) => node?.tagName === "P" && /nordic lane/i.test(content)),
+    ).toBeInTheDocument();
   });
 
 });

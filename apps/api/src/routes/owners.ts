@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { ownerKeySchema } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
+import { createEtsyShopsRepo } from "../db/repositories/etsyShopsRepo";
 import { createNotificationsRepo } from "../db/repositories/notificationsRepo";
 import { ParseError } from "../modules/scraping/parseErrors";
 import { buildActiveManualRefreshRunView, buildManualRefreshRunView } from "../modules/tracking/buildManualRefreshRunView";
@@ -19,6 +20,7 @@ import { retryFailedManualRefreshRun } from "../modules/tracking/retryFailedManu
 import { setTrackedProductFavorite } from "../modules/tracking/setTrackedProductFavorite";
 import { setTrackedProductCategory } from "../modules/tracking/setTrackedProductCategory";
 import { startManualRefreshRun } from "../modules/tracking/startManualRefreshRun";
+import { normalizeTrendyolUrl } from "../modules/tracking/normalizeTrendyolUrl";
 import { createCategoriesRouter } from "./categories";
 import { createDraftsRouter } from "./drafts";
 import { createEtsyShopsRouter } from "./etsyShops";
@@ -90,6 +92,120 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
 
       if (error instanceof ParseError) {
         return c.json({ error: `Trendyol sayfasi ayrıştırılamadı (${error.code})` }, 422);
+      }
+
+      if (error instanceof Error) {
+        return c.json({ error: error.message }, 502);
+      }
+
+      return c.json({ error: "Beklenmeyen bir hata olustu" }, 500);
+    }
+  });
+
+  app.post("/products/assign-shop", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req.json<{ trendyolUrl?: string; shopId?: string }>().catch(() => null);
+    if (!body?.trendyolUrl || !body.shopId) {
+      return c.json({ error: "trendyolUrl ve shopId gereklidir" }, 400);
+    }
+
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = normalizeTrendyolUrl(body.trendyolUrl);
+    } catch {
+      return c.json({ error: "trendyolUrl gecersiz" }, 400);
+    }
+
+    const shopsRepo = createEtsyShopsRepo(c.env.DB);
+    const existing = await c.env.DB
+      .prepare(
+        `select id, deleted_at as deletedAt
+         from products
+         where owner_key = ?
+           and trendyol_url = ?
+         limit 1`,
+      )
+      .bind(ownerKey, normalizedUrl)
+      .first<{ id: string; deletedAt: number | null }>();
+
+    if (existing?.deletedAt != null) {
+      return c.json(
+        {
+          error: "Bu link cop kutusunda. Yeni kayit acmak yerine geri yukleyin.",
+          code: "PRODUCT_IN_TRASH",
+          trashedProductId: existing.id,
+        },
+        409,
+      );
+    }
+
+    const assignToProduct = async (productId: string) => {
+      const shops = await shopsRepo.setProductShops(ownerKey, productId, [body.shopId!], new Date());
+      if (!shops) {
+        return null;
+      }
+
+      return c.json({ productId, shops });
+    };
+
+    if (existing?.id) {
+      const assigned = await assignToProduct(existing.id);
+      if (!assigned) {
+        return c.json({ error: "Kayit bulunamadi" }, 404);
+      }
+
+      return assigned;
+    }
+
+    try {
+      const created = await createTrackedProduct(c.env, { ownerKey, trendyolUrl: normalizedUrl, shopIds: [body.shopId] }, options);
+      const assigned = await assignToProduct(created.product.id);
+      if (!assigned) {
+        return c.json({ error: "Kayit bulunamadi" }, 404);
+      }
+
+      return assigned;
+    } catch (error) {
+      if (error instanceof DuplicateProductError && error.reason === "TRASH_DUPLICATE") {
+        return c.json(
+          {
+            error: "Bu link cop kutusunda. Yeni kayit acmak yerine geri yukleyin.",
+            code: "PRODUCT_IN_TRASH",
+            trashedProductId: error.trashedProductId,
+          },
+          409,
+        );
+      }
+
+      if (error instanceof DuplicateProductError) {
+        const active = await c.env.DB
+          .prepare(
+            `select id
+             from products
+             where owner_key = ?
+               and trendyol_url = ?
+               and deleted_at is null
+             limit 1`,
+          )
+          .bind(ownerKey, normalizedUrl)
+          .first<{ id: string }>();
+
+        if (active?.id) {
+          const assigned = await assignToProduct(active.id);
+          if (assigned) {
+            return assigned;
+          }
+        }
+
+        return c.json({ error: error.message }, 409);
+      }
+
+      if (error instanceof ParseError) {
+        return c.json({ error: `Trendyol sayfasi ayrÄ±ÅŸtÄ±rÄ±lamadÄ± (${error.code})` }, 422);
       }
 
       if (error instanceof Error) {

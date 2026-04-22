@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
-  createTrackedProduct,
+  assignShopBySourceUrl,
   fetchEtsyShops,
   fetchProductCategories,
   fetchSourceProductsView,
@@ -242,19 +242,8 @@ export function TrackingCenterPage() {
         throw new Error("Kaynak ürün için bir mağaza seçmelisiniz.");
       }
 
-      try {
-        await createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: selectedShopIds });
-        return null;
-      } catch (error) {
-        const latestTracking = await fetchTrackingView(ownerKey, {});
-        const duplicateTrackedProduct = findTrackedProductForItem(item, latestTracking.items);
-
-        if (!duplicateTrackedProduct) {
-          throw error;
-        }
-
-        return assignShopToTrackedProduct(duplicateTrackedProduct.id);
-      }
+      const response = await assignShopBySourceUrl(ownerKey, item.sourceUrl, shopId);
+      return { productId: response.productId, shops: response.shops };
     },
     onMutate: async ({ item, shopId }) => {
       if (!ownerKey) {

@@ -120,4 +120,56 @@ describe("etsy shops integration", () => {
       ]),
     );
   });
+
+  it("recreates missing etsy shop tables without touching existing product data", async () => {
+    const { env, sqlite } = createTestEnv();
+    const app = createApp({
+      fetchImpl: async () => new Response(basicProductHtml, { status: 200 }),
+    });
+
+    const createProductResponse = await app.request(
+      "http://localhost/owners/berke/products",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-p-123?merchantId=1",
+        }),
+      },
+      env,
+    );
+
+    expect(createProductResponse.status).toBe(201);
+
+    sqlite.exec("drop table product_etsy_shops;");
+    sqlite.exec("drop table etsy_shops;");
+
+    const shopResponse = await app.request(
+      "http://localhost/owners/berke/etsy-shops",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Recovered Shop",
+          etsyShopUrl: "https://www.etsy.com/shop/recoveredshop",
+          description: "Bootstrap check",
+        }),
+      },
+      env,
+    );
+
+    expect(shopResponse.status).toBe(201);
+
+    const shopListResponse = await app.request("http://localhost/owners/berke/etsy-shops", undefined, env);
+    expect(shopListResponse.status).toBe(200);
+
+    const productListResponse = await app.request("http://localhost/owners/berke/products", undefined, env);
+    expect(productListResponse.status).toBe(200);
+    const productListJson = await productListResponse.json();
+
+    expect(productListJson.items).toHaveLength(1);
+    expect((await shopListResponse.json()).items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "Recovered Shop" })]),
+    );
+  });
 });

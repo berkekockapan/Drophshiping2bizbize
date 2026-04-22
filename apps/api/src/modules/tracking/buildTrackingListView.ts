@@ -1,6 +1,7 @@
 import type { OwnerKey } from "../../contracts/owners";
 
 import type { D1Database } from "../../config/bindings";
+import { createEtsyShopsRepo } from "../../db/repositories/etsyShopsRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 
 export interface TrackingFilters {
@@ -30,14 +31,14 @@ function getThumbnailImage(imagesRaw: string | null): string | null {
   }
 }
 
-function toCardView(
-  items: Array<{
+function toCardView<
+  T extends {
+    id: string;
     imagesRaw: string | null;
     userCategoryId?: string | null;
     userCategoryName?: string | null;
-    [key: string]: unknown;
-  }>,
-) {
+  },
+>(items: T[]) {
   return items.map(({ imagesRaw, userCategoryId, userCategoryName, ...item }) => ({
     ...item,
     userCategory:
@@ -53,11 +54,28 @@ function toCardView(
 
 export async function buildTrackingListView(db: D1Database, ownerKey: OwnerKey, filters: TrackingFilters = {}) {
   const productsRepo = createProductsRepo(db);
+  const etsyShopsRepo = createEtsyShopsRepo(db);
   const items = await productsRepo.listTrackingCards(ownerKey, filters);
+  const cards = toCardView(items);
+  const cardsWithShops = await Promise.all(
+    cards.map(async (item) => {
+      const shops = await etsyShopsRepo.listProductShops(ownerKey, item.id);
+      return {
+        ...item,
+        shops: shops.map((shop) => ({
+          id: shop.id,
+          name: shop.name,
+          etsyShopUrl: shop.etsyShopUrl,
+          description: shop.description,
+          assignedAt: shop.assignedAt,
+        })),
+      };
+    }),
+  );
 
   return {
     summary: await productsRepo.getTrackingSummary(ownerKey),
-    items: toCardView(items),
+    items: cardsWithShops,
     filters,
   };
 }

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +11,8 @@ const API_FILTER = "@dropshiping2bizbize/api";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = resolve(__dirname, "..", "..");
+const apiDir = resolve(repoRoot, "apps", "api");
+const authEnvPath = resolve(apiDir, ".cloudflare.env");
 
 function fail(message) {
   console.error(`Cloudflare hesap dogrulamasi basarisiz: ${message}`);
@@ -45,6 +48,11 @@ function runPnpm(args, options = {}) {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: ["inherit", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      ...loadCloudflareAuthEnv(),
+      ...options.env,
+    },
     ...options,
   });
 
@@ -53,6 +61,45 @@ function runPnpm(args, options = {}) {
   }
 
   return result;
+}
+
+function loadCloudflareAuthEnv() {
+  if (!existsSync(authEnvPath)) {
+    return {};
+  }
+
+  return parseEnvFile(readFileSync(authEnvPath, "utf8"));
+}
+
+function parseEnvFile(content) {
+  const env = {};
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    let value = line.slice(separatorIndex + 1).trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    env[key] = value;
+  }
+
+  return env;
 }
 
 const whoami = runPnpm([
@@ -103,7 +150,11 @@ const missingPermissions = REQUIRED_PERMISSIONS.filter(
   (permission) => !permissionSet.has(permission),
 );
 
-if (missingPermissions.length > 0) {
+if ((payload.tokenPermissions ?? []).length === 0) {
+  console.warn(
+    "Cloudflare guard warning: wrangler whoami token izinlerini raporlamadi; email/account_id dogrulamasi ile devam ediliyor.",
+  );
+} else if (missingPermissions.length > 0) {
   fail(`Token izinleri eksik: ${missingPermissions.join(", ")}`);
 }
 

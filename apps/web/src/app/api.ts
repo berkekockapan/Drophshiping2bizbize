@@ -652,7 +652,14 @@ export interface SaveProductVariantCostOverridePayload {
   manualShippingCost?: { amount: number; currency: "USD" | "TRY" } | null;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+const shouldPreferLocalProxy =
+  import.meta.env.DEV &&
+  Boolean(import.meta.env.VITE_API_PROXY_TARGET) &&
+  typeof window !== "undefined" &&
+  /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+
+const API_BASE_URL = (shouldPreferLocalProxy ? "" : rawApiBaseUrl).replace(/\/+$/, "");
 
 function toApiUrl(path: string) {
   if (!API_BASE_URL || /^https?:\/\//i.test(path)) {

@@ -13,9 +13,8 @@ const apiProxyRoutes = [
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const apiBaseUrl = (env.VITE_API_BASE_URL ?? "").trim();
   const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8788";
-  const shouldUseApiProxy = apiBaseUrl.length === 0;
+  const shouldUseApiProxy = apiProxyTarget.trim().length > 0;
 
   return {
     esbuild: {
@@ -32,8 +31,8 @@ export default defineConfig(({ mode }) => {
               apiProxyRoutes.map((route) => [
                 route,
                 {
-                  // Lokal geliştirmede VITE_API_BASE_URL boşsa /owners vb. istekleri 127.0.0.1:8788'e proxy et.
-                  // Cloud modda VITE_API_BASE_URL doluysa proxy devre dışı kalır ve tarayıcı doğrudan Worker'a gider.
+                  // Lokal geliştirmede uygulama runtime'i bazen relative /owners vb. istekleri kullanir.
+                  // Bu durumda VITE_API_BASE_URL dolu olsa bile dev server ilgili istekleri lokal API'ye proxy etmelidir.
                   target: apiProxyTarget,
                   changeOrigin: true,
                 },

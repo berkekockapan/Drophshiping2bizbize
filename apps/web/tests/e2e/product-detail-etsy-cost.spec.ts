@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("product detail updates cost cards when the variant and overrides change", async ({ page }) => {
+test("product detail shows variant visuals and updates selected variant details", async ({ page }) => {
   const detailPayload = {
     product: {
       id: "prod_1",
@@ -26,6 +26,7 @@ test("product detail updates cost cards when the variant and overrides change", 
       totalVariantCount: 2,
       lastChangeAt: Date.parse("2026-03-28T09:30:00.000Z"),
       lastCheckedAt: Date.parse("2026-03-28T10:00:00.000Z"),
+      shops: [],
     },
     variants: [
       {
@@ -38,7 +39,11 @@ test("product detail updates cost cards when the variant and overrides change", 
         currentStockState: "IN_STOCK",
         currentPrice: 44990,
         lastSeenAt: Date.parse("2026-03-28T10:00:00.000Z"),
-        rawPayload: { stockState: "IN_STOCK", url: "https://www.trendyol.com/example/l-siyah" },
+        rawPayload: {
+          stockState: "IN_STOCK",
+          imageUrl: "https://cdn.example.com/hoodie-l.jpg",
+          url: "https://www.trendyol.com/example/l-siyah",
+        },
       },
       {
         id: "var_2",
@@ -47,10 +52,14 @@ test("product detail updates cost cards when the variant and overrides change", 
         option2: "Siyah",
         option3: null,
         trendyolUrl: "https://www.trendyol.com/example/m-siyah",
-        currentStockState: "IN_STOCK",
+        currentStockState: "OUT_OF_STOCK",
         currentPrice: 42990,
         lastSeenAt: Date.parse("2026-03-28T10:00:00.000Z"),
-        rawPayload: { stockState: "IN_STOCK", url: "https://www.trendyol.com/example/m-siyah" },
+        rawPayload: {
+          stockState: "OUT_OF_STOCK",
+          imageUrl: "https://cdn.example.com/hoodie-m.jpg",
+          url: "https://www.trendyol.com/example/m-siyah",
+        },
       },
     ],
     priceHistory: [],
@@ -86,55 +95,8 @@ test("product detail updates cost cards when the variant and overrides change", 
     },
     tariffAnalysis: {
       selection: null,
-      latestRun: {
-        id: "run_1",
-        productId: "prod_1",
-        ownerKey: "berke",
-        status: "completed",
-        usedAi: false,
-        inputSnapshot: {},
-        resultSnapshot: {
-          recommendations: [
-            {
-              catalogId: "catalog_611030",
-              canonicalHs6: "611030",
-              profileName: "Sweatshirt",
-              title: "Sweatshirt",
-              rationale: "Tekstil sinyali ile eslesti.",
-              score: 96,
-              usProfileId: "us_611030_2026r4",
-              htsCode10: "6110.30.3059",
-              generalDutyRate: 0.16,
-              additionalDutyRate: 0,
-              combinedDutyRate: 0.16,
-              dutySummary: "%16.0 temel vergi + %0.0 ek tarife = toplam %16.0",
-              defaultShipentegraUsd: 7.5,
-              sourceBadges: ["Kural eslesmesi"],
-            },
-          ],
-        },
-        engineVersion: "tariff-v1",
-        createdAt: Date.parse("2026-03-28T10:00:00.000Z"),
-        completedAt: Date.parse("2026-03-28T10:00:03.000Z"),
-      },
-      recommendations: [
-        {
-          catalogId: "catalog_611030",
-          canonicalHs6: "611030",
-          profileName: "Sweatshirt",
-          title: "Sweatshirt",
-          rationale: "Tekstil sinyali ile eslesti.",
-          score: 96,
-          usProfileId: "us_611030_2026r4",
-          htsCode10: "6110.30.3059",
-          generalDutyRate: 0.16,
-          additionalDutyRate: 0,
-          combinedDutyRate: 0.16,
-          dutySummary: "%16.0 temel vergi + %0.0 ek tarife = toplam %16.0",
-          defaultShipentegraUsd: 7.5,
-          sourceBadges: ["Kural eslesmesi"],
-        },
-      ],
+      latestRun: null,
+      recommendations: [],
       manualSearchEnabled: true,
       disclaimer: "Planlama amacli GTIP tahminidir; nihai beyan karari degildir.",
     },
@@ -146,7 +108,6 @@ test("product detail updates cost cards when the variant and overrides change", 
 
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
-      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
 
       if (url.endsWith("/settings")) {
         return new Response(
@@ -165,27 +126,12 @@ test("product detail updates cost cards when the variant and overrides change", 
         );
       }
 
-      if (url.includes("/owners/berke/categories")) {
+      if (url.includes("/owners/berke/etsy-shops")) {
         return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
 
       if (url.includes("/owners/berke/products/refresh-runs/active")) {
         return new Response(JSON.stringify({ run: null }), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
-
-      if (url.includes("/owners/berke/products/prod_1/variants/var_2/cost-overrides") && method === "PUT") {
-        const body = JSON.parse(init?.body ? String(init.body) : "{}");
-        const variant = detailPayload.costContext.variants.find((item: { variantId: string }) => item.variantId === "var_2");
-
-        if (variant) {
-          variant.manualProductCost = body.manualProductCost ?? null;
-          variant.manualShippingCost = body.manualShippingCost ?? null;
-        }
-
-        return new Response(JSON.stringify({ override: { variantId: "var_2" } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       }
 
       if (url.includes("/owners/berke/products/prod_1")) {
@@ -209,14 +155,13 @@ test("product detail updates cost cards when the variant and overrides change", 
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
 
-  await expect(page.getByRole("heading", { name: /urun maliyet gorunumu/i })).toBeVisible();
-  await expect(page.getByText(/en uygun abd profili otomatik secildi/i)).toBeVisible();
-  await expect(page.getByText(/bu urun icin secilen gtip: 611030/i)).toBeVisible();
+  await expect(page.getByText(/varyant görünümü/i)).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /görsel/i })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /ürün başlığı/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /urun maliyet gorunumu/i })).toHaveCount(0);
 
-  await page.getByLabel(/secili varyant/i).selectOption("var_2");
-  await page.getByLabel(/urun maliyeti override/i).fill("399");
-  await page.getByLabel(/kargo override/i).fill("8.25");
+  await page.getByRole("button", { name: /varyant sec: m \/ siyah/i }).click();
 
-  await expect(page.getByText(/diger toplam maliyet/i)).toBeVisible();
-  await expect(page.getByText(/manuel override kullaniliyor/i).first()).toBeVisible();
+  await expect(page.getByText("M / Siyah").first()).toBeVisible();
+  await expect(page.getByText(/429,90/).first()).toBeVisible();
 });

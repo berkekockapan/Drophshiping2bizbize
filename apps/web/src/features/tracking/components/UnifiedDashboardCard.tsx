@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-import { formatDateTime } from "../../../app/api";
+import { formatDateTime, type EtsyShop } from "../../../app/api";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { TrendyolExternalLink } from "../../shared/components/TrendyolExternalLink";
 import type { OwnerKey } from "../../shared/lib/ownerRouteState";
@@ -9,12 +9,26 @@ import type { UnifiedDashboardItem } from "../lib/buildUnifiedDashboardItems";
 interface UnifiedDashboardCardProps {
   ownerKey: OwnerKey;
   item: UnifiedDashboardItem;
+  shops: EtsyShop[];
+  showAssignedShopLabel: boolean;
+  isAssigningShop?: boolean;
+  onAssignShop: (item: UnifiedDashboardItem, shopId: string | null) => void;
 }
 
-export function UnifiedDashboardCard({ ownerKey, item }: UnifiedDashboardCardProps) {
+export function UnifiedDashboardCard({
+  ownerKey,
+  item,
+  shops,
+  showAssignedShopLabel,
+  isAssigningShop = false,
+  onAssignShop,
+}: UnifiedDashboardCardProps) {
   const sourceDetailHref = item.sourceProduct ? `/owners/${ownerKey}/source-products/${item.sourceProduct.id}` : null;
   const trackedDetailHref = item.trackedProduct ? `/owners/${ownerKey}/products/${item.trackedProduct.id}` : null;
   const primaryDetailHref = trackedDetailHref ?? sourceDetailHref;
+  const assignedShopId = item.assignedShops[0]?.id ?? "";
+  const assignedShopNames = item.assignedShops.map((shop) => shop.name).join(", ");
+  const canClearAssignment = Boolean(item.trackedProduct);
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -63,19 +77,43 @@ export function UnifiedDashboardCard({ ownerKey, item }: UnifiedDashboardCardPro
               ) : null}
               {item.brand ? <span>{item.brand}</span> : null}
             </div>
+            {showAssignedShopLabel ? (
+              <p className="mt-3 text-xs font-medium text-slate-600">
+                {assignedShopNames ? `Etsy mağazası: ${assignedShopNames}` : "Etsy mağazası: Atanmadı"}
+              </p>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {item.trackedProduct ? <StatusBadge status={item.trackedProduct.status} /> : null}
-          {item.trackedProduct ? <StatusBadge status={item.trackedProduct.parseStatus} /> : null}
-          {item.sourceUrl ? (
-            <TrendyolExternalLink
-              href={item.sourceUrl}
-              label={`Kaynak ürün sayfasını yeni sekmede aç: ${item.title}`}
-              size="sm"
-            />
-          ) : null}
+        <div className="flex min-w-[240px] flex-col items-stretch gap-2">
+          <label className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400" htmlFor={`shop-assign-${item.key}`}>
+            Etsy mağazası
+          </label>
+          <select
+            id={`shop-assign-${item.key}`}
+            value={assignedShopId}
+            disabled={isAssigningShop || shops.length === 0}
+            onChange={(event) => onAssignShop(item, event.target.value ? event.target.value : null)}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#F1641E] disabled:cursor-not-allowed disabled:bg-slate-100"
+          >
+            <option value="" disabled={!canClearAssignment}>
+              {canClearAssignment ? "Mağaza ataması yok" : "Mağaza seçin"}
+            </option>
+            {shops.map((shop) => (
+              <option key={shop.id} value={shop.id}>
+                {shop.name}
+              </option>
+            ))}
+          </select>
+          {shops.length === 0 ? <p className="text-xs text-slate-500">Atama için önce Etsy mağazası ekleyin.</p> : null}
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {item.trackedProduct ? <StatusBadge status={item.trackedProduct.status} /> : null}
+            {item.trackedProduct ? <StatusBadge status={item.trackedProduct.parseStatus} /> : null}
+            {item.sourceUrl ? (
+              <TrendyolExternalLink href={item.sourceUrl} label={`Kaynak ürün sayfasını yeni sekmede aç: ${item.title}`} size="sm" />
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -150,10 +188,7 @@ export function UnifiedDashboardCard({ ownerKey, item }: UnifiedDashboardCardPro
           </Link>
         ) : null}
         {trackedDetailHref ? (
-          <Link
-            to={trackedDetailHref}
-            className="rounded-2xl bg-[#051125] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#0a1831]"
-          >
+          <Link to={trackedDetailHref} className="rounded-2xl bg-[#051125] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#0a1831]">
             Takip detayı
           </Link>
         ) : null}

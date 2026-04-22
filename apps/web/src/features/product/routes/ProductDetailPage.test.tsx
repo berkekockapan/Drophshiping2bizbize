@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom/vitest";
+import { act } from "react";
 import userEvent from "@testing-library/user-event";
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act } from "react";
 
 import { installMockLocalStorage } from "../../../test/mockLocalStorage";
 import { renderWithProviders } from "../../../test/test-utils";
@@ -24,6 +24,7 @@ const productDetailPayload = {
     status: "ACTIVE",
     parseStatus: "OK",
     lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+    shops: [],
   },
   currentState: {
     currentPrice: 44990,
@@ -33,6 +34,7 @@ const productDetailPayload = {
     totalVariantCount: 3,
     lastChangeAt: Date.parse("2026-03-20T09:30:00.000Z"),
     lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+    shops: [],
   },
   variants: [
     {
@@ -45,7 +47,27 @@ const productDetailPayload = {
       currentStockState: "IN_STOCK",
       currentPrice: 44990,
       lastSeenAt: Date.parse("2026-03-20T10:00:00.000Z"),
-      rawPayload: { stockState: "IN_STOCK", url: "https://www.trendyol.com/example/l-siyah" },
+      rawPayload: {
+        stockState: "IN_STOCK",
+        imageUrl: "https://cdn.example.com/hoodie-l.jpg",
+        url: "https://www.trendyol.com/example/l-siyah",
+      },
+    },
+    {
+      id: "var_2",
+      variantKey: "M-Siyah",
+      option1: "M",
+      option2: "Siyah",
+      option3: null,
+      trendyolUrl: "https://www.trendyol.com/example/m-siyah",
+      currentStockState: "OUT_OF_STOCK",
+      currentPrice: 42990,
+      lastSeenAt: Date.parse("2026-03-20T10:00:00.000Z"),
+      rawPayload: {
+        stockState: "OUT_OF_STOCK",
+        imageUrl: "https://cdn.example.com/hoodie-m.jpg",
+        url: "https://www.trendyol.com/example/m-siyah",
+      },
     },
   ],
   priceHistory: [],
@@ -179,8 +201,15 @@ const productDetailPayload = {
   },
 };
 
-const categoriesPayload = {
-  items: [{ id: "cat_bardak", name: "Bardak" }],
+const etsyShopsPayload = {
+  items: [
+    {
+      id: "shop_1",
+      name: "Cozy Prints",
+      etsyShopUrl: "https://www.etsy.com/shop/cozyprints",
+      description: "Ana Etsy magazasi",
+    },
+  ],
 };
 
 const settingsPayload = {
@@ -216,17 +245,17 @@ describe("ProductDetailPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses owner-scoped detail endpoint and back links", async () => {
+  it("uses owner-scoped detail endpoint and renders variant-first detail blocks", async () => {
     installMockLocalStorage();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
-      if (url.includes("/owners/berke/categories")) {
-        return jsonResponse(categoriesPayload);
-      }
-
       if (url.endsWith("/settings")) {
         return jsonResponse(settingsPayload);
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return jsonResponse(etsyShopsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1")) {
@@ -241,10 +270,11 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
-    expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/varyant görünümü/i)).toBeInTheDocument();
     expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
     expect(screen.getByText(/varyasyon matrisi/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ürün başlığı/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: /urun maliyet gorunumu/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products/prod_1"), expect.anything());
   });
@@ -256,12 +286,12 @@ describe("ProductDetailPage", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
 
-      if (url.includes("/owners/berke/categories")) {
-        return jsonResponse(categoriesPayload);
-      }
-
       if (url.endsWith("/settings")) {
         return jsonResponse(settingsPayload);
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return jsonResponse(etsyShopsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1")) {
@@ -305,10 +335,6 @@ describe("ProductDetailPage", () => {
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
-
-      if (url.includes("/owners/berke/categories")) {
-        return jsonResponse(categoriesPayload);
-      }
 
       if (url.includes("/owners/berke/products/prod_1/etsy-prep") && (!init?.method || init.method === "GET")) {
         return jsonResponse({
@@ -358,16 +384,15 @@ describe("ProductDetailPage", () => {
             outputContract: { type: "json", fields: ["title", "description", "tags"] },
           },
           chatGptResearchPromptPack: {
-            prompt:
-              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+            prompt: "Check Etsy Seller Handbook guidance before drafting.",
             outputFormat: "sectioned-text",
             researchMode: "required",
             expectedSections: ["title", "description", "tags"],
           },
           imagePromptPack: {
-            mainPrompt: "Reference Truth\n- The manual reference image is the single source of truth for the exact product.",
-            variations: ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"],
-            guardrailSummary: ["Do not redesign, reinterpret, embellish, or reconstruct the product."],
+            mainPrompt: "Reference Truth",
+            variations: ["v1"],
+            guardrailSummary: ["Do not redesign."],
           },
         });
       }
@@ -394,6 +419,10 @@ describe("ProductDetailPage", () => {
         });
       }
 
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return jsonResponse(etsyShopsPayload);
+      }
+
       if (url.includes("/owners/berke/products/prod_1")) {
         return jsonResponse(productDetailPayload);
       }
@@ -418,22 +447,19 @@ describe("ProductDetailPage", () => {
     );
   });
 
-  it("updates the owner-scoped product category from the detail page", async () => {
+  it("updates selected variant details when the user clicks another variant", async () => {
     installMockLocalStorage();
     const user = userEvent.setup();
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = String(input);
 
-      if (url.includes("/owners/berke/categories")) {
-        return jsonResponse(categoriesPayload);
-      }
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
 
       if (url.endsWith("/settings")) {
         return jsonResponse(settingsPayload);
       }
 
-      if (url.includes("/owners/berke/products/prod_1/category") && init?.method === "PATCH") {
-        return jsonResponse({ productId: "prod_1", userCategory: { id: "cat_bardak", name: "Bardak" } });
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return jsonResponse(etsyShopsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1")) {
@@ -448,27 +474,27 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    await user.selectOptions(await screen.findByLabelText(/takip kategorisi/i), "cat_bardak");
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/owners/berke/products/prod_1/category"),
-        expect.objectContaining({ method: "PATCH" }),
-      ),
-    );
+    expect(await screen.findByText(/seçili varyant/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/l \/ siyah/i).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: /varyant sec: m \/ siyah/i }));
+
+    expect(screen.getAllByText(/m \/ siyah/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/429,90/).length).toBeGreaterThan(0);
   });
 
-  it("mounts the product cost panel with the tariff panel and saves a selected recommendation", async () => {
+  it("keeps tariff selection flow working without the removed cost panel", async () => {
     installMockLocalStorage();
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url.includes("/owners/berke/categories")) {
-        return jsonResponse(categoriesPayload);
-      }
-
       if (url.endsWith("/settings")) {
         return jsonResponse(settingsPayload);
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return jsonResponse(etsyShopsPayload);
       }
 
       if (url.includes("/owners/berke/products/prod_1/tariff-selection") && init?.method === "PUT") {
@@ -534,10 +560,8 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByRole("heading", { name: /urun maliyet gorunumu/i })).toBeInTheDocument();
-    expect(screen.getByText(/diger toplam maliyet/i)).toBeInTheDocument();
-    expect(screen.getByText(/en uygun abd profili otomatik secildi/i)).toBeInTheDocument();
-    expect(screen.getByText(/bu urun icin secilen gtip: 711790/i)).toBeInTheDocument();
+    expect(await screen.findByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /urun maliyet gorunumu/i })).not.toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: /bu kodu sec/i })[1]);
 
     await waitFor(() =>

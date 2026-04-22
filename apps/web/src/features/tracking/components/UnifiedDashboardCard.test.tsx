@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
 import { within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { UnifiedDashboardCard } from "./UnifiedDashboardCard";
 import type { UnifiedDashboardItem } from "../lib/buildUnifiedDashboardItems";
@@ -18,6 +19,7 @@ const baseItem: UnifiedDashboardItem = {
   sourceCategoryLabel: "Hoodie",
   trackingCategoryLabel: "Dis Giyim",
   etsyLinks: [{ id: "etsy_1", title: "123456789", url: "https://www.etsy.com/listing/123456789" }],
+  assignedShops: [{ id: "shop_1", name: "Cozy Prints" }],
   sourceProduct: {
     id: "sp_1",
     ownerKey: "berke",
@@ -48,16 +50,26 @@ const baseItem: UnifiedDashboardItem = {
     totalVariantCount: 18,
     isFavorite: false,
     userCategory: { id: "cat_tracking", name: "Dis Giyim" },
+    shops: [{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }],
     lastCheckedAt: 1710000000000,
   },
 };
 
 describe("UnifiedDashboardCard", () => {
   it("renders the tracked thumbnail in the unified product card", () => {
-    const { container } = renderWithProviders(<UnifiedDashboardCard ownerKey="berke" item={baseItem} />, {
-      route: "/owners/berke/products",
-      path: "/owners/:ownerKey/products",
-    });
+    const { container } = renderWithProviders(
+      <UnifiedDashboardCard
+        ownerKey="berke"
+        item={baseItem}
+        shops={[{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }]}
+        showAssignedShopLabel
+        onAssignShop={() => {}}
+      />,
+      {
+        route: "/owners/berke/products",
+        path: "/owners/:ownerKey/products",
+      },
+    );
 
     const card = container.querySelector("article");
 
@@ -75,6 +87,7 @@ describe("UnifiedDashboardCard", () => {
       "src",
       "https://cdn.example.com/hoodie-1.jpg",
     );
+    expect(within(card).getByText(/etsy mağazası: cozy prints/i)).toBeInTheDocument();
   });
 
   it("shows a stable placeholder when no thumbnail is available", () => {
@@ -85,6 +98,7 @@ describe("UnifiedDashboardCard", () => {
       thumbnailImage: null,
       platform: "trendyol-milla",
       etsyLinks: [],
+      assignedShops: [],
       sourceProduct: {
         id: "sp_2",
         ownerKey: "berke",
@@ -104,10 +118,19 @@ describe("UnifiedDashboardCard", () => {
       trackingCategoryLabel: null,
     };
 
-    const { container } = renderWithProviders(<UnifiedDashboardCard ownerKey="berke" item={item} />, {
-      route: "/owners/berke/products",
-      path: "/owners/:ownerKey/products",
-    });
+    const { container } = renderWithProviders(
+      <UnifiedDashboardCard
+        ownerKey="berke"
+        item={item}
+        shops={[{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }]}
+        showAssignedShopLabel
+        onAssignShop={() => {}}
+      />,
+      {
+        route: "/owners/berke/products",
+        path: "/owners/:ownerKey/products",
+      },
+    );
 
     const card = container.querySelector("article");
 
@@ -123,5 +146,31 @@ describe("UnifiedDashboardCard", () => {
     );
     expect(within(card).getByText("Görsel yok")).toBeInTheDocument();
     expect(within(card).queryByRole("img", { name: /kaynak canta/i })).not.toBeInTheDocument();
+  });
+
+  it("triggers shop assignment when a different shop is selected", async () => {
+    const user = userEvent.setup();
+    const onAssignShop = vi.fn();
+
+    renderWithProviders(
+      <UnifiedDashboardCard
+        ownerKey="berke"
+        item={baseItem}
+        shops={[
+          { id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null },
+          { id: "shop_2", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordic-lane", description: null },
+        ]}
+        showAssignedShopLabel={false}
+        onAssignShop={onAssignShop}
+      />,
+      {
+        route: "/owners/berke/products",
+        path: "/owners/:ownerKey/products",
+      },
+    );
+
+    await user.selectOptions(within(document.body).getByLabelText(/etsy mağazası/i), "shop_2");
+
+    expect(onAssignShop).toHaveBeenCalledWith(expect.objectContaining({ key: "item_1" }), "shop_2");
   });
 });

@@ -1,9 +1,9 @@
 {
-    "startedAt":  "2026-04-21T22:44:59.2485022+03:00",
+    "startedAt":  "2026-04-22T14:58:43.1057105+03:00",
     "apiPort":  8788,
-    "apiListenerPid":  20304,
+    "apiListenerPid":  20012,
     "webPort":  5174,
-    "webListenerPid":  19000,
+    "webListenerPid":  348,
     "apiLogOut":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\api-local.out.log",
     "apiLogErr":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\api-local.err.log",
     "webLogOut":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\web-local.out.log",

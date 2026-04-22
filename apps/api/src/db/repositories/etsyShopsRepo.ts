@@ -15,6 +15,64 @@ export interface EtsyShopRow {
 }
 
 export function createEtsyShopsRepo(db: D1Database) {
+  async function ensureSchema() {
+    await runWithWriteRetry(async () => {
+      await db
+        .prepare(
+          `create table if not exists etsy_shops (
+             id text primary key,
+             owner_key text not null check (owner_key in ('berke', 'kaan')),
+             name text not null check (length(trim(name)) > 0),
+             etsy_shop_url text not null check (length(trim(etsy_shop_url)) > 0),
+             description text,
+             created_at integer not null,
+             updated_at integer not null
+           )`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create unique index if not exists etsy_shops_owner_name_unique
+             on etsy_shops(owner_key, lower(trim(name)))`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists etsy_shops_owner_created_idx
+             on etsy_shops(owner_key, created_at desc)`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create table if not exists product_etsy_shops (
+             product_id text not null,
+             shop_id text not null,
+             owner_key text not null check (owner_key in ('berke', 'kaan')),
+             created_at integer not null,
+             primary key (product_id, shop_id)
+           )`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists product_etsy_shops_shop_created_idx
+             on product_etsy_shops(shop_id, created_at desc)`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists product_etsy_shops_owner_product_idx
+             on product_etsy_shops(owner_key, product_id)`,
+        )
+        .run();
+    });
+  }
+
   return {
     db,
     tables: {
@@ -22,6 +80,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       productEtsyShops,
     },
     async listShops(ownerKey: OwnerKey) {
+      await ensureSchema();
       const result = await db
         .prepare(
           `select s.id, s.owner_key as ownerKey, s.name, s.etsy_shop_url as etsyShopUrl, s.description,
@@ -40,6 +99,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       return result.results;
     },
     async getShop(ownerKey: OwnerKey, shopId: string) {
+      await ensureSchema();
       return db
         .prepare(
           `select id, owner_key as ownerKey, name, etsy_shop_url as etsyShopUrl, description,
@@ -61,6 +121,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       },
       now: Date,
     ) {
+      await ensureSchema();
       const id = crypto.randomUUID();
       await runWithWriteRetry(async () => {
         await db
@@ -76,6 +137,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       return this.getShop(ownerKey, id);
     },
     async listProductShops(ownerKey: OwnerKey, productId: string) {
+      await ensureSchema();
       const result = await db
         .prepare(
           `select s.id, s.owner_key as ownerKey, s.name, s.etsy_shop_url as etsyShopUrl, s.description,
@@ -95,6 +157,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       return result.results;
     },
     async listShopIdsForProduct(ownerKey: OwnerKey, productId: string) {
+      await ensureSchema();
       const result = await db
         .prepare(
           `select shop_id as shopId
@@ -109,6 +172,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       return result.results.map((item) => item.shopId);
     },
     async listTrackingCardsForShop(ownerKey: OwnerKey, shopId: string) {
+      await ensureSchema();
       const result = await db
         .prepare(
           `select p.id, p.owner_key as ownerKey, p.trendyol_url as trendyolUrl, p.source_product_id as sourceProductId,
@@ -156,6 +220,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       }));
     },
     async validateShopIds(ownerKey: OwnerKey, shopIds: string[]) {
+      await ensureSchema();
       if (shopIds.length === 0) {
         return [];
       }
@@ -175,6 +240,7 @@ export function createEtsyShopsRepo(db: D1Database) {
       return result.results;
     },
     async setProductShops(ownerKey: OwnerKey, productId: string, shopIds: string[], now: Date) {
+      await ensureSchema();
       const normalizedShopIds = [...new Set(shopIds)];
       const existingProduct = await db
         .prepare(

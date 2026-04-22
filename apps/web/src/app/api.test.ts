@@ -38,6 +38,7 @@ describe("app api", () => {
 
   it("prefixes owner requests with VITE_API_BASE_URL", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://dropshiping2bizbize-api.workers.dev");
+    vi.stubEnv("VITE_API_PROXY_TARGET", "");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({ summary: { trackedCount: 0, activeCount: 0, reviewNeededCount: 0 }, items: [], filters: {} }),
@@ -66,6 +67,25 @@ describe("app api", () => {
     );
 
     expectFetchCalledWithPath(fetchMock, "/owners/berke/products");
+  });
+
+  it("prefers relative owner requests in local dev when proxy target is configured", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://dropshiping2bizbize-api.workers.dev");
+    vi.stubEnv("VITE_API_PROXY_TARGET", "http://127.0.0.1:8788");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ summary: { trackedCount: 0, activeCount: 0, reviewNeededCount: 0 }, items: [], filters: {} }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    const { fetchTrackingView } = await import("./api");
+    await fetchTrackingView("berke");
+
+    expect(fetchMock).toHaveBeenCalledWith("/owners/berke/products", expect.anything());
   });
 
   it("forwards etsyCostCalculator in patchSettings payload", async () => {
@@ -245,6 +265,7 @@ describe("app api", () => {
 
   it("prefixes source-products requests with VITE_API_BASE_URL", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "https://dropshiping2bizbize-api.workers.dev");
+    vi.stubEnv("VITE_API_PROXY_TARGET", "");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: [], total: 0 }), {
         status: 200,

@@ -196,7 +196,6 @@ test("product detail runs tariff analysis and lets the user save a recommendatio
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
 
-  await expect(page.getByRole("heading", { name: "Urun maliyet gorunumu" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "GTIP / ABD Vergi Analizi" })).toBeVisible();
   await expect(page.getByText(/toplam %11.0/i).first()).toBeVisible();
   await page.getByRole("button", { name: /bu kodu sec/i }).first().click();

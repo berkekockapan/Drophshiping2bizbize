@@ -16,6 +16,10 @@ export interface UnifiedDashboardItem {
     title: string;
     url: string;
   }>;
+  assignedShops: Array<{
+    id: string;
+    name: string;
+  }>;
   sourceProduct: SourceProductItem | null;
   trackedProduct: TrackingItem | null;
 }
@@ -80,6 +84,7 @@ function createUnifiedItem(sourceProduct: SourceProductItem | null, trackedProdu
     sourceCategoryLabel: sourceProduct?.sourceCategory?.name ?? null,
     trackingCategoryLabel: trackedProduct?.userCategory?.name ?? null,
     etsyLinks: sourceProduct?.linkedEtsyItems ?? [],
+    assignedShops: (trackedProduct?.shops ?? []).map((shop) => ({ id: shop.id, name: shop.name })),
     sourceProduct,
     trackedProduct,
   };
@@ -121,6 +126,7 @@ export function buildUnifiedDashboardItems(sourceProducts: SourceProductItem[], 
       matchedItem.categoryLabel = category.label;
       matchedItem.categoryKey = category.key;
       matchedItem.trackingCategoryLabel = trackedProduct.userCategory?.name ?? null;
+      matchedItem.assignedShops = (trackedProduct.shops ?? []).map((shop) => ({ id: shop.id, name: shop.name }));
       continue;
     }
 

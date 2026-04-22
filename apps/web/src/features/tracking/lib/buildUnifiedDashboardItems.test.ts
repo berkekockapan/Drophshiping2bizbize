@@ -38,6 +38,7 @@ describe("buildUnifiedDashboardItems", () => {
           totalVariantCount: 3,
           isFavorite: false,
           userCategory: { id: "cat_tracking", name: "Disari Giyim" },
+          shops: [{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }],
           lastCheckedAt: 123,
         },
       ],
@@ -51,6 +52,7 @@ describe("buildUnifiedDashboardItems", () => {
         thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
         categoryLabel: "Hoodie",
         etsyLinks: [{ id: "etsy_1", title: "123456789", url: "https://www.etsy.com/listing/123456789" }],
+        assignedShops: [{ id: "shop_1", name: "Cozy Prints" }],
       }),
     );
     expect(items[0]?.sourceProduct?.id).toBe("sp_1");
@@ -76,6 +78,7 @@ describe("buildUnifiedDashboardItems", () => {
         totalVariantCount: null,
         isFavorite: false,
         userCategory: null,
+        shops: [],
         lastCheckedAt: null,
       },
     ]);
@@ -87,6 +90,7 @@ describe("buildUnifiedDashboardItems", () => {
         thumbnailImage: "https://cdn.example.com/product-1.jpg",
         categoryLabel: null,
         sourceProduct: null,
+        assignedShops: [],
       }),
     );
     expect(items[0]?.trackedProduct?.id).toBe("prod_2");

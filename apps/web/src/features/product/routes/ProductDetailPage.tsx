@@ -1,24 +1,16 @@
-﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import type { AutoSelectedTariffProfile } from "../../../app/api";
-import {
-  fetchEtsyShops,
-  fetchProductCategories,
-  fetchProductDetail,
-  setTrackedProductCategory,
-  updateProductShops,
-} from "../../../app/api";
+import { fetchEtsyShops, fetchProductDetail, updateProductShops } from "../../../app/api";
 import { EtsyPrepWorkspace } from "../../etsyPrep/components/EtsyPrepWorkspace";
 import { LiveSyncStatus } from "../../shared/components/LiveSyncStatus";
-import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { liveSyncQueryOptions } from "../../shared/lib/liveQuery";
+import { ownerOptions, type OwnerKey } from "../../shared/lib/ownerRouteState";
 import { ChangeTimeline } from "../components/ChangeTimeline";
-import { ProductCostPanel } from "../components/ProductCostPanel";
-import { ProductTariffPanel } from "../components/ProductTariffPanel";
 import { ProductShopAssignmentPanel } from "../components/ProductShopAssignmentPanel";
 import { ProductSummary } from "../components/ProductSummary";
+import { ProductTariffPanel } from "../components/ProductTariffPanel";
 import { VariantTable } from "../components/VariantTable";
 
 function isOwnerKey(value: string | undefined): value is OwnerKey {
@@ -31,17 +23,10 @@ export function ProductDetailPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"overview" | "prep">("overview");
   const [hasOpenedPrep, setHasOpenedPrep] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const detailHasLoadedRef = useRef(false);
   const [hasBackgroundRefreshError, setHasBackgroundRefreshError] = useState(false);
   const [shopMutationError, setShopMutationError] = useState<string | null>(null);
-
-  const categoriesQuery = useQuery({
-    queryKey: ["product-categories", ownerKey],
-    enabled: Boolean(ownerKey),
-    queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
-    ...liveSyncQueryOptions,
-  });
-
 
   const shopsQuery = useQuery({
     queryKey: ["etsy-shops", ownerKey],
@@ -67,21 +52,12 @@ export function ProductDetailPage() {
     ...liveSyncQueryOptions,
   });
 
-  const categoryMutation = useMutation({
-    mutationFn: (categoryId: string | null) =>
-      setTrackedProductCategory(ownerKey as OwnerKey, productId as string, categoryId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["product-detail", ownerKey, productId] });
-      await queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] });
-    },
-  });
-
   useEffect(() => {
     setMode("overview");
     setHasOpenedPrep(false);
     setShopMutationError(null);
+    setSelectedVariantId(null);
   }, [ownerKey, productId]);
-
 
   const shopsMutation = useMutation({
     mutationFn: (shopIds: string[]) => updateProductShops(ownerKey as OwnerKey, productId as string, shopIds),
@@ -107,6 +83,33 @@ export function ProductDetailPage() {
     setHasBackgroundRefreshError(false);
   }, [detailQuery.dataUpdatedAt, detailQuery.data]);
 
+  useEffect(() => {
+    if (!detailQuery.data) {
+      return;
+    }
+
+    const variants = detailQuery.data.variants;
+    if (variants.length === 0) {
+      if (selectedVariantId !== null) {
+        setSelectedVariantId(null);
+      }
+      return;
+    }
+
+    const hasCurrent = selectedVariantId ? variants.some((variant) => variant.id === selectedVariantId) : false;
+    if (hasCurrent) {
+      return;
+    }
+
+    const preferredId =
+      detailQuery.data.costContext.selectedVariantId &&
+      variants.some((variant) => variant.id === detailQuery.data.costContext.selectedVariantId)
+        ? detailQuery.data.costContext.selectedVariantId
+        : variants[0].id;
+
+    setSelectedVariantId(preferredId);
+  }, [detailQuery.data, selectedVariantId]);
+
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Owner bulunamadı.</p>;
   }
@@ -119,51 +122,6 @@ export function ProductDetailPage() {
     setHasOpenedPrep(true);
     setMode("prep");
   }
-
-  const displayedCostContext = useMemo(() => {
-    if (!detailQuery.data) {
-      return null;
-    }
-
-    const existingProfile = detailQuery.data.costContext.usState.profile;
-    const recommendedProfile = existingProfile
-      ? null
-      : detailQuery.data.tariffAnalysis.latestRun?.resultSnapshot?.selectedProfile
-        ? detailQuery.data.tariffAnalysis.latestRun.resultSnapshot.selectedProfile
-        : detailQuery.data.tariffAnalysis.recommendations[0]
-          ? ({
-              catalogId: detailQuery.data.tariffAnalysis.recommendations[0].catalogId,
-              profileName: detailQuery.data.tariffAnalysis.recommendations[0].profileName,
-              canonicalHs6: detailQuery.data.tariffAnalysis.recommendations[0].canonicalHs6,
-              htsCode10: detailQuery.data.tariffAnalysis.recommendations[0].htsCode10,
-              combinedDutyRate: detailQuery.data.tariffAnalysis.recommendations[0].combinedDutyRate,
-              dutySummary: detailQuery.data.tariffAnalysis.recommendations[0].dutySummary,
-              defaultShipentegraUsd: detailQuery.data.tariffAnalysis.recommendations[0].defaultShipentegraUsd,
-            } satisfies AutoSelectedTariffProfile)
-          : null;
-
-    const profile = existingProfile ?? recommendedProfile;
-    if (!profile) {
-      return detailQuery.data.costContext;
-    }
-
-    const status: "automatic_confirmed" | "review_required" =
-      detailQuery.data.costContext.usState.status === "automatic_confirmed" ? "automatic_confirmed" : "review_required";
-
-    return {
-      ...detailQuery.data.costContext,
-      usState: {
-        status,
-        label: status === "automatic_confirmed" ? "otomatik dogrulandi" : "inceleme gerekli",
-        lockedReason:
-          status === "automatic_confirmed"
-            ? null
-            : detailQuery.data.costContext.usState.lockedReason ??
-              "En uygun ABD profili otomatik secildi. Dilersen GTIP panelinden degistirebilirsin.",
-        profile,
-      },
-    };
-  }, [detailQuery.data]);
 
   return (
     <div className="space-y-6">
@@ -182,9 +140,8 @@ export function ProductDetailPage() {
           <ProductSummary
             ownerKey={ownerKey}
             detail={detailQuery.data}
-            categories={categoriesQuery.data ?? []}
-            categoryPending={categoryMutation.isPending}
-            onCategoryChange={(categoryId) => categoryMutation.mutate(categoryId)}
+            selectedVariantId={selectedVariantId}
+            onVariantSelect={setSelectedVariantId}
             action={
               mode === "overview" ? (
                 <button
@@ -206,12 +163,16 @@ export function ProductDetailPage() {
             onSave={(shopIds) => shopsMutation.mutate(shopIds)}
           />
 
-          <ProductCostPanel ownerKey={ownerKey} productId={productId} costContext={displayedCostContext ?? detailQuery.data.costContext} />
-
           <ProductTariffPanel ownerKey={ownerKey} productId={productId} analysis={detailQuery.data.tariffAnalysis} />
 
           <div className="space-y-6" hidden={mode !== "overview"} aria-hidden={mode !== "overview"}>
-            <VariantTable variants={detailQuery.data.variants} />
+            <VariantTable
+              variants={detailQuery.data.variants}
+              productTitle={detailQuery.data.product.title}
+              productImages={detailQuery.data.product.images}
+              selectedVariantId={selectedVariantId}
+              onVariantSelect={setSelectedVariantId}
+            />
             <ChangeTimeline items={detailQuery.data.changeTimeline} />
           </div>
 
@@ -225,4 +186,3 @@ export function ProductDetailPage() {
     </div>
   );
 }
-

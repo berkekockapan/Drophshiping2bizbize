@@ -18,4 +18,24 @@ describe("vite preview config", () => {
       allowedHosts: true,
     });
   });
+
+  it("enables dev proxy routes when a local API proxy target exists", async () => {
+    const config = await (createConfig as unknown as (env: ConfigEnv) => any)({
+      command: "serve",
+      mode: "development",
+      isPreview: false,
+      isSsrBuild: false,
+    });
+
+    expect(config.server.proxy).toMatchObject({
+      "/owners": expect.objectContaining({
+        target: "http://127.0.0.1:8788",
+        changeOrigin: true,
+      }),
+      "/health": expect.objectContaining({
+        target: "http://127.0.0.1:8788",
+        changeOrigin: true,
+      }),
+    });
+  });
 });

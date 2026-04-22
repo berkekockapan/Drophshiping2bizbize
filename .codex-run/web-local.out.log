@@ -1,21 +1,33 @@
 
-> @dropshiping2bizbize/web@0.0.0 dev C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize\apps\web
-> vite "--" "--host" "127.0.0.1" "--port" "5173" "--strictPort"
+> dropshiping2bizbize-workflow@ dev:web C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize
+> pnpm --filter @dropshiping2bizbize/web dev
 
-C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize\apps\web:
- ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @dropshiping2bizbize/web@0.0.0 dev: `vite "--" "--host[2m23:12:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/app/api.ts[22m
-[2m23:14:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
-[2m23:15:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
-[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:17:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:18:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/app/router.test.tsx[22m
-[2m23:18:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:19:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.test.tsx[22m
-[2m23:20:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
-[2m23:21:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:21:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
-[2m23:22:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+
+> @dropshiping2bizbize/web@0.0.0 dev C:\Users\berke\Desktop\Projelerim\dropshiping2bizbize\apps\web
+> vite
+
+
+  [32m[1mVITE[22m v7.3.1[39m  [2mready in [0m[1m265[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5174[22m/[39m
+[2m15:16:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/lib/buildUnifiedDashboardItems.ts[22m
+[2m15:16:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/components/UnifiedDashboardCard.tsx[22m
+[2m15:17:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/components/UnifiedDashboardCard.tsx[22m
+[2m15:17:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
+[2m15:19:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
+[2m15:19:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:19:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:20:00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:20:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:21:03[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:22:46[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/tracking/routes/TrackingCenterPage.tsx[22m
+[2m15:45:46[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/components/ProductSummary.tsx[22m
+[2m15:46:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/components/VariantTable.tsx[22m
+[2m15:47:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/routes/ProductDetailPage.tsx[22m
+[2m15:49:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:50:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:51:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/components/ProductSummary.tsx[22m
+[2m15:51:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/components/VariantTable.tsx[22m
+[2m15:51:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/routes/ProductDetailPage.tsx[22m
+[2m15:51:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles/index.css[22m
+[2m15:51:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/features/product/lib/variantPresentation.ts[22m

@@ -9,6 +9,7 @@ import {
   fetchSourceProductsView,
   fetchTrackingView,
   setTrackedProductCategory,
+  type TrackingItem,
   updateProductShops,
   type TrackingViewResponse,
 } from "../../../app/api";
@@ -47,6 +48,59 @@ function matchesSearch(item: UnifiedDashboardItem, search: string) {
     .toLocaleLowerCase("tr-TR");
 
   return haystack.includes(normalizedSearch);
+}
+
+function extractSourceProductIdFromUrl(rawUrl: string | null | undefined) {
+  if (!rawUrl) {
+    return null;
+  }
+
+  try {
+    const match = new URL(rawUrl).pathname.match(/-p-(\d+)/i);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeComparableUrl(rawUrl: string | null | undefined) {
+  if (!rawUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(rawUrl);
+    url.search = "";
+    url.hash = "";
+    url.protocol = url.protocol.toLowerCase();
+    url.hostname = url.hostname.toLowerCase();
+    if (url.pathname !== "/") {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+    return url.toString();
+  } catch {
+    return rawUrl.trim() || null;
+  }
+}
+
+function findTrackedProductForSourceUrl(sourceUrl: string | null | undefined, trackingItems: TrackingItem[]) {
+  if (!sourceUrl) {
+    return null;
+  }
+
+  const sourceProductId = extractSourceProductIdFromUrl(sourceUrl);
+  const normalizedSourceUrl = normalizeComparableUrl(sourceUrl);
+
+  return (
+    trackingItems.find((trackingItem) => {
+      if (sourceProductId && trackingItem.sourceProductId === sourceProductId) {
+        return true;
+      }
+
+      const normalizedTrackingUrl = normalizeComparableUrl(trackingItem.trendyolUrl ?? null);
+      return Boolean(normalizedSourceUrl && normalizedTrackingUrl && normalizedSourceUrl === normalizedTrackingUrl);
+    }) ?? null
+  );
 }
 
 function updateTrackingItemShops(
@@ -124,8 +178,12 @@ export function TrackingCenterPage() {
         throw new Error("Geçersiz owner seçimi.");
       }
 
-      if (item.trackedProduct) {
-        const response = await updateProductShops(ownerKey, item.trackedProduct.id, shopId ? [shopId] : []);
+      const existingTrackedProduct =
+        item.trackedProduct ??
+        findTrackedProductForSourceUrl(item.sourceUrl, trackingQuery.data?.items ?? []);
+
+      if (existingTrackedProduct) {
+        const response = await updateProductShops(ownerKey, existingTrackedProduct.id, shopId ? [shopId] : []);
         return { productId: response.productId, shops: response.shops };
       }
 
@@ -137,11 +195,31 @@ export function TrackingCenterPage() {
         throw new Error("Kaynak ürün için bir mağaza seçmelisiniz.");
       }
 
-      await createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: [shopId] });
-      return null;
+      try {
+        await createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: [shopId] });
+        return null;
+      } catch (error) {
+        const latestTracking = await fetchTrackingView(ownerKey, {});
+        const duplicateTrackedProduct = findTrackedProductForSourceUrl(item.sourceUrl, latestTracking.items);
+
+        if (!duplicateTrackedProduct) {
+          throw error;
+        }
+
+        const response = await updateProductShops(ownerKey, duplicateTrackedProduct.id, [shopId]);
+        return { productId: response.productId, shops: response.shops };
+      }
     },
     onMutate: async ({ item, shopId }) => {
-      if (!item.trackedProduct || !ownerKey) {
+      if (!ownerKey) {
+        return { previousTrackingData: undefined };
+      }
+
+      const optimisticTrackedProductId =
+        item.trackedProduct?.id ??
+        findTrackedProductForSourceUrl(item.sourceUrl, trackingQuery.data?.items ?? [])?.id;
+
+      if (!optimisticTrackedProductId) {
         return { previousTrackingData: undefined };
       }
 
@@ -162,7 +240,7 @@ export function TrackingCenterPage() {
         : [];
 
       queryClient.setQueryData<TrackingViewResponse>(queryKey, (current) =>
-        updateTrackingItemShops(current, item.trackedProduct!.id, optimisticShops),
+        updateTrackingItemShops(current, optimisticTrackedProductId, optimisticShops),
       );
 
       return { previousTrackingData };

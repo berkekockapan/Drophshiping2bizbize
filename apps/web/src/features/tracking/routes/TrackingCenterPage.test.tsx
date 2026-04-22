@@ -4,9 +4,10 @@ import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TrackingCenterPage } from "./TrackingCenterPage";
+import type { TrackingItem } from "../../../app/api";
 import { renderWithProviders } from "../../../test/test-utils";
 
-const trackingItems = [
+const trackingItems: TrackingItem[] = [
   {
     id: "prod_1",
     ownerKey: "berke",
@@ -107,8 +108,8 @@ const categoriesPayload = {
   ],
 };
 
-function buildTrackingPayloadFrom(items: typeof trackingItems, shopId: string | null) {
-  const filteredItems = shopId ? items.filter((item) => item.shops.some((shop) => shop.id === shopId)) : items;
+function buildTrackingPayloadFrom(items: TrackingItem[], shopId: string | null) {
+  const filteredItems = shopId ? items.filter((item) => (item.shops ?? []).some((shop) => shop.id === shopId)) : items;
 
   return {
     summary: {
@@ -313,7 +314,7 @@ describe("TrackingCenterPage", () => {
     const user = userEvent.setup();
     const mutableTrackingItems = trackingItems.map((item) => ({
       ...item,
-      shops: item.shops.map((shop) => ({ ...shop })),
+      shops: (item.shops ?? []).map((shop) => ({ ...shop })),
     }));
 
     const updateRequestSpy = vi.fn();
@@ -403,5 +404,142 @@ describe("TrackingCenterPage", () => {
 
     expect(updateRequestSpy).toHaveBeenCalledTimes(1);
     expect(await within(hoodieCard).findByText(/etsy mağazası: nordic lane/i)).toBeInTheDocument();
+  });
+
+  it("falls back to existing tracked product assignment when create returns duplicate", async () => {
+    const user = userEvent.setup();
+    const sourceOnlyProducts = {
+      items: [
+        {
+          id: "sp_dup",
+          ownerKey: "berke",
+          title: "Canta Kaynak",
+          sourceUrl: "https://www.trendyol.com/brand/canta-p-456?boutiqueId=99",
+          platform: "trendyol",
+          notes: null,
+          sourceCategory: { id: "cat_bag", name: "Canta" },
+          sortOrder: 0,
+          deletedAt: null,
+          linkedEtsyCount: 0,
+          linkedEtsyItems: [],
+        },
+      ],
+      filters: {},
+    };
+
+    let trackingState: TrackingItem[] = [];
+    const updateRequestSpy = vi.fn();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceOnlyProducts), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/products/prod_dup/etsy-shops") && method === "PUT") {
+        updateRequestSpy();
+        trackingState = trackingState.map((item) =>
+          item.id === "prod_dup"
+            ? {
+                ...item,
+                shops: [{ id: "shop_nordic", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordiclane", description: null }],
+              }
+            : item,
+        );
+
+        return new Response(
+          JSON.stringify({
+            productId: "prod_dup",
+            shops: trackingState.find((item) => item.id === "prod_dup")?.shops ?? [],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/owners/berke/products") && method === "POST") {
+        trackingState = [
+          {
+            id: "prod_dup",
+            ownerKey: "berke",
+            sourceProductId: "456",
+            title: "Canta Takip",
+            brand: "Bag Brand",
+            trendyolUrl: "https://www.trendyol.com/brand/canta-p-456",
+            status: "ACTIVE",
+            parseStatus: "OK",
+            thumbnailImage: "https://cdn.example.com/bag.jpg",
+            currentPrice: 31990,
+            minPrice: 29990,
+            maxPrice: 32990,
+            inStockVariantCount: 6,
+            totalVariantCount: 8,
+            isFavorite: false,
+            userCategory: null,
+            shops: [],
+            lastCheckedAt: 1710000000000,
+          },
+        ];
+
+        return new Response(JSON.stringify({ error: "Tracked product already exists for https://www.trendyol.com/brand/canta-p-456" }), {
+          status: 409,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(buildTrackingPayloadFrom(trackingState, null)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    renderWithProviders(<TrackingCenterPage />, {
+      route: "/owners/berke/products",
+      path: "/owners/:ownerKey/products",
+    });
+
+    const bagHeading = await screen.findByRole("heading", { name: /canta kaynak/i });
+    const bagCard = bagHeading.closest("article");
+    expect(bagCard).not.toBeNull();
+    if (!bagCard) {
+      throw new Error("Expected source-only card to exist");
+    }
+
+    await user.selectOptions(within(bagCard).getByLabelText(/etsy mağazası/i), "shop_nordic");
+
+    expect(updateRequestSpy).toHaveBeenCalledTimes(1);
+    expect(await within(bagCard).findByText(/etsy mağazası: nordic lane/i)).toBeInTheDocument();
   });
 });

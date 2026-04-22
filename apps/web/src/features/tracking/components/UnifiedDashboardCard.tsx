@@ -35,7 +35,13 @@ export function UnifiedDashboardCard({
   const primaryDetailHref = trackedDetailHref ?? sourceDetailHref;
   const assignedShopId = item.assignedShops[0]?.id ?? "";
   const assignedShopNames = item.assignedShops.map((shop) => shop.name).join(", ");
-  const canClearAssignment = Boolean(item.trackedProduct);
+  const canClearAssignment = Boolean(item.trackedProduct || item.sourceProduct);
+  const canSetCategory = Boolean(item.trackedProduct || item.sourceProduct);
+  const categoryValue = item.trackedProduct?.userCategory?.id ?? item.sourceProduct?.userCategory?.id ?? null;
+  const categoryInputId = item.trackedProduct
+    ? `tracking-category-${item.trackedProduct.id}`
+    : `source-product-category-${item.sourceProduct?.id ?? item.key}`;
+  const categoryLabel = item.trackedProduct ? "Takip kategorisi" : "Kategori";
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -114,13 +120,13 @@ export function UnifiedDashboardCard({
           </select>
           {shops.length === 0 ? <p className="text-xs text-slate-500">Atama için önce Etsy mağazası ekleyin.</p> : null}
 
-          {item.trackedProduct ? (
+          {canSetCategory ? (
             categories.length > 0 ? (
               <ProductCategorySelect
-                label="Takip kategorisi"
-                inputId={`tracking-category-${item.trackedProduct.id}`}
+                label={categoryLabel}
+                inputId={categoryInputId}
                 categories={categories}
-                value={item.trackedProduct.userCategory?.id ?? null}
+                value={categoryValue}
                 disabled={isCategoryUpdating}
                 onChange={(categoryId) => onCategoryChange(item, categoryId)}
               />

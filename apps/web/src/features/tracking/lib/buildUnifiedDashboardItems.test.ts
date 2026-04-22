@@ -50,7 +50,7 @@ describe("buildUnifiedDashboardItems", () => {
         title: "Kaynak Hoodie",
         brand: "North Apparel",
         thumbnailImage: "https://cdn.example.com/hoodie-1.jpg",
-        categoryLabel: "Hoodie",
+        categoryLabel: "Disari Giyim",
         etsyLinks: [{ id: "etsy_1", title: "123456789", url: "https://www.etsy.com/listing/123456789" }],
         assignedShops: [{ id: "shop_1", name: "Cozy Prints" }],
       }),
@@ -141,5 +141,37 @@ describe("buildUnifiedDashboardItems", () => {
     expect(items[0]?.sourceProduct?.id).toBe("sp_link");
     expect(items[0]?.trackedProduct?.id).toBe("prod_link");
     expect(items[0]?.assignedShops).toEqual([{ id: "shop_1", name: "Cozy Prints" }]);
+  });
+
+  it("keeps source-level shop and category assignments when tracked record is missing", () => {
+    const items = buildUnifiedDashboardItems(
+      [
+        {
+          id: "sp_source_only",
+          ownerKey: "berke",
+          title: "Kaynak urun",
+          sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=123",
+          platform: "SHOPIER",
+          notes: null,
+          sourceCategory: { id: "cat_source", name: "Kaynak Kategori" },
+          userCategory: { id: "cat_tracking", name: "Atama Kategorisi" },
+          shops: [{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }],
+          sortOrder: 0,
+          deletedAt: null,
+          linkedEtsyCount: 0,
+          linkedEtsyItems: [],
+        },
+      ],
+      [],
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        categoryLabel: "Atama Kategorisi",
+        trackingCategoryLabel: "Atama Kategorisi",
+        assignedShops: [{ id: "shop_1", name: "Cozy Prints" }],
+      }),
+    );
   });
 });

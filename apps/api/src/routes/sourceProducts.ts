@@ -24,6 +24,8 @@ import { permanentlyDeleteSourceProduct } from "../modules/sourceProducts/perman
 import { reorderSourceProducts } from "../modules/sourceProducts/reorderSourceProducts";
 import { restoreSourceProduct } from "../modules/sourceProducts/restoreSourceProduct";
 import { setSourceProductCategory } from "../modules/sourceProducts/setSourceProductCategory";
+import { setSourceProductShops } from "../modules/sourceProducts/setSourceProductShops";
+import { setSourceProductUserCategory } from "../modules/sourceProducts/setSourceProductUserCategory";
 import { updateSourceProduct } from "../modules/sourceProducts/updateSourceProduct";
 
 function parseOwnerKey(value: string | undefined) {
@@ -139,6 +141,41 @@ export function createSourceProductsRouter() {
       parseCategoryId(body.categoryId),
     );
 
+    return result ? c.json(result) : c.json({ error: "Kayit bulunamadi" }, 404);
+  });
+
+  app.patch("/:sourceProductId/product-category", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req.json<{ categoryId?: string | null }>().catch(() => null);
+    if (!body || !("categoryId" in body)) {
+      return c.json({ error: "categoryId is required" }, 400);
+    }
+
+    const result = await setSourceProductUserCategory(
+      c.env.DB,
+      ownerKey,
+      c.req.param("sourceProductId"),
+      parseCategoryId(body.categoryId),
+    );
+    return result ? c.json(result) : c.json({ error: "Kayit bulunamadi" }, 404);
+  });
+
+  app.put("/:sourceProductId/etsy-shops", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req.json<{ shopIds?: string[] }>().catch(() => null);
+    if (!body || !Array.isArray(body.shopIds)) {
+      return c.json({ error: "shopIds is required" }, 400);
+    }
+
+    const result = await setSourceProductShops(c.env.DB, ownerKey, c.req.param("sourceProductId"), body.shopIds);
     return result ? c.json(result) : c.json({ error: "Kayit bulunamadi" }, 404);
   });
 

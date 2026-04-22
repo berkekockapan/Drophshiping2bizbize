@@ -3,13 +3,14 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
-  assignShopBySourceUrl,
   fetchEtsyShops,
   fetchProductCategories,
   fetchSourceProductsView,
   fetchTrackingView,
+  setSourceProductUserCategory,
   setTrackedProductCategory,
   type TrackingItem,
+  updateSourceProductShops,
   updateProductShops,
   type TrackingViewResponse,
 } from "../../../app/api";
@@ -222,7 +223,11 @@ export function TrackingCenterPage() {
   });
 
   const shopAssignmentMutation = useMutation<
-    { productId: string; shops: Array<{ id: string; name: string; etsyShopUrl: string; description: string | null }> } | null,
+    {
+      productId?: string;
+      sourceProductId?: string;
+      shops: Array<{ id: string; name: string; etsyShopUrl: string; description: string | null }>;
+    } | null,
     Error,
     { item: UnifiedDashboardItem; shopId: string | null },
     { previousTrackingData?: TrackingViewResponse }
@@ -256,16 +261,12 @@ export function TrackingCenterPage() {
         return assignShopToTrackedProduct(existingTrackedProduct.id);
       }
 
-      if (!item.sourceUrl) {
-        throw new Error("Kaynak ürün URL bilgisi bulunamadı.");
+      if (!item.sourceProduct?.id) {
+        throw new Error("Kaynak ürün kaydı bulunamadı.");
       }
 
-      if (!shopId) {
-        throw new Error("Kaynak ürün için bir mağaza seçmelisiniz.");
-      }
-
-      const response = await assignShopBySourceUrl(ownerKey, item.sourceUrl, shopId);
-      return { productId: response.productId, shops: response.shops };
+      const response = await updateSourceProductShops(ownerKey, item.sourceProduct.id, selectedShopIds);
+      return { sourceProductId: response.sourceProductId, shops: response.shops };
     },
     onMutate: async ({ item, shopId }) => {
       if (!ownerKey) {
@@ -319,7 +320,7 @@ export function TrackingCenterPage() {
   });
 
   const categoryMutation = useMutation<
-    { productId: string; userCategory: TrackingItem["userCategory"] },
+    { productId?: string; sourceProductId?: string; userCategory: TrackingItem["userCategory"] },
     Error,
     { item: UnifiedDashboardItem; categoryId: string | null },
     { previousTrackingData?: TrackingViewResponse }
@@ -344,11 +345,19 @@ export function TrackingCenterPage() {
       };
 
       const trackedProduct = findTrackedProductForItem(item, trackingQuery.data?.items ?? []);
-      if (!trackedProduct) {
-        throw new Error("Kategori güncellemesi için takip kaydı bulunamadı.");
+      if (trackedProduct) {
+        return updateCategory(trackedProduct.id);
       }
 
-      return updateCategory(trackedProduct.id);
+      if (!item.sourceProduct?.id) {
+        throw new Error("Kategori güncellemesi için kaynak ürün kaydı bulunamadı.");
+      }
+
+      const response = await setSourceProductUserCategory(ownerKey, item.sourceProduct.id, categoryId);
+      return {
+        sourceProductId: response.sourceProductId,
+        userCategory: response.userCategory,
+      };
     },
     onMutate: async ({ item, categoryId }) => {
       if (!ownerKey) {
@@ -382,6 +391,8 @@ export function TrackingCenterPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey, "dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
       ]);
     },
     onError: (error, _variables, context) => {

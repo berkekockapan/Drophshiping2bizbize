@@ -40,6 +40,9 @@ describe("schema integration", () => {
     const productEtsyShopColumns = database
       .prepare("pragma table_info(product_etsy_shops)")
       .all() as Array<{ name: string; dflt_value: string | null }>;
+    const sourceProductEtsyShopColumns = database
+      .prepare("pragma table_info(source_product_etsy_shops)")
+      .all() as Array<{ name: string; dflt_value: string | null }>;
     const productIndexes = database
       .prepare("pragma index_list(products)")
       .all() as Array<{ name: string; partial: number }>;
@@ -54,6 +57,9 @@ describe("schema integration", () => {
       .all() as Array<{ name: string; partial: number }>;
     const productEtsyShopIndexes = database
       .prepare("pragma index_list(product_etsy_shops)")
+      .all() as Array<{ name: string; partial: number }>;
+    const sourceProductEtsyShopIndexes = database
+      .prepare("pragma index_list(source_product_etsy_shops)")
       .all() as Array<{ name: string; partial: number }>;
     const priceColumns = database.prepare("pragma table_info(price_history)").all() as Array<{ name: string }>;
     const stockColumns = database.prepare("pragma table_info(stock_history)").all() as Array<{ name: string }>;
@@ -99,6 +105,7 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "source_platform" }),
         expect.objectContaining({ name: "note" }),
         expect.objectContaining({ name: "source_category_id" }),
+        expect.objectContaining({ name: "user_category_id" }),
         expect.objectContaining({ name: "sort_order" }),
         expect.objectContaining({ name: "deleted_at" }),
         expect.objectContaining({ name: "deleted_reason" }),
@@ -130,6 +137,13 @@ describe("schema integration", () => {
     expect(productEtsyShopColumns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "product_id" }),
+        expect.objectContaining({ name: "shop_id" }),
+        expect.objectContaining({ name: "owner_key" }),
+      ]),
+    );
+    expect(sourceProductEtsyShopColumns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "source_product_id" }),
         expect.objectContaining({ name: "shop_id" }),
         expect.objectContaining({ name: "owner_key" }),
       ]),
@@ -173,6 +187,13 @@ describe("schema integration", () => {
         expect.objectContaining({ name: "sqlite_autoindex_product_etsy_shops_1" }),
         expect.objectContaining({ name: "product_etsy_shops_shop_created_idx" }),
         expect.objectContaining({ name: "product_etsy_shops_owner_product_idx" }),
+      ]),
+    );
+    expect(sourceProductEtsyShopIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "sqlite_autoindex_source_product_etsy_shops_1" }),
+        expect.objectContaining({ name: "source_product_etsy_shops_owner_source_product_idx" }),
+        expect.objectContaining({ name: "source_product_etsy_shops_shop_created_idx" }),
       ]),
     );
     expect(priceColumns).toEqual(expect.arrayContaining([expect.objectContaining({ name: "refresh_audit_id" })]));

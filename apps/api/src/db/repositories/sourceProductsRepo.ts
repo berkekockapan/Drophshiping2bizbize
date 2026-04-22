@@ -2,7 +2,7 @@
 
 import type { D1Database } from "../../config/bindings";
 import { runWithWriteRetry } from "../runWithWriteRetry";
-import { sourceProductEtsyLinks, sourceProducts } from "../schema";
+import { sourceProductEtsyLinks, sourceProductEtsyShops, sourceProducts } from "../schema";
 
 interface SearchClause {
   query: string;
@@ -55,6 +55,8 @@ export interface SourceProductRecord {
   notes: string | null;
   sourceCategoryId: string | null;
   sourceCategoryName: string | null;
+  userCategoryId?: string | null;
+  userCategoryName?: string | null;
   sortOrder: number | null;
   deletedAt: number | null;
   deletedReason: string | null;
@@ -65,6 +67,16 @@ export interface SourceProductRecord {
     id: string;
     title: string;
     url: string;
+  }>;
+  userCategory: {
+    id: string;
+    name: string;
+  } | null;
+  shops: Array<{
+    id: string;
+    name: string;
+    etsyShopUrl: string;
+    description: string | null;
   }>;
 }
 
@@ -186,6 +198,13 @@ function mapManagementRow(row: SourceProductRecord) {
     notes: row.notes,
     sourceCategoryId: row.sourceCategoryId,
     sourceCategoryName: row.sourceCategoryName,
+    userCategory:
+      row.userCategoryId && row.userCategoryName
+        ? {
+            id: row.userCategoryId,
+            name: row.userCategoryName,
+          }
+        : null,
     sortOrder: row.sortOrder,
     deletedAt: row.deletedAt,
     deletedReason: row.deletedReason,
@@ -193,6 +212,7 @@ function mapManagementRow(row: SourceProductRecord) {
     updatedAt: row.updatedAt,
     linkedEtsyCount: row.linkedEtsyCount,
     linkedEtsyItems: [],
+    shops: [],
   };
 }
 
@@ -228,6 +248,57 @@ export function createSourceProductsRepo(db: D1Database) {
     }
 
     return itemsBySourceProductId;
+  }
+
+  async function loadAssignedShops(ownerKey: OwnerKey, sourceProductIds: string[]) {
+    if (sourceProductIds.length === 0) {
+      return new Map<string, Array<{ id: string; name: string; etsyShopUrl: string; description: string | null }>>();
+    }
+
+    const placeholders = sourceProductIds.map(() => "?").join(", ");
+    const rows = (
+      await db
+        .prepare(
+          `select rel.source_product_id as sourceProductId,
+                  s.id as id,
+                  s.name as name,
+                  s.etsy_shop_url as etsyShopUrl,
+                  s.description as description
+           from source_product_etsy_shops rel
+           inner join etsy_shops s
+             on s.id = rel.shop_id
+            and s.owner_key = rel.owner_key
+           where rel.owner_key = ?
+             and rel.source_product_id in (${placeholders})
+           order by rel.created_at asc, s.created_at asc, s.id asc`,
+        )
+        .bind(ownerKey, ...sourceProductIds)
+        .all<{
+          sourceProductId: string;
+          id: string;
+          name: string;
+          etsyShopUrl: string;
+          description: string | null;
+        }>()
+    ).results;
+
+    const shopsBySourceProductId = new Map<
+      string,
+      Array<{ id: string; name: string; etsyShopUrl: string; description: string | null }>
+    >();
+
+    for (const row of rows) {
+      const current = shopsBySourceProductId.get(row.sourceProductId) ?? [];
+      current.push({
+        id: row.id,
+        name: row.name,
+        etsyShopUrl: row.etsyShopUrl,
+        description: row.description,
+      });
+      shopsBySourceProductId.set(row.sourceProductId, current);
+    }
+
+    return shopsBySourceProductId;
   }
 
   async function loadActiveCategoryRows(ownerKey: OwnerKey, categoryId: string | null) {
@@ -296,6 +367,7 @@ export function createSourceProductsRepo(db: D1Database) {
     tables: {
       sourceProducts,
       sourceProductEtsyLinks,
+      sourceProductEtsyShops,
     },
     async hasSourceProduct(ownerKey: OwnerKey, sourceProductId: string) {
       const row = await db
@@ -584,6 +656,8 @@ export function createSourceProductsRepo(db: D1Database) {
                   p.note as notes,
                   p.source_category_id as sourceCategoryId,
                   c.name as sourceCategoryName,
+                  p.user_category_id as userCategoryId,
+                  uc.name as userCategoryName,
                   p.sort_order as sortOrder,
                   p.deleted_at as deletedAt,
                   p.deleted_reason as deletedReason,
@@ -594,6 +668,9 @@ export function createSourceProductsRepo(db: D1Database) {
            left join source_product_categories c
              on c.id = p.source_category_id
             and c.owner_key = p.owner_key
+           left join product_categories uc
+             on uc.id = p.user_category_id
+            and uc.owner_key = p.owner_key
            left join (
              select source_product_id, count(*) as linked_etsy_count
              from source_product_etsy_links
@@ -608,7 +685,16 @@ export function createSourceProductsRepo(db: D1Database) {
         .bind(ownerKey, ownerKey, sourceProductId)
         .first<SourceProductRecord>();
 
-      return row ? mapManagementRow(row) : null;
+      if (!row) {
+        return null;
+      }
+
+      const sourceProduct = mapManagementRow(row);
+      const assignedShops = await loadAssignedShops(ownerKey, [sourceProductId]);
+      return {
+        ...sourceProduct,
+        shops: assignedShops.get(sourceProductId) ?? [],
+      };
     },
     async getManagementDetail(ownerKey: OwnerKey, sourceProductId: string) {
       const sourceProduct = await repo.get(ownerKey, sourceProductId);
@@ -653,6 +739,8 @@ export function createSourceProductsRepo(db: D1Database) {
                   p.note as notes,
                   p.source_category_id as sourceCategoryId,
                   c.name as sourceCategoryName,
+                  p.user_category_id as userCategoryId,
+                  uc.name as userCategoryName,
                   p.sort_order as sortOrder,
                   p.deleted_at as deletedAt,
                   p.deleted_reason as deletedReason,
@@ -663,6 +751,9 @@ export function createSourceProductsRepo(db: D1Database) {
            left join source_product_categories c
              on c.id = p.source_category_id
             and c.owner_key = p.owner_key
+           left join product_categories uc
+             on uc.id = p.user_category_id
+            and uc.owner_key = p.owner_key
            left join (
              select source_product_id, count(*) as linked_etsy_count
              from source_product_etsy_links
@@ -685,10 +776,15 @@ export function createSourceProductsRepo(db: D1Database) {
         ownerKey,
         items.map((item) => item.id),
       );
+      const assignedShopsBySourceProductId = await loadAssignedShops(
+        ownerKey,
+        items.map((item) => item.id),
+      );
 
       return items.map((item) => ({
         ...item,
         linkedEtsyItems: linkedEtsyItemsBySourceProductId.get(item.id) ?? [],
+        shops: assignedShopsBySourceProductId.get(item.id) ?? [],
       }));
     },
     async listTrash(ownerKey: OwnerKey) {
@@ -702,6 +798,8 @@ export function createSourceProductsRepo(db: D1Database) {
                   p.note as notes,
                   p.source_category_id as sourceCategoryId,
                   c.name as sourceCategoryName,
+                  p.user_category_id as userCategoryId,
+                  uc.name as userCategoryName,
                   p.sort_order as sortOrder,
                   p.deleted_at as deletedAt,
                   p.deleted_reason as deletedReason,
@@ -712,6 +810,9 @@ export function createSourceProductsRepo(db: D1Database) {
            left join source_product_categories c
              on c.id = p.source_category_id
             and c.owner_key = p.owner_key
+           left join product_categories uc
+             on uc.id = p.user_category_id
+            and uc.owner_key = p.owner_key
            left join (
              select source_product_id, count(*) as linked_etsy_count
              from source_product_etsy_links
@@ -726,7 +827,121 @@ export function createSourceProductsRepo(db: D1Database) {
         .bind(ownerKey, ownerKey)
         .all<SourceProductRecord>();
 
-      return rows.results.map(mapManagementRow);
+      const items = rows.results.map(mapManagementRow);
+      const assignedShopsBySourceProductId = await loadAssignedShops(
+        ownerKey,
+        items.map((item) => item.id),
+      );
+
+      return items.map((item) => ({
+        ...item,
+        shops: assignedShopsBySourceProductId.get(item.id) ?? [],
+      }));
+    },
+    async setUserCategory(ownerKey: OwnerKey, sourceProductId: string, categoryId: string | null, now: Date) {
+      const current = await repo.get(ownerKey, sourceProductId);
+      if (!current || current.deletedAt) {
+        return null;
+      }
+
+      const currentCategoryId = current.userCategory?.id ?? null;
+      if (currentCategoryId === categoryId) {
+        return current;
+      }
+
+      if (categoryId !== null) {
+        const category = await db
+          .prepare(
+            `select id
+             from product_categories
+             where owner_key = ?
+               and id = ?
+             limit 1`,
+          )
+          .bind(ownerKey, categoryId)
+          .first<{ id: string }>();
+
+        if (!category) {
+          return null;
+        }
+      }
+
+      await runWithWriteRetry(async () => {
+        await db
+          .prepare(
+            `update source_products
+             set user_category_id = ?,
+                 updated_at = ?
+             where id = ?
+               and owner_key = ?
+               and deleted_at is null`,
+          )
+          .bind(categoryId, now.getTime(), sourceProductId, ownerKey)
+          .run();
+      });
+
+      return repo.get(ownerKey, sourceProductId);
+    },
+    async setShops(ownerKey: OwnerKey, sourceProductId: string, shopIds: string[], now: Date) {
+      const current = await repo.get(ownerKey, sourceProductId);
+      if (!current || current.deletedAt) {
+        return null;
+      }
+
+      const normalizedShopIds = [...new Set(shopIds)];
+      if (normalizedShopIds.length > 0) {
+        const placeholders = normalizedShopIds.map(() => "?").join(", ");
+        const existingShops = (
+          await db
+            .prepare(
+              `select id
+               from etsy_shops
+               where owner_key = ?
+                 and id in (${placeholders})`,
+            )
+            .bind(ownerKey, ...normalizedShopIds)
+            .all<{ id: string }>()
+        ).results;
+
+        if (existingShops.length !== normalizedShopIds.length) {
+          return null;
+        }
+      }
+
+      await runWithWriteRetry(async () => {
+        const statements = [
+          db
+            .prepare(
+              `delete from source_product_etsy_shops
+               where owner_key = ?
+                 and source_product_id = ?`,
+            )
+            .bind(ownerKey, sourceProductId),
+          ...normalizedShopIds.map((shopId) =>
+            db
+              .prepare(
+                `insert into source_product_etsy_shops (
+                  source_product_id,
+                  shop_id,
+                  owner_key,
+                  created_at
+                ) values (?, ?, ?, ?)`,
+              )
+              .bind(sourceProductId, shopId, ownerKey, now.getTime()),
+          ),
+        ];
+
+        if (db.batch) {
+          await db.batch(statements);
+          return;
+        }
+
+        for (const statement of statements) {
+          await statement.run();
+        }
+      });
+
+      return repo.get(ownerKey, sourceProductId);
     },
     async setCategory(ownerKey: OwnerKey, sourceProductId: string, categoryId: string | null, now: Date) {
       const current = await repo.get(ownerKey, sourceProductId);
@@ -876,6 +1091,13 @@ export function createSourceProductsRepo(db: D1Database) {
           db
             .prepare(
               `delete from source_product_etsy_links
+               where owner_key = ?
+                 and source_product_id = ?`,
+            )
+            .bind(ownerKey, sourceProductId),
+          db
+            .prepare(
+              `delete from source_product_etsy_shops
                where owner_key = ?
                  and source_product_id = ?`,
             )

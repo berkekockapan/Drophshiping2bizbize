@@ -64,6 +64,7 @@ export const sourceProducts = sqliteTable(
     sourcePlatform: text("source_platform").notNull(),
     note: text("note"),
     sourceCategoryId: text("source_category_id"),
+    userCategoryId: text("user_category_id"),
     sortOrder: integer("sort_order"),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     deletedReason: text("deleted_reason"),
@@ -123,6 +124,27 @@ export const sourceProductEtsyLinks = sqliteTable(
       table.createdAt,
     ),
     ownerListingIdx: index("source_product_etsy_links_owner_listing_id_idx").on(table.ownerKey, table.etsyListingId),
+  }),
+);
+
+export const sourceProductEtsyShops = sqliteTable(
+  "source_product_etsy_shops",
+  {
+    sourceProductId: text("source_product_id").notNull(),
+    shopId: text("shop_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    sourceProductShopPk: uniqueIndex("source_product_etsy_shops_source_product_shop_pk").on(
+      table.sourceProductId,
+      table.shopId,
+    ),
+    ownerSourceProductIdx: index("source_product_etsy_shops_owner_source_product_idx").on(
+      table.ownerKey,
+      table.sourceProductId,
+    ),
+    shopCreatedIdx: index("source_product_etsy_shops_shop_created_idx").on(table.shopId, table.createdAt),
   }),
 );
 
@@ -602,6 +624,7 @@ export const schema = {
   sourceProducts,
   sourceProductCategories,
   sourceProductEtsyLinks,
+  sourceProductEtsyShops,
   etsyShops,
   productEtsyShops,
 };
@@ -611,6 +634,7 @@ export const schemaTableNames = [
   "source_products",
   "source_product_categories",
   "source_product_etsy_links",
+  "source_product_etsy_shops",
   "etsy_shops",
   "product_etsy_shops",
   "product_variants",

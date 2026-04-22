@@ -63,7 +63,8 @@ function normalizeUrl(rawUrl: string | null | undefined) {
 }
 
 function getDisplayCategory(sourceProduct: SourceProductItem | null, trackedProduct: TrackingItem | null) {
-  const label = sourceProduct?.sourceCategory?.name ?? trackedProduct?.userCategory?.name ?? null;
+  const trackingCategoryLabel = trackedProduct?.userCategory?.name ?? sourceProduct?.userCategory?.name ?? null;
+  const label = trackingCategoryLabel ?? sourceProduct?.sourceCategory?.name ?? null;
   return {
     label,
     key: label ? normalizeCategoryKey(label) : null,
@@ -83,9 +84,9 @@ function createUnifiedItem(sourceProduct: SourceProductItem | null, trackedProdu
     categoryLabel: category.label,
     categoryKey: category.key,
     sourceCategoryLabel: sourceProduct?.sourceCategory?.name ?? null,
-    trackingCategoryLabel: trackedProduct?.userCategory?.name ?? null,
+    trackingCategoryLabel: trackedProduct?.userCategory?.name ?? sourceProduct?.userCategory?.name ?? null,
     etsyLinks: sourceProduct?.linkedEtsyItems ?? [],
-    assignedShops: (trackedProduct?.shops ?? []).map((shop) => ({ id: shop.id, name: shop.name })),
+    assignedShops: (trackedProduct?.shops ?? sourceProduct?.shops ?? []).map((shop) => ({ id: shop.id, name: shop.name })),
     sourceProduct,
     trackedProduct,
   };
@@ -126,8 +127,11 @@ export function buildUnifiedDashboardItems(sourceProducts: SourceProductItem[], 
       const category = getDisplayCategory(matchedItem.sourceProduct, trackedProduct);
       matchedItem.categoryLabel = category.label;
       matchedItem.categoryKey = category.key;
-      matchedItem.trackingCategoryLabel = trackedProduct.userCategory?.name ?? null;
-      matchedItem.assignedShops = (trackedProduct.shops ?? []).map((shop) => ({ id: shop.id, name: shop.name }));
+      matchedItem.trackingCategoryLabel = trackedProduct.userCategory?.name ?? matchedItem.sourceProduct?.userCategory?.name ?? null;
+      matchedItem.assignedShops = (trackedProduct.shops ?? matchedItem.sourceProduct?.shops ?? []).map((shop) => ({
+        id: shop.id,
+        name: shop.name,
+      }));
       continue;
     }
 

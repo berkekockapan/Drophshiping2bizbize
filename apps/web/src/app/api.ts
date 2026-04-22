@@ -52,6 +52,8 @@ export interface SourceProductItem {
   platform: string | null;
   notes: string | null;
   sourceCategory: SourceProductCategory | null;
+  userCategory?: ProductCategory | null;
+  shops?: EtsyShop[];
   sortOrder: number | null;
   deletedAt: number | null;
   deletedReason?: string | null;
@@ -856,6 +858,30 @@ export async function setSourceProductCategory(ownerKey: OwnerKey, sourceProduct
   });
 
   return parseJson<{ sourceProductId: string; sourceCategory: SourceProductCategory | null }>(response);
+}
+
+export async function setSourceProductUserCategory(ownerKey: OwnerKey, sourceProductId: string, categoryId: string | null) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/product-category`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ categoryId }),
+  });
+
+  return parseJson<{ sourceProductId: string; userCategory: ProductCategory | null }>(response);
+}
+
+export async function updateSourceProductShops(ownerKey: OwnerKey, sourceProductId: string, shopIds: string[]) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/source-products/${sourceProductId}/etsy-shops`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ shopIds }),
+  });
+
+  return parseJson<{ sourceProductId: string; shops: EtsyShop[] }>(response);
 }
 
 export async function reorderSourceProducts(

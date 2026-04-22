@@ -95,4 +95,51 @@ describe("buildUnifiedDashboardItems", () => {
     );
     expect(items[0]?.trackedProduct?.id).toBe("prod_2");
   });
+
+  it("merges source and tracked products by normalized URL when source product id cannot be extracted", () => {
+    const items = buildUnifiedDashboardItems(
+      [
+        {
+          id: "sp_link",
+          ownerKey: "berke",
+          title: "Linkten Gelen Urun",
+          sourceUrl: "https://www.trendyol.com/sr?wb=12345&merchantId=67890",
+          platform: "trendyol",
+          notes: null,
+          sourceCategory: null,
+          sortOrder: 0,
+          deletedAt: null,
+          linkedEtsyCount: 0,
+          linkedEtsyItems: [],
+        },
+      ],
+      [
+        {
+          id: "prod_link",
+          ownerKey: "berke",
+          sourceProductId: null,
+          title: "Takip Urunu",
+          brand: "Brand X",
+          trendyolUrl: "https://www.trendyol.com/sr",
+          status: "ACTIVE",
+          parseStatus: "OK",
+          thumbnailImage: null,
+          currentPrice: null,
+          minPrice: null,
+          maxPrice: null,
+          inStockVariantCount: null,
+          totalVariantCount: null,
+          isFavorite: false,
+          userCategory: null,
+          shops: [{ id: "shop_1", name: "Cozy Prints", etsyShopUrl: "https://www.etsy.com/shop/cozy-prints", description: null }],
+          lastCheckedAt: 123,
+        },
+      ],
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.sourceProduct?.id).toBe("sp_link");
+    expect(items[0]?.trackedProduct?.id).toBe("prod_link");
+    expect(items[0]?.assignedShops).toEqual([{ id: "shop_1", name: "Cozy Prints" }]);
+  });
 });

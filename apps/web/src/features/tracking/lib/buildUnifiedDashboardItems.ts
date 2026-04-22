@@ -49,6 +49,7 @@ function normalizeUrl(rawUrl: string | null | undefined) {
 
   try {
     const url = new URL(rawUrl);
+    url.search = "";
     url.hash = "";
     url.protocol = url.protocol.toLowerCase();
     url.hostname = url.hostname.toLowerCase();

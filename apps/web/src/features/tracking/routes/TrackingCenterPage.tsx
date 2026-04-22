@@ -103,6 +103,38 @@ function findTrackedProductForSourceUrl(sourceUrl: string | null | undefined, tr
   );
 }
 
+function findTrackedProductForItem(item: UnifiedDashboardItem, trackingItems: TrackingItem[]) {
+  if (item.trackedProduct?.id) {
+    const trackedById = trackingItems.find((trackingItem) => trackingItem.id === item.trackedProduct?.id);
+    if (trackedById) {
+      return trackedById;
+    }
+  }
+
+  if (item.trackedProduct?.sourceProductId) {
+    const trackedBySourceProductId = trackingItems.find(
+      (trackingItem) => trackingItem.sourceProductId === item.trackedProduct?.sourceProductId,
+    );
+    if (trackedBySourceProductId) {
+      return trackedBySourceProductId;
+    }
+  }
+
+  const trackedBySourceUrl = findTrackedProductForSourceUrl(item.sourceUrl, trackingItems);
+  if (trackedBySourceUrl) {
+    return trackedBySourceUrl;
+  }
+
+  const normalizedTrackedUrlFromCard = normalizeComparableUrl(item.trackedProduct?.trendyolUrl ?? null);
+  if (!normalizedTrackedUrlFromCard) {
+    return null;
+  }
+
+  return (
+    trackingItems.find((trackingItem) => normalizeComparableUrl(trackingItem.trendyolUrl ?? null) === normalizedTrackedUrlFromCard) ?? null
+  );
+}
+
 function updateTrackingItemShops(
   previous: TrackingViewResponse | undefined,
   productId: string,
@@ -178,13 +210,28 @@ export function TrackingCenterPage() {
         throw new Error("Geçersiz owner seçimi.");
       }
 
-      const existingTrackedProduct =
-        item.trackedProduct ??
-        findTrackedProductForSourceUrl(item.sourceUrl, trackingQuery.data?.items ?? []);
+      const selectedShopIds = shopId ? [shopId] : [];
+
+      const assignShopToTrackedProduct = async (trackedProductId: string) => {
+        try {
+          const response = await updateProductShops(ownerKey, trackedProductId, selectedShopIds);
+          return { productId: response.productId, shops: response.shops };
+        } catch (error) {
+          const latestTracking = await fetchTrackingView(ownerKey, {});
+          const refreshedTrackedProduct = findTrackedProductForItem(item, latestTracking.items);
+          if (!refreshedTrackedProduct) {
+            throw error;
+          }
+
+          const response = await updateProductShops(ownerKey, refreshedTrackedProduct.id, selectedShopIds);
+          return { productId: response.productId, shops: response.shops };
+        }
+      };
+
+      const existingTrackedProduct = findTrackedProductForItem(item, trackingQuery.data?.items ?? []);
 
       if (existingTrackedProduct) {
-        const response = await updateProductShops(ownerKey, existingTrackedProduct.id, shopId ? [shopId] : []);
-        return { productId: response.productId, shops: response.shops };
+        return assignShopToTrackedProduct(existingTrackedProduct.id);
       }
 
       if (!item.sourceUrl) {
@@ -196,18 +243,17 @@ export function TrackingCenterPage() {
       }
 
       try {
-        await createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: [shopId] });
+        await createTrackedProduct(ownerKey, item.sourceUrl, { shopIds: selectedShopIds });
         return null;
       } catch (error) {
         const latestTracking = await fetchTrackingView(ownerKey, {});
-        const duplicateTrackedProduct = findTrackedProductForSourceUrl(item.sourceUrl, latestTracking.items);
+        const duplicateTrackedProduct = findTrackedProductForItem(item, latestTracking.items);
 
         if (!duplicateTrackedProduct) {
           throw error;
         }
 
-        const response = await updateProductShops(ownerKey, duplicateTrackedProduct.id, [shopId]);
-        return { productId: response.productId, shops: response.shops };
+        return assignShopToTrackedProduct(duplicateTrackedProduct.id);
       }
     },
     onMutate: async ({ item, shopId }) => {
@@ -215,9 +261,7 @@ export function TrackingCenterPage() {
         return { previousTrackingData: undefined };
       }
 
-      const optimisticTrackedProductId =
-        item.trackedProduct?.id ??
-        findTrackedProductForSourceUrl(item.sourceUrl, trackingQuery.data?.items ?? [])?.id;
+      const optimisticTrackedProductId = findTrackedProductForItem(item, trackingQuery.data?.items ?? [])?.id;
 
       if (!optimisticTrackedProductId) {
         return { previousTrackingData: undefined };

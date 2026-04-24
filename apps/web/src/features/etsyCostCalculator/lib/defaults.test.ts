@@ -10,7 +10,7 @@ describe("etsy cost calculator defaults", () => {
     expect(storage.profileVersion).toBe(ETSY_TR_PROFILE_VERSION);
     expect(storage.draft.vatMode).toBe("no_vat_id");
     expect(storage.draft.targetProfitMode).toBe("net_profit_usd");
-    expect(storage.draft.currencyConversionEnabled).toBe(false);
+    expect(storage.draft.currencyConversionEnabled).toBe(true);
     expect(storage.draft.offsiteAdsMode).toBe("off");
     expect(storage.presets).toEqual([]);
   });

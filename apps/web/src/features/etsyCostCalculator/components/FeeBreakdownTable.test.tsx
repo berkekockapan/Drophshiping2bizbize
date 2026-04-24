@@ -1,11 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, it } from "vitest";
 
 import { FeeBreakdownTable } from "./FeeBreakdownTable";
 
-it("renders grouped breakdown labels, source badges, notes, and help icons", () => {
+it("renders grouped breakdown inside a collapsible card", async () => {
+  const user = userEvent.setup();
+
   render(
     <FeeBreakdownTable
       groups={[
@@ -42,33 +45,11 @@ it("renders grouped breakdown labels, source badges, notes, and help icons", () 
           rows: [
             {
               key: "us_duty_fee",
-              label: "ShipEntegra gumruk vergisi",
+              label: "ABD ithalat vergisi",
               formattedUsd: "$1.05",
               formattedTry: "42,00 ₺",
               badgeLabel: "Manuel",
-              note: "ShipEntegra modelindeki gumruk vergisi tutari.",
-            },
-            {
-              key: "shipentegra_additional_duty_fee",
-              label: "ShipEntegra ek vergi (%15)",
-              formattedUsd: "$5.40",
-              formattedTry: "216,00 ₺",
-              badgeLabel: "Sistem",
-              note: "Turkiye cikisli gonderiler icin sabit %15 ek vergi tutari.",
-            },
-            {
-              key: "shipentegra_carrier_fee",
-              label: "ShipEntegra tasiyici islem bedeli",
-              formattedUsd: "$1.00",
-              formattedTry: "40,00 ₺",
-              badgeLabel: "Sistem",
-            },
-            {
-              key: "shipentegra_import_total",
-              label: "ShipEntegra toplam ithalat masrafi",
-              formattedUsd: "$10.00",
-              formattedTry: "400,00 ₺",
-              badgeLabel: "Sistem",
+              note: "Girilen veya analizden gelen orana gore hesaplanan tahmini ABD ithalat vergisi.",
             },
           ],
         },
@@ -77,12 +58,16 @@ it("renders grouped breakdown labels, source badges, notes, and help icons", () 
     />,
   );
 
+  const toggleButton = screen.getByRole("button", { name: /detaylari goster/i });
+  expect(toggleButton).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("heading", { name: /^Gelir$/i })).not.toBeInTheDocument();
+
+  await user.click(toggleButton);
+
+  expect(screen.getByRole("button", { name: /detaylari gizle/i })).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByRole("heading", { name: /^Gelir$/i })).toBeInTheDocument();
   expect(screen.getByText(/etsy ucretleri/i)).toBeInTheDocument();
-  expect(screen.getByText(/^ShipEntegra gumruk vergisi$/i)).toBeInTheDocument();
-  expect(screen.getByText(/shipentegra ek vergi/i)).toBeInTheDocument();
-  expect(screen.getByText(/shipentegra tasiyici islem bedeli/i)).toBeInTheDocument();
-  expect(screen.getByText(/shipentegra toplam ithalat masrafi/i)).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /yardim/i }).length).toBeGreaterThan(3);
-  expect(screen.getAllByText(/shipentegra modelindeki gumruk vergisi tutari/i)).toHaveLength(2);
+  expect(screen.getByText(/^ABD ithalat vergisi$/i)).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /yardim/i }).length).toBeGreaterThan(1);
+  expect(screen.getAllByText(/tahmini ABD ithalat vergisi/i)).toHaveLength(2);
 });

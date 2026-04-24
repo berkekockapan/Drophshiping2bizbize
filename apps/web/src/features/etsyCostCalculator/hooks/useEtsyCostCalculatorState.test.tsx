@@ -148,15 +148,13 @@ describe("useEtsyCostCalculatorState", () => {
       }),
     );
 
-    expect(result.current.quickMode.recommendedSalePriceUsd).toBe(62.62);
-    expect(result.current.quickMode.breakEvenPriceUsd).toBe(43.02);
-    expect(result.current.quickMode.recommendedScenario?.shipentegraImportBasisUsd).toBe(54.36);
-    expect(result.current.quickMode.recommendedScenario?.shipentegraImportTotalUsd).toBe(14.59);
-    expect(result.current.quickMode.enteredPriceScenario?.shipentegraImportTotalUsd).toBe(9.28);
+    expect(result.current.quickMode.recommendedSalePriceUsd).toBe(47.8);
+    expect(result.current.quickMode.breakEvenPriceUsd).toBe(32.42);
+    expect(result.current.quickMode.recommendedScenario?.shipentegraImportBasisUsd).toBe(41.02);
+    expect(result.current.quickMode.recommendedScenario?.shipentegraImportTotalUsd).toBe(4.1);
+    expect(result.current.quickMode.enteredPriceScenario?.shipentegraImportTotalUsd).toBe(3.31);
     expect(result.current.recommendedBreakdownGroups.map((group) => group.label)).toContain("Etsy ucretleri");
-    expect(result.current.analysisBreakdownGroups.flatMap((group) => group.rows.map((row) => row.key))).toContain(
-      "shipentegra_import_total",
-    );
+    expect(result.current.analysisBreakdownGroups.flatMap((group) => group.rows.map((row) => row.key))).toContain("us_duty_fee");
     expect(result.current.analysisBreakdownGroups.at(-1)?.rows.map((row) => row.label)).toContain("Net kar");
   });
 });

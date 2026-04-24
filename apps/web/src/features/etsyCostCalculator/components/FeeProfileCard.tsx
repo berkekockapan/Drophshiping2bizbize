@@ -25,7 +25,9 @@ export function FeeProfileCard({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-900">Resmi ucret profili</p>
-          <p className="mt-1 text-sm text-slate-600">Kur, KDV modu, para donusumu ve reklam secimlerini burada yonet.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Türkiye saticisi icin USD listeleme ve TRY odeme modelindeki kur, para donusumu ve reklam secimlerini yonet.
+          </p>
         </div>
         <button
           type="button"
@@ -36,7 +38,7 @@ export function FeeProfileCard({
         </button>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label className="grid gap-2 text-sm text-slate-700">
           USD/TRY kuru
           <input
@@ -50,25 +52,19 @@ export function FeeProfileCard({
           />
         </label>
 
-        <label className="grid gap-2 text-sm text-slate-700">
-          KDV modu
-          <select
-            value={draft.vatMode}
-            onChange={(event) => onChange({ vatMode: event.target.value as CalculatorDraft["vatMode"] })}
-            className="rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-[#F1641E]"
-          >
-            <option value="no_vat_id">KDV numarasi yok</option>
-            <option value="vat_id_provided">KDV numarasi var</option>
-          </select>
-        </label>
-
-        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <label className="inline-flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
           <input
+            className="mt-1"
             type="checkbox"
             checked={draft.currencyConversionEnabled}
             onChange={(event) => onChange({ currencyConversionEnabled: event.target.checked })}
           />
-          Para donusumunu dahil et
+          <span>
+            <span className="block font-semibold text-slate-900">Para donusumunu dahil et (%2.5)</span>
+            <span className="mt-1 block text-slate-600">
+              Etsy satis/listing USD, odeme TRY hesaba geldigi icin varsayilan olarak aciktir; farkli bir kurulumda kapatabilirsiniz.
+            </span>
+          </span>
         </label>
 
         <label className="grid gap-2 text-sm text-slate-700">
@@ -84,15 +80,6 @@ export function FeeProfileCard({
           </select>
         </label>
       </div>
-
-      <label className="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
-        <input
-          type="checkbox"
-          checked={draft.includeDepositFee}
-          onChange={(event) => onChange({ includeDepositFee: event.target.checked })}
-        />
-        Bu senaryoda odeme aktarim ucretini dahil et
-      </label>
 
       {advancedOpen ? (
         <div className="mt-6 grid gap-4 md:grid-cols-2">

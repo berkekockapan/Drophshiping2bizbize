@@ -10,7 +10,7 @@ import { createDefaultDraft } from "../lib/defaults";
 import type { CalculatorDraft } from "../lib/types";
 import { QuickModeForm } from "./QuickModeForm";
 
-it("switches between OTHER and US profiles and shows the ShipEntegra summary for US", async () => {
+it("switches between OTHER and US profiles and shows the import-duty preview for US", async () => {
   const user = userEvent.setup();
   const onChange = vi.fn();
   const shipentegraPreview = calculateScenario({
@@ -46,7 +46,7 @@ it("switches between OTHER and US profiles and shows the ShipEntegra summary for
   render(<Harness />);
 
   expect(screen.getByRole("spinbutton", { name: /usd\/try kuru/i })).toBeInTheDocument();
-  expect(screen.queryByRole("spinbutton", { name: /gumruk vergisi orani/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("spinbutton", { name: /manuel ithalat vergisi orani/i })).not.toBeInTheDocument();
   expect(screen.getByLabelText("İndirim %")).toBeInTheDocument();
   expect(screen.getByLabelText("Alıcıdan alınan kargo (USD)")).toBeInTheDocument();
   expect(screen.getByLabelText("Ekstra tahsilat (USD)")).toBeInTheDocument();
@@ -54,8 +54,8 @@ it("switches between OTHER and US profiles and shows the ShipEntegra summary for
 
   await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
   expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ destinationProfile: "US" }));
-  expect(screen.getByRole("spinbutton", { name: /gumruk vergisi orani \(%\)/i })).toBeInTheDocument();
-  expect(screen.getByText(/shipentegra ithalat masrafi/i)).toBeInTheDocument();
-  expect(screen.getByText(/ek vergi tutari \(%15\)/i)).toBeInTheDocument();
-  expect(screen.getByText(/toplam ithalat masrafi: \$10\.00/i)).toBeInTheDocument();
+  expect(screen.getByRole("spinbutton", { name: /manuel ithalat vergisi orani \(%\)/i })).toBeInTheDocument();
+  expect(screen.getByText(/abd ithalat vergisi onizlemesi/i)).toBeInTheDocument();
+  expect(screen.getByText(/manuel duty tutari: \$3\.60/i)).toBeInTheDocument();
+  expect(screen.getByText(/tahmini ithalat vergisi: \$3\.60/i)).toBeInTheDocument();
 });

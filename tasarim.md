@@ -79,6 +79,13 @@ Not: Ayni turuncu vurgu icin birden fazla hover tonu geciyor (`#d95518`, `#d9571
 - Ozel durum sekmeleri (ornegin `Kategorisiz`) amber tonlariyla vurgulanabilir.
 - Sekme etiketlerinde adet gostergesi ayni satirda yer alabilir: `Kategori (12)`.
 
+### 4.6 Acilir kapanir kartlar
+
+- Detay yogun bolumlerde kart basligi ve kisa ozet varsayilan olarak gorunur tutulabilir.
+- Detay acma/kapatma eylemi notr buton deseniyle verilmeli: `border-slate-200 bg-white text-slate-700`, hover durumunda turuncu vurgu.
+- Acik/kapali durum `aria-expanded` ile erisilebilir olmali ve buton metni durumu acikca anlatmalidir (`Detaylari goster` / `Detaylari gizle`).
+- Detay icerigi acildiginda mevcut kart ritmi korunarak `mt-4` ve `space-y-*` bosluklariyla yerlestirilmelidir.
+
 ## 5) Tutarlilik Gozlemleri ve Teknik Borc
 
 - Tasarim tokenlari merkezi degil; Tailwind theme `extend` su an bos.

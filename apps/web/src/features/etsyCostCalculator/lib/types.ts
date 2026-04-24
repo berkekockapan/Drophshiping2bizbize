@@ -26,11 +26,6 @@ export interface FeeProfileOverrides {
   regulatoryFeeRate?: number;
   currencyConversionFeeRate?: number;
   offsiteAdsRate?: number;
-  vatRate?: number;
-  depositFeeTry?: number;
-  depositMinimumTry?: number;
-  depositThresholdTry?: number;
-  vatApplicableFeeKeys?: string[];
 }
 
 export type BreakdownSourceType =
@@ -105,8 +100,6 @@ export interface ScenarioSnapshot {
   dutyBaseUsd?: number;
   shipentegraImportBasisUsd?: number;
   shipentegraDutyUsd?: number;
-  shipentegraAdditionalDutyUsd?: number;
-  shipentegraCarrierFeeUsd?: number;
   shipentegraImportTotalUsd?: number;
   normalizedRevenueUsd: number;
   normalizedRevenueTry: number;

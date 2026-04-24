@@ -53,20 +53,19 @@ test("loads quick mode, saves a preset, opens advanced settings, and switches an
   await expect(page.getByText(/toplam gider ozeti/i)).toBeVisible();
 
   await page.getByRole("button", { name: /abd hedef profili/i }).click();
-  await expect(page.getByLabel(/gumruk vergisi orani \(%\)/i)).toBeVisible();
-  await expect(page.getByText(/^ShipEntegra ithalat masrafi$/i)).toBeVisible();
-  await expect(page.getByText(/ek vergi tutari \(%15\)/i)).toBeVisible();
-  await expect(page.getByText(/^Tasiyici islem bedeli: \$1\.00$/i)).toBeVisible();
+  await expect(page.getByLabel(/manuel ithalat vergisi orani \(%\)/i)).toBeVisible();
+  await expect(page.getByText(/^ABD ithalat vergisi onizlemesi$/i)).toBeVisible();
+  await expect(page.getByText(/^Tahmini ithalat vergisi: \$0\.00$/i).first()).toBeVisible();
 
   await page.getByLabel("İndirim %").fill("30");
   await page.getByLabel("Alıcıdan alınan kargo (USD)").fill("0");
   await page.getByLabel("Ekstra tahsilat (USD)").fill("0");
   await page.getByLabel(/^Urun maliyeti$/i).fill("18");
   await page.getByLabel(/^Gercek kargo$/i).fill("5");
-  await page.getByLabel(/gumruk vergisi orani \(%\)/i).fill("11");
+  await page.getByLabel(/manuel ithalat vergisi orani \(%\)/i).fill("11");
   await page.getByLabel(/hedef kar degeri/i).fill("10");
 
-  await expect(page.getByText(/^Toplam ithalat masrafi:/i)).toBeVisible();
+  await expect(page.getByText(/^Tahmini ithalat vergisi:/i).first()).toBeVisible();
   await expect(page.getByText(/onerilen liste fiyati/i)).toBeVisible();
   await expect(page.getByText(/indirim sonrasi satis fiyati/i)).toBeVisible();
 

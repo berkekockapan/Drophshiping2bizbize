@@ -1,0 +1,20 @@
+﻿[
+    {
+        "Service":  "connector",
+        "Pid":  6244,
+        "Out":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\local-dev\\connector.out.log",
+        "Err":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\local-dev\\connector.err.log"
+    },
+    {
+        "Service":  "api",
+        "Pid":  4300,
+        "Out":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\local-dev\\api.out.log",
+        "Err":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\local-dev\\api.err.log"
+    },
+    {
+        "Service":  "web",
+        "Pid":  19928,
+        "Out":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\local-dev\\web.out.log",
+        "Err":  "C:\\Users\\berke\\Desktop\\Projelerim\\dropshiping2bizbize\\.codex-run\\local-dev\\web.err.log"
+    }
+]

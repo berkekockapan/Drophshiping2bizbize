@@ -14,6 +14,8 @@ it("hides product cost in advanced-only mode", () => {
   render(<CostInputsCard draft={createDefaultDraft()} variant="advanced-only" onChange={onChange} />);
 
   expect(screen.queryByLabelText(/^urun maliyeti$/i)).not.toBeInTheDocument();
+  expect(screen.getByLabelText(/^shipentegra kargo maliyeti$/i)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/shipentegra operasyon maliyeti/i)).not.toBeInTheDocument();
 });
 
 it("adds, edits, currency-switches, and removes custom cost rows", async () => {

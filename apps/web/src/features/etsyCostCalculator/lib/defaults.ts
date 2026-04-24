@@ -1,8 +1,8 @@
 import type { CalculatorDraft, EtsyCostCalculatorStorage, FeeProfileOverrides, MoneyInput } from "./types";
 
-export const ETSY_TR_PROFILE_VERSION = "etsy-tr-2026-03-28";
+export const ETSY_TR_PROFILE_VERSION = "etsy-tr-2026-04-24";
 
-export const ETSY_TR_DEFAULT_FEE_PROFILE: Required<FeeProfileOverrides> = {
+export const ETSY_TR_DEFAULT_FEE_PROFILE = {
   listingRelatedFeeUsd: 0.2,
   transactionFeeRate: 0.065,
   processingFeeRate: 0.065,
@@ -10,18 +10,18 @@ export const ETSY_TR_DEFAULT_FEE_PROFILE: Required<FeeProfileOverrides> = {
   regulatoryFeeRate: 0.0227,
   currencyConversionFeeRate: 0.025,
   offsiteAdsRate: 0.15,
-  vatRate: 0.2,
-  depositFeeTry: 42,
-  depositMinimumTry: 50,
-  depositThresholdTry: 600,
-  vatApplicableFeeKeys: [
-    "listing_related_fee",
-    "transaction_fee",
-    "processing_fee",
-    "regulatory_operating_fee",
-    "offsite_ads_fee",
-  ],
-};
+} satisfies Required<
+  Pick<
+    FeeProfileOverrides,
+    | "listingRelatedFeeUsd"
+    | "transactionFeeRate"
+    | "processingFeeRate"
+    | "processingFixedTry"
+    | "regulatoryFeeRate"
+    | "currencyConversionFeeRate"
+    | "offsiteAdsRate"
+  >
+>;
 
 function createMoney(currency: MoneyInput["currency"] = "USD"): MoneyInput {
   return { amount: 0, currency };
@@ -61,7 +61,7 @@ export function createDefaultDraft(): CalculatorDraft {
     targetProfitMode: "net_profit_usd",
     targetProfitValue: 0,
     vatMode: "no_vat_id",
-    currencyConversionEnabled: false,
+    currencyConversionEnabled: true,
     offsiteAdsMode: "off",
     includeDepositFee: false,
     feeProfileOverrides: null,

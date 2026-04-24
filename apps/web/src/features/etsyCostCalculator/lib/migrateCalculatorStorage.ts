@@ -1,4 +1,4 @@
-import { createDefaultCalculatorStorage } from "./defaults";
+import { ETSY_TR_PROFILE_VERSION, createDefaultCalculatorStorage } from "./defaults";
 import type { CalculatorDraft, DestinationProfile, EtsyCostCalculatorPreset, EtsyCostCalculatorStorage } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -17,7 +17,7 @@ function normalizeDestinationProfile(draft: Record<string, unknown>): Destinatio
   return "OTHER";
 }
 
-function migrateDraft(input: unknown, fallbackDraft: CalculatorDraft): CalculatorDraft {
+function migrateDraft(input: unknown, fallbackDraft: CalculatorDraft, forceCurrentFeeDefaults = false): CalculatorDraft {
   const draft = isRecord(input) ? input : {};
   const destinationProfile = normalizeDestinationProfile(draft);
 
@@ -35,10 +35,17 @@ function migrateDraft(input: unknown, fallbackDraft: CalculatorDraft): Calculato
     dutyLabel: typeof draft.dutyLabel === "string" ? draft.dutyLabel : typeof draft.importDutyLabel === "string" ? draft.importDutyLabel : null,
     linkedVariantId: typeof draft.linkedVariantId === "string" ? draft.linkedVariantId : null,
     valueSources: isRecord(draft.valueSources) ? (draft.valueSources as CalculatorDraft["valueSources"]) : {},
+    shipentegraOperationCost: fallbackDraft.shipentegraOperationCost,
+    includeDepositFee: fallbackDraft.includeDepositFee,
+    vatMode: fallbackDraft.vatMode,
+    currencyConversionEnabled:
+      forceCurrentFeeDefaults || typeof draft.currencyConversionEnabled !== "boolean"
+        ? fallbackDraft.currencyConversionEnabled
+        : draft.currencyConversionEnabled,
   };
 }
 
-function migratePreset(input: unknown, fallbackDraft: CalculatorDraft): EtsyCostCalculatorPreset | null {
+function migratePreset(input: unknown, fallbackDraft: CalculatorDraft, forceCurrentFeeDefaults: boolean): EtsyCostCalculatorPreset | null {
   if (!isRecord(input) || typeof input.id !== "string" || typeof input.name !== "string") {
     return null;
   }
@@ -46,7 +53,7 @@ function migratePreset(input: unknown, fallbackDraft: CalculatorDraft): EtsyCost
   return {
     id: input.id,
     name: input.name,
-    input: migrateDraft(input.input, fallbackDraft),
+    input: migrateDraft(input.input, fallbackDraft, forceCurrentFeeDefaults),
     createdAt: typeof input.createdAt === "number" ? input.createdAt : Date.now(),
     updatedAt: typeof input.updatedAt === "number" ? input.updatedAt : Date.now(),
   };
@@ -58,16 +65,18 @@ export function migrateCalculatorStorage(input: unknown): EtsyCostCalculatorStor
     return fallback;
   }
 
+  const forceCurrentFeeDefaults = input.profileVersion !== ETSY_TR_PROFILE_VERSION;
   const migratedPresets = Array.isArray(input.presets)
     ? input.presets
-        .map((preset) => migratePreset(preset, fallback.draft))
+        .map((preset) => migratePreset(preset, fallback.draft, forceCurrentFeeDefaults))
         .filter((preset): preset is EtsyCostCalculatorPreset => preset !== null)
     : fallback.presets;
 
   return {
     ...fallback,
     ...(input as Partial<EtsyCostCalculatorStorage>),
-    draft: migrateDraft(input.draft, fallback.draft),
+    profileVersion: ETSY_TR_PROFILE_VERSION,
+    draft: migrateDraft(input.draft, fallback.draft, forceCurrentFeeDefaults),
     presets: migratedPresets,
     updatedAt: typeof input.updatedAt === "number" ? input.updatedAt : fallback.updatedAt,
   };

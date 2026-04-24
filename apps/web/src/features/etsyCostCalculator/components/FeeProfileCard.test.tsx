@@ -21,6 +21,10 @@ it("opens advanced fee controls, emits overrides, and exposes reset", async () =
     />,
   );
 
+  expect(screen.queryByLabelText(/kdv modu/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/odeme aktarim ucretini dahil et/i)).not.toBeInTheDocument();
+  expect(screen.getByText(/para donusumunu dahil et/i)).toBeInTheDocument();
+
   await user.click(screen.getByRole("button", { name: /gelismis ucret ayarlari/i }));
   await user.clear(screen.getByLabelText(/^islem ucreti$/i));
   await user.type(screen.getByLabelText(/^islem ucreti$/i), "7");

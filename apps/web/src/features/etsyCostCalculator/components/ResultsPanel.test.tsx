@@ -41,7 +41,7 @@ const enteredScenario: ShipentegraScenarioSnapshot = {
   breakdown: [
     {
       key: "actual_shipping_cost",
-      label: "Gercek kargo maliyeti",
+      label: "ShipEntegra kargo maliyeti",
       amountUsd: 5,
       amountTry: 200,
       sourceType: "manual_override",
@@ -71,7 +71,7 @@ it("shows semantic result cards, revenue summary, and active warnings only", () 
   expect(screen.queryByText(/onerilen senaryo uyarisi/i)).not.toBeInTheDocument();
   expect(screen.getByText(/toplam tahsilat/i)).toBeInTheDocument();
   expect(screen.getByText(/urun geliri/i)).toBeInTheDocument();
-  expect(screen.getByText(/gercek tasima maliyeti/i)).toBeInTheDocument();
-  expect(screen.getByText(/shipentegra ithalat masrafi/i)).toBeInTheDocument();
+  expect(screen.getByText(/shipentegra kargo maliyeti/i)).toBeInTheDocument();
+  expect(screen.getByText(/tahmini ithalat vergisi/i)).toBeInTheDocument();
   expect(screen.getByText(/\$11\.28/i)).toBeInTheDocument();
 });

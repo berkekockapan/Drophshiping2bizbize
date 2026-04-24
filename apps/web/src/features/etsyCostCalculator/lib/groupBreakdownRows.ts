@@ -34,9 +34,7 @@ function isEtsyFeeKey(key: string) {
     key === "processing_fee" ||
     key === "regulatory_operating_fee" ||
     key === "currency_conversion_fee" ||
-    key === "offsite_ads_fee" ||
-    key === "seller_fee_vat" ||
-    key === "deposit_fee"
+    key === "offsite_ads_fee"
   );
 }
 
@@ -45,13 +43,9 @@ function isOperationalCostKey(key: string) {
     key === "product_cost" ||
     key === "actual_shipping_cost" ||
     key === "packaging_cost" ||
-    key === "shipentegra_operation_cost" ||
     key.startsWith("custom_cost_") ||
     key === "overhead_cost" ||
-    key === "us_duty_fee" ||
-    key === "shipentegra_additional_duty_fee" ||
-    key === "shipentegra_carrier_fee" ||
-    key === "shipentegra_import_total"
+    key === "us_duty_fee"
   );
 }
 
@@ -95,7 +89,7 @@ export function groupBreakdownRows(snapshot: ScenarioSnapshot): BreakdownGroup[]
     row.key === "us_duty_fee" && row.label === "Duty"
       ? ({
           ...row,
-          label: "ABD duty",
+          label: "ABD ithalat vergisi",
         } satisfies BreakdownRow)
       : row,
   );

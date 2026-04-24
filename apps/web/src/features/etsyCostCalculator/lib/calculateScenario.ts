@@ -1,6 +1,5 @@
 import { ETSY_TR_DEFAULT_FEE_PROFILE } from "./defaults";
-import { calculateShipentegraCarrierFee } from "./calculateShipentegraCarrierFee";
-import type { BreakdownRow, CalculatorDraft, FeeProfileOverrides, MoneyInput, ScenarioSnapshot } from "./types";
+import type { BreakdownRow, CalculatorDraft, MoneyInput, ScenarioSnapshot } from "./types";
 
 function round2(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -47,10 +46,10 @@ function sourceTypeForFee(overrideValue: number | undefined) {
 }
 
 export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
-  const feeProfile: Required<FeeProfileOverrides> = {
+  const feeProfile = {
     ...ETSY_TR_DEFAULT_FEE_PROFILE,
     ...(draft.feeProfileOverrides ?? {}),
-  };
+  } as typeof ETSY_TR_DEFAULT_FEE_PROFILE;
 
   const listedSalePriceUsd = round2(draft.salePriceUsd);
   const discountedSalePriceUsd = round2(listedSalePriceUsd * (1 - draft.saleDiscountPercent / 100));
@@ -82,13 +81,6 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
   const offsiteAdsFeeUsd = offsiteAdsRate > 0 ? round2(Math.min(totalCollectedUsd * offsiteAdsRate, 100)) : 0;
 
   const revenueTry = toTry(totalCollectedUsd, draft.usdTryRate);
-  const depositFeeTry =
-    draft.includeDepositFee &&
-    revenueTry >= feeProfile.depositMinimumTry &&
-    revenueTry < feeProfile.depositThresholdTry
-      ? feeProfile.depositFeeTry
-      : 0;
-  const depositFeeUsd = round2(depositFeeTry / draft.usdTryRate);
 
   const appliedDutyPercent =
     draft.destinationProfile === "US"
@@ -101,37 +93,13 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     shipentegraImportBasisUsd > 0 && appliedDutyPercent > 0
       ? round2(shipentegraImportBasisUsd * (appliedDutyPercent / 100))
       : 0;
-  const shipentegraAdditionalDutyUsd = shipentegraImportBasisUsd > 0 ? round2(shipentegraImportBasisUsd * 0.15) : 0;
-  const shipentegraCarrierFeeUsd =
-    draft.destinationProfile === "US" ? calculateShipentegraCarrierFee(shipentegraImportBasisUsd) : 0;
-  const shipentegraImportTotalUsd = round2(
-    shipentegraDutyUsd + shipentegraAdditionalDutyUsd + shipentegraCarrierFeeUsd,
-  );
-
-  const vatApplicableFeeKeys = new Set(feeProfile.vatApplicableFeeKeys);
-  const vatFeeRows: Array<[string, number]> = [
-    ["listing_related_fee", listingRelatedFeeUsd],
-    ["transaction_fee", transactionFeeUsd],
-    ["processing_fee", processingFeeUsd],
-    ["regulatory_operating_fee", regulatoryFeeUsd],
-    ["offsite_ads_fee", offsiteAdsFeeUsd],
-    ["currency_conversion_fee", currencyConversionFeeUsd],
-    ["deposit_fee", depositFeeUsd],
-  ];
-  const vatBaseUsd =
-    draft.vatMode === "no_vat_id"
-      ? round2(vatFeeRows.filter(([key]) => vatApplicableFeeKeys.has(key)).reduce((sum, [, value]) => sum + value, 0))
-      : 0;
-  const sellerFeeVatUsd = draft.vatMode === "no_vat_id" ? round2(vatBaseUsd * feeProfile.vatRate) : 0;
+  const shipentegraImportTotalUsd = shipentegraDutyUsd;
 
   const operationalCostsUsd = round2(
     toUsd(draft.productCost, draft.usdTryRate) +
       toUsd(draft.actualShippingCost, draft.usdTryRate) +
       toUsd(draft.packagingCost, draft.usdTryRate) +
-      toUsd(draft.shipentegraOperationCost, draft.usdTryRate) +
       shipentegraDutyUsd +
-      shipentegraAdditionalDutyUsd +
-      shipentegraCarrierFeeUsd +
       draft.customCosts.filter((line) => line.enabled).reduce((sum, line) => sum + toUsd(line.value, draft.usdTryRate), 0) +
       resolveOverheadUsd(draft),
   );
@@ -142,9 +110,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       processingFeeUsd +
       regulatoryFeeUsd +
       currencyConversionFeeUsd +
-      offsiteAdsFeeUsd +
-      sellerFeeVatUsd +
-      depositFeeUsd,
+      offsiteAdsFeeUsd,
   );
 
   const warnings = [];
@@ -152,12 +118,6 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     warnings.push({
       key: "fee_profile_override",
       message: "Resmi ucret profili ozellestirildigi icin sonuc varsayilan Etsy TR profilinden sapabilir.",
-    });
-  }
-  if (draft.includeDepositFee) {
-    warnings.push({
-      key: "deposit_fee",
-      message: "Odeme aktarim ucreti aktarim bazli kosullu bir kalemdir; senaryo dahil etse de gercek hayatta her sipariste olusmayabilir.",
     });
   }
   if (draft.currencyConversionEnabled === false) {
@@ -171,8 +131,8 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       key: "shipentegra_import",
       message:
         typeof draft.resolvedDutyPercent === "number"
-          ? "ShipEntegra ithalat modeli secili profil ile uygulandi; matrah indirim ve kupon sonrasi urun geliridir."
-          : "ShipEntegra ithalat modeli hizli formdaki gumruk vergisi orani ile uygulandi; matrah indirim ve kupon sonrasi urun geliridir.",
+          ? "ABD ithalat vergisi secili GTIP/duty analiziyle tahmini olarak hesaplandi; navlun, brokerage ve diger tasiyici bedelleri otomatik eklenmedi."
+          : "ABD ithalat vergisi manuel oranla tahmini olarak hesaplandi; navlun, brokerage ve diger tasiyici bedelleri otomatik eklenmedi.",
     });
   }
   if (round2(totalCollectedUsd - totalEtsyFeesUsd - operationalCostsUsd) < 0) {
@@ -224,21 +184,6 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       sourceType: draft.offsiteAdsMode === "off" ? "conditional" : sourceTypeForFee(draft.feeProfileOverrides?.offsiteAdsRate),
     },
     {
-      key: "seller_fee_vat",
-      label: "Satici ucretleri KDV'si",
-      amountUsd: sellerFeeVatUsd,
-      amountTry: toTry(sellerFeeVatUsd, draft.usdTryRate),
-      sourceType: draft.vatMode === "vat_id_provided" ? "conditional" : sourceTypeForFee(draft.feeProfileOverrides?.vatRate),
-    },
-    {
-      key: "deposit_fee",
-      label: "Odeme aktarim ucreti",
-      amountUsd: depositFeeUsd,
-      amountTry: depositFeeTry,
-      sourceType: "conditional",
-      note: "Aktarim bazli kosullu ucret.",
-    },
-    {
       key: "product_cost",
       label: "Urun maliyeti",
       amountUsd: toUsd(draft.productCost, draft.usdTryRate),
@@ -247,7 +192,7 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     },
     {
       key: "actual_shipping_cost",
-      label: "Gercek kargo maliyeti",
+      label: "ShipEntegra kargo maliyeti",
       amountUsd: toUsd(draft.actualShippingCost, draft.usdTryRate),
       amountTry: toTry(toUsd(draft.actualShippingCost, draft.usdTryRate), draft.usdTryRate),
       sourceType: draft.valueSources.actualShippingCost ?? "manual_override",
@@ -259,52 +204,21 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
       amountTry: toTry(toUsd(draft.packagingCost, draft.usdTryRate), draft.usdTryRate),
       sourceType: "manual_override",
     },
-    {
-      key: "shipentegra_operation_cost",
-      label: "ShipEntegra operasyon maliyeti",
-      amountUsd: toUsd(draft.shipentegraOperationCost, draft.usdTryRate),
-      amountTry: toTry(toUsd(draft.shipentegraOperationCost, draft.usdTryRate), draft.usdTryRate),
-      sourceType: "manual_override",
-    },
   ];
 
   if (draft.destinationProfile === "US" && shipentegraImportTotalUsd > 0) {
     breakdown.push(
       {
         key: "us_duty_fee",
-        label: "ShipEntegra gumruk vergisi",
+        label: "ABD ithalat vergisi",
         amountUsd: shipentegraDutyUsd,
         amountTry: toTry(shipentegraDutyUsd, draft.usdTryRate),
         sourceType:
           draft.valueSources.duty ?? (typeof draft.resolvedDutyPercent === "number" ? "analysis_selected" : "manual_override"),
         note:
           typeof draft.resolvedDutyPercent === "number"
-            ? "Secili profil oranina gore hesaplandi; matrah indirim ve kupon sonrasi urun geliridir."
-            : "Hizli formdaki gumruk vergisi orani ile hesaplandi; matrah indirim ve kupon sonrasi urun geliridir.",
-      },
-      {
-        key: "shipentegra_additional_duty_fee",
-        label: "ShipEntegra ek vergi (%15)",
-        amountUsd: shipentegraAdditionalDutyUsd,
-        amountTry: toTry(shipentegraAdditionalDutyUsd, draft.usdTryRate),
-        sourceType: "system_default",
-        note: "Turkiye cikisli gonderiler icin sabit %15 ek vergi.",
-      },
-      {
-        key: "shipentegra_carrier_fee",
-        label: "ShipEntegra tasiyici islem bedeli",
-        amountUsd: shipentegraCarrierFeeUsd,
-        amountTry: toTry(shipentegraCarrierFeeUsd, draft.usdTryRate),
-        sourceType: "system_default",
-        note: "Ilk surumde kullanici is kurali ile sabitlenen 1 USD tasiyici islem bedeli.",
-      },
-      {
-        key: "shipentegra_import_total",
-        label: "ShipEntegra toplam ithalat masrafi",
-        amountUsd: shipentegraImportTotalUsd,
-        amountTry: toTry(shipentegraImportTotalUsd, draft.usdTryRate),
-        sourceType: "system_default",
-        note: "Gumruk vergisi + ek vergi + tasiyici islem bedeli toplami.",
+            ? "Secili oranla tahmini hesaplandi; matrah indirim ve kupon sonrasi urun geliridir. Ek tasiyici veya servis bedelleri dahil degildir."
+            : "Manuel oranla tahmini hesaplandi; matrah indirim ve kupon sonrasi urun geliridir. Ek tasiyici veya servis bedelleri dahil degildir.",
       },
     );
   }
@@ -344,8 +258,6 @@ export function calculateScenario(draft: CalculatorDraft): ScenarioSnapshot {
     dutyBaseUsd: shipentegraImportBasisUsd,
     shipentegraImportBasisUsd,
     shipentegraDutyUsd,
-    shipentegraAdditionalDutyUsd,
-    shipentegraCarrierFeeUsd,
     shipentegraImportTotalUsd,
     normalizedRevenueUsd: totalCollectedUsd,
     normalizedRevenueTry: revenueTry,

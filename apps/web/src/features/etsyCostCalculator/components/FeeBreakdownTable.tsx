@@ -1,3 +1,5 @@
+import { useId, useState, type ReactNode } from "react";
+
 import type { BreakdownGroup } from "../lib/types";
 import { HelpTooltip } from "./HelpTooltip";
 
@@ -13,19 +15,59 @@ type LegacyRow = {
 const HELP_COPY: Record<string, string> = {
   total_collected: "Musteriden toplanan toplam tutar.",
   product_revenue: "Urun satisindan gelen gelir.",
-  us_duty_fee: "ShipEntegra modelindeki gumruk vergisi tutari.",
-  shipentegra_additional_duty_fee: "Turkiye cikisli gonderiler icin sabit %15 ek vergi tutari.",
-  shipentegra_carrier_fee: "Ilk surumde sabitlenen 1 USD tasiyici islem bedeli.",
-  shipentegra_import_total: "Gumruk vergisi, ek vergi ve tasiyici islem bedelinin toplami.",
+  us_duty_fee: "Girilen veya analizden gelen orana gore hesaplanan tahmini ABD ithalat vergisi.",
   summary_net_profit: "Tum giderlerden sonra elinde kalan net kazanc.",
   overhead_cost: "Siparis basina dagitilan genel gider payi.",
 };
 
-function renderLegacyTable(rows: LegacyRow[]) {
+interface CollapsibleBreakdownCardProps {
+  children: ReactNode;
+  summary: string;
+}
+
+function CollapsibleBreakdownCard({ children, summary }: CollapsibleBreakdownCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const detailsId = useId();
+
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">Ucret dokumu</p>
-      <div className="mt-4 overflow-x-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Ucret dokumu</p>
+          <p className="mt-1 text-sm text-slate-500">{summary}</p>
+        </div>
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={detailsId}
+          onClick={() => setIsOpen((value) => !value)}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#F1641E] hover:text-[#F1641E]"
+        >
+          {isOpen ? "Detaylari gizle" : "Detaylari goster"}
+          <span aria-hidden="true" className={`text-base transition-transform ${isOpen ? "rotate-180" : ""}`}>
+            ↓
+          </span>
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div id={detailsId} className="mt-4">
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function getGroupedSummary(groups: BreakdownGroup[]) {
+  const rowCount = groups.reduce((total, group) => total + group.rows.length, 0);
+  return `${groups.length} grup, ${rowCount} kalem. Istersen detaylari acip gelir, ucret ve maliyetleri inceleyebilirsin.`;
+}
+
+function renderLegacyTable(rows: LegacyRow[]) {
+  return (
+    <CollapsibleBreakdownCard summary={`${rows.length} kalem. Istersen detaylari acip tum ucret dokumunu inceleyebilirsin.`}>
+      <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm text-slate-700">
           <thead className="text-xs uppercase tracking-[0.2em] text-slate-400">
             <tr>
@@ -52,15 +94,14 @@ function renderLegacyTable(rows: LegacyRow[]) {
           </tbody>
         </table>
       </div>
-    </section>
+    </CollapsibleBreakdownCard>
   );
 }
 
 function renderGroupedBreakdown(groups: BreakdownGroup[]) {
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">Ucret dokumu</p>
-      <div className="mt-4 space-y-4">
+    <CollapsibleBreakdownCard summary={getGroupedSummary(groups)}>
+      <div className="space-y-4">
         {groups.map((group) => (
           <section key={group.key} className="rounded-2xl border border-slate-100 p-4">
             <h3 className="text-sm font-semibold text-slate-900">{group.label}</h3>
@@ -95,7 +136,7 @@ function renderGroupedBreakdown(groups: BreakdownGroup[]) {
           </section>
         ))}
       </div>
-    </section>
+    </CollapsibleBreakdownCard>
   );
 }
 

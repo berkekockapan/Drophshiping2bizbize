@@ -4,7 +4,7 @@ import { createDefaultDraft } from "./defaults";
 import { calculateScenario } from "./calculateScenario";
 
 describe("calculateScenario", () => {
-  it("applies Etsy TR defaults when VAT ID is missing", () => {
+  it("applies Etsy TR defaults without deposit fee or seller VAT", () => {
     const draft = {
       ...createDefaultDraft(),
       usdTryRate: 40,
@@ -24,9 +24,12 @@ describe("calculateScenario", () => {
     expect(result.collectedExtrasUsd).toBe(0);
     expect(result.totalCollectedUsd).toBe(60);
     expect(result.normalizedRevenueUsd).toBe(60);
-    expect(result.totalEtsyFeesUsd).toBe(11.65);
-    expect(result.totalOperationalCostsUsd).toBe(28);
-    expect(result.netProfitUsd).toBe(20.35);
+    expect(result.totalEtsyFeesUsd).toBe(11.21);
+    expect(result.totalOperationalCostsUsd).toBe(26);
+    expect(result.netProfitUsd).toBe(22.79);
+    expect(result.breakdown.find((row) => row.key === "deposit_fee")).toBeUndefined();
+    expect(result.breakdown.find((row) => row.key === "seller_fee_vat")).toBeUndefined();
+    expect(result.breakdown.find((row) => row.key === "shipentegra_operation_cost")).toBeUndefined();
   });
 
   it("normalizes TRY costs, applies campaign inputs, and keeps profit math stable", () => {
@@ -67,11 +70,11 @@ describe("calculateScenario", () => {
     expect(result.totalCollectedUsd).toBe(90);
     expect(result.normalizedRevenueUsd).toBe(90);
     expect(result.totalEtsyFeesUsd).toBe(30.56);
-    expect(result.totalOperationalCostsUsd).toBe(57);
-    expect(result.netProfitUsd).toBe(2.44);
+    expect(result.totalOperationalCostsUsd).toBe(53);
+    expect(result.netProfitUsd).toBe(6.44);
   });
 
-  it("caps offsite ads at 100 USD and adds deposit fee below the threshold", () => {
+  it("caps offsite ads at 100 USD and ignores legacy deposit fee flags", () => {
     const cappedAdsResult = calculateScenario({
       ...createDefaultDraft(),
       usdTryRate: 40,
@@ -90,7 +93,20 @@ describe("calculateScenario", () => {
       includeDepositFee: true,
     });
 
-    expect(depositResult.breakdown.find((row) => row.key === "deposit_fee")?.amountTry).toBe(42);
+    expect(depositResult.breakdown.find((row) => row.key === "deposit_fee")).toBeUndefined();
+  });
+
+  it("ignores legacy seller VAT settings", () => {
+    const withVat = calculateScenario({
+      ...createDefaultDraft(),
+      usdTryRate: 40,
+      salePriceUsd: 12,
+      includeDepositFee: true,
+      vatMode: "no_vat_id",
+    });
+
+    expect(withVat.breakdown.find((row) => row.key === "deposit_fee")).toBeUndefined();
+    expect(withVat.breakdown.find((row) => row.key === "seller_fee_vat")).toBeUndefined();
   });
 
   it("uses post-discount post-coupon product revenue as the US duty base", () => {
@@ -114,7 +130,7 @@ describe("calculateScenario", () => {
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.amountUsd).toBe(5.4);
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.sourceType).toBe("manual_override");
     expect(us.breakdown.find((row) => row.key === "us_duty_fee")?.note).toMatch(/urun geliridir/i);
-    expect(us.warnings.find((warning) => warning.key === "shipentegra_import")?.message).toMatch(/ShipEntegra ithalat modeli/i);
+    expect(us.warnings.find((warning) => warning.key === "shipentegra_import")?.message).toMatch(/ABD ithalat vergisi/i);
 
     const other = calculateScenario({
       ...createDefaultDraft(),
@@ -127,7 +143,7 @@ describe("calculateScenario", () => {
     expect(other.breakdown.find((row) => row.key === "us_duty_fee")).toBeUndefined();
   });
 
-  it("models ShipEntegra import costs as separate operational rows for US scenarios", () => {
+  it("models manual import duty as an operational row for US scenarios", () => {
     const result = calculateScenario({
       ...createDefaultDraft(),
       usdTryRate: 40,
@@ -145,14 +161,11 @@ describe("calculateScenario", () => {
 
     expect(result.shipentegraImportBasisUsd).toBe(36);
     expect(result.shipentegraDutyUsd).toBe(3.6);
-    expect(result.shipentegraAdditionalDutyUsd).toBe(5.4);
-    expect(result.shipentegraCarrierFeeUsd).toBe(1);
-    expect(result.shipentegraImportTotalUsd).toBe(10);
-    expect(result.totalOperationalCostsUsd).toBe(36);
-    expect(result.breakdown.find((row) => row.key === "us_duty_fee")?.label).toBe("ShipEntegra gumruk vergisi");
-    expect(result.breakdown.find((row) => row.key === "shipentegra_additional_duty_fee")?.amountUsd).toBe(5.4);
-    expect(result.breakdown.find((row) => row.key === "shipentegra_carrier_fee")?.amountUsd).toBe(1);
-    expect(result.breakdown.find((row) => row.key === "shipentegra_import_total")?.amountUsd).toBe(10);
-    expect(result.warnings.find((warning) => warning.key === "shipentegra_import")?.message).toMatch(/ShipEntegra ithalat modeli/i);
+    expect(result.shipentegraImportTotalUsd).toBe(3.6);
+    expect(result.totalOperationalCostsUsd).toBe(27.6);
+    expect(result.breakdown.find((row) => row.key === "us_duty_fee")?.label).toBe("ABD ithalat vergisi");
+    expect(result.breakdown.find((row) => row.key === "us_duty_fee")?.amountUsd).toBe(3.6);
+    expect(result.breakdown.find((row) => row.key === "shipentegra_import_total")).toBeUndefined();
+    expect(result.warnings.find((warning) => warning.key === "shipentegra_import")?.message).toMatch(/otomatik eklenmedi/i);
   });
 });

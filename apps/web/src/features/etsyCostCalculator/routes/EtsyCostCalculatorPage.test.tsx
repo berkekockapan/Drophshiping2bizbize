@@ -60,7 +60,7 @@ describe("EtsyCostCalculatorPage", () => {
     );
   });
 
-  it("renders the ShipEntegra quick-form summary when the US profile is active", async () => {
+  it("renders the import-duty preview when the US profile is active", async () => {
     const user = userEvent.setup();
     const settings = {
       id: "default",
@@ -99,9 +99,8 @@ describe("EtsyCostCalculatorPage", () => {
 
     await user.click(screen.getByRole("button", { name: /abd hedef profili/i }));
 
-    expect(screen.getByRole("spinbutton", { name: /gumruk vergisi orani \(%\)/i })).toBeInTheDocument();
-    expect(screen.getByText(/^ShipEntegra ithalat masrafi$/i)).toBeInTheDocument();
-    expect(screen.getByText(/ek vergi tutari \(%15\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/^Tasiyici islem bedeli: \$1\.00$/i)).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: /manuel ithalat vergisi orani \(%\)/i })).toBeInTheDocument();
+    expect(screen.getByText(/^ABD ithalat vergisi onizlemesi$/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/^Tahmini ithalat vergisi: \$0\.00$/i).length).toBeGreaterThan(0);
   });
 });

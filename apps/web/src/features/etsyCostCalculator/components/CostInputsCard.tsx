@@ -27,7 +27,7 @@ export function CostInputsCard({
           <MoneyInputField label="Urun maliyeti" value={draft.productCost} onChange={(value) => onChange({ productCost: value })} />
         ) : null}
         <MoneyInputField
-          label="Gercek kargo maliyeti"
+          label="ShipEntegra kargo maliyeti"
           value={draft.actualShippingCost}
           onChange={(value) => onChange({ actualShippingCost: value })}
         />
@@ -35,11 +35,6 @@ export function CostInputsCard({
           label="Paketleme maliyeti"
           value={draft.packagingCost}
           onChange={(value) => onChange({ packagingCost: value })}
-        />
-        <MoneyInputField
-          label="ShipEntegra operasyon maliyeti"
-          value={draft.shipentegraOperationCost}
-          onChange={(value) => onChange({ shipentegraOperationCost: value })}
         />
       </div>
 

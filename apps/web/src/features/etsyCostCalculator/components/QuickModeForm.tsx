@@ -26,8 +26,6 @@ export function QuickModeForm({
       ? {
           basisUsd: shipentegraPreview?.shipentegraImportBasisUsd ?? shipentegraPreview?.dutyBaseUsd ?? 0,
           dutyUsd: shipentegraPreview?.shipentegraDutyUsd ?? 0,
-          additionalDutyUsd: shipentegraPreview?.shipentegraAdditionalDutyUsd ?? 0,
-          carrierFeeUsd: shipentegraPreview?.shipentegraCarrierFeeUsd ?? 0,
           totalUsd: shipentegraPreview?.shipentegraImportTotalUsd ?? 0,
         }
       : null;
@@ -79,14 +77,14 @@ export function QuickModeForm({
           <>
             <label className="grid gap-2 text-sm text-slate-700">
               <span className="inline-flex items-center gap-2">
-                Gumruk vergisi orani (%)
+                Manuel ithalat vergisi orani (%)
                 <HelpTooltip
-                  label="Gumruk vergisi orani"
-                  description="ShipEntegra ithalat modeli icin tek manuel ithalat girdisi budur. Matrah indirim ve kupon sonrasi urun geliridir."
+                  label="Manuel ithalat vergisi orani"
+                  description="ShipEntegra'dan veya HTS/GTIP analizinden aldiginiz gercek ABD duty/tariff oranini girin. ShipEntegra kargo tutarina bu vergi zaten dahilse 0 girin; aksi halde sistem bu orani urun net satis geliri uzerinden maliyete ekler."
                 />
               </span>
               <input
-                aria-label="Gumruk vergisi orani (%)"
+                aria-label="Manuel ithalat vergisi orani (%)"
                 aria-invalid={Boolean(validationErrors.manualDutyPercent)}
                 type="number"
                 min={0}
@@ -99,12 +97,14 @@ export function QuickModeForm({
             </label>
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
-              <p className="font-semibold text-slate-900">ShipEntegra ithalat masrafi</p>
-              <p className="mt-2">Matrah (indirim sonrasi urun fiyati): {formatUsd(shipentegraSummary?.basisUsd ?? 0)}</p>
-              <p>Gumruk vergisi tutari: {formatUsd(shipentegraSummary?.dutyUsd ?? 0)}</p>
-              <p>Ek vergi tutari (%15): {formatUsd(shipentegraSummary?.additionalDutyUsd ?? 0)}</p>
-              <p>Tasiyici islem bedeli: {formatUsd(shipentegraSummary?.carrierFeeUsd ?? 0)}</p>
-              <p className="font-medium text-slate-900">Toplam ithalat masrafi: {formatUsd(shipentegraSummary?.totalUsd ?? 0)}</p>
+              <p className="font-semibold text-slate-900">ABD ithalat vergisi onizlemesi</p>
+              <p className="mt-2">Matrah (liste fiyati - indirim - kupon): {formatUsd(shipentegraSummary?.basisUsd ?? 0)}</p>
+              <p>Manuel duty tutari: {formatUsd(shipentegraSummary?.dutyUsd ?? 0)}</p>
+              <p className="font-medium text-slate-900">Tahmini ithalat vergisi: {formatUsd(shipentegraSummary?.totalUsd ?? 0)}</p>
+              <p className="mt-2 text-xs text-slate-600">
+                ShipEntegra veya HTS/GTIP analizinden aldiginiz gercek duty/tariff oranini kullanin. Kargo tutarina bu vergi
+                zaten dahilse orani 0 girin; kargo, Etsy fee ve sales tax bu matraha dahil edilmez.
+              </p>
             </div>
           </>
         ) : null}
@@ -174,7 +174,7 @@ export function QuickModeForm({
           onChange={(value) => onChange({ productCost: value })}
         />
         <MoneyInputField
-          label="Gercek kargo"
+          label="ShipEntegra kargo maliyeti"
           value={draft.actualShippingCost}
           onChange={(value) => onChange({ actualShippingCost: value })}
         />

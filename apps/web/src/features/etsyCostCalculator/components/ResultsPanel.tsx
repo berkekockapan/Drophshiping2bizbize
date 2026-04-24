@@ -143,8 +143,8 @@ function QuickModeResultsPanel({
         <p className="font-semibold text-slate-900">Toplam gider ozeti</p>
         <p className="mt-2">Toplam tahsilat: {formatUsd(revenueMetrics.totalCollectedUsd)}</p>
         <p>Urun geliri: {formatUsd(revenueMetrics.productRevenueUsd)}</p>
-        <p>Gercek tasima maliyeti: {formatUsd(actualShippingCostUsd)}</p>
-        {shipentegraImportTotalUsd != null ? <p>ShipEntegra ithalat masrafi: {formatUsd(shipentegraImportTotalUsd)}</p> : null}
+        <p>ShipEntegra kargo maliyeti: {formatUsd(actualShippingCostUsd)}</p>
+        {shipentegraImportTotalUsd != null ? <p>Tahmini ithalat vergisi: {formatUsd(shipentegraImportTotalUsd)}</p> : null}
         <p>Toplam Etsy ucreti: {formatUsd(activeScenario?.totalEtsyFeesUsd ?? 0)}</p>
         <p>Toplam operasyonel maliyet: {formatUsd(activeScenario?.totalOperationalCostsUsd ?? 0)}</p>
         <p>Toplam gider: {formatUsd((activeScenario?.totalOperationalCostsUsd ?? 0) + (activeScenario?.totalEtsyFeesUsd ?? 0))}</p>

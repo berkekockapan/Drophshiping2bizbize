@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TrackingCenterPage } from "./TrackingCenterPage";
@@ -729,6 +729,154 @@ describe("TrackingCenterPage", () => {
     expect(
       await within(hoodieCard).findByText((content, node) => node?.tagName === "DD" && /ev dekor/i.test(content)),
     ).toBeInTheDocument();
+  });
+
+  it("creates dashboard categories and exposes them in tracked and source-only cards", async () => {
+    const user = userEvent.setup();
+    const categoriesState: Array<{ id: string; name: string }> = [];
+    const createdCategory = { id: "cat_seramik", name: "Seramik" };
+    const trackingState: TrackingItem[] = [
+      {
+        ...trackingItems[1],
+        userCategory: null,
+        shops: [],
+      },
+    ];
+    const sourceOnlyProducts = {
+      items: [
+        {
+          id: "sp_seramik",
+          ownerKey: "berke",
+          title: "Kaynak Seramik",
+          sourceUrl: "https://shopier.com/ShowProductNew/products.php?id=987",
+          platform: "SHOPIER",
+          notes: null,
+          sourceCategory: null,
+          userCategory: null as { id: string; name: string } | null,
+          shops: [],
+          sortOrder: 0,
+          deletedAt: null,
+          linkedEtsyCount: 0,
+          linkedEtsyItems: [],
+        },
+      ],
+      filters: {},
+    };
+
+    const createCategorySpy = vi.fn();
+    const trackedPatchSpy = vi.fn();
+    const sourcePatchSpy = vi.fn();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify({ items: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/owners/berke/categories") && method === "POST") {
+        createCategorySpy(JSON.parse(String(init?.body ?? "{}")));
+        categoriesState.push(createdCategory);
+        return new Response(JSON.stringify({ category: createdCategory }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify({ items: categoriesState }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/owners/berke/source-products/sp_seramik/product-category") && method === "PATCH") {
+        sourcePatchSpy(JSON.parse(String(init?.body ?? "{}")));
+        sourceOnlyProducts.items[0].userCategory = createdCategory;
+        return new Response(
+          JSON.stringify({
+            sourceProductId: "sp_seramik",
+            userCategory: createdCategory,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify(sourceOnlyProducts), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/owners/berke/products/prod_2/category") && method === "PATCH") {
+        trackedPatchSpy(JSON.parse(String(init?.body ?? "{}")));
+        trackingState[0].userCategory = createdCategory;
+        return new Response(
+          JSON.stringify({
+            productId: "prod_2",
+            userCategory: createdCategory,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(buildTrackingPayloadFrom(trackingState, null)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    renderWithProviders(<TrackingCenterPage />, {
+      route: "/owners/berke/products",
+      path: "/owners/:ownerKey/products",
+    });
+
+    const sourceHeading = await screen.findByRole("heading", { name: /kaynak seramik/i });
+    const trackedHeading = await screen.findByRole("heading", { name: /takipsel kupa/i });
+    const sourceCard = sourceHeading.closest("article");
+    const trackedCard = trackedHeading.closest("article");
+    expect(sourceCard).not.toBeNull();
+    expect(trackedCard).not.toBeNull();
+    if (!sourceCard || !trackedCard) {
+      throw new Error("Expected dashboard cards to exist");
+    }
+
+    expect(screen.queryByText(/kategori listesi/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/yeni kategori/i), "Seramik");
+    await user.click(screen.getByRole("button", { name: /kategori ekle/i }));
+
+    await waitFor(() => expect(createCategorySpy).toHaveBeenCalledWith({ name: "Seramik" }));
+    expect(await within(sourceCard).findByRole("option", { name: "Seramik" })).toBeInTheDocument();
+    expect(await within(trackedCard).findByRole("option", { name: "Seramik" })).toBeInTheDocument();
+
+    await user.selectOptions(within(sourceCard).getByRole("combobox", { name: "Kategori" }), "cat_seramik");
+    await user.selectOptions(within(trackedCard).getByLabelText(/takip kategorisi/i), "cat_seramik");
+
+    expect(sourcePatchSpy).toHaveBeenCalledWith({ categoryId: "cat_seramik" });
+    expect(trackedPatchSpy).toHaveBeenCalledWith({ categoryId: "cat_seramik" });
   });
 
 });

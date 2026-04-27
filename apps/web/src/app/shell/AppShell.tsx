@@ -1,6 +1,9 @@
-﻿import type { PropsWithChildren } from "react";
+﻿import { useQuery } from "@tanstack/react-query";
+import type { PropsWithChildren } from "react";
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+
+import { fetchNotifications } from "../api";
 
 import {
   getDefaultOwnerKey,
@@ -26,6 +29,14 @@ export function AppShell({ children }: PropsWithChildren) {
     }
   }, [ownerFromPath]);
 
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications", activeOwner, "sidebar"],
+    queryFn: () => fetchNotifications(activeOwner),
+    refetchInterval: 10_000,
+    retry: false,
+  });
+  const unreadNotificationCount = (notificationsQuery.data?.items ?? []).filter((item) => item.readAt === null).length;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
@@ -46,7 +57,14 @@ export function AppShell({ children }: PropsWithChildren) {
               Etsy Mağazaları
             </NavLink>
             <NavLink to={`/owners/${activeOwner}/notifications`} className={({ isActive }) => linkClassName(isActive)}>
-              Bildirimler
+              <span className="flex items-center justify-between gap-3">
+                <span>Bildirimler</span>
+                {unreadNotificationCount > 0 ? (
+                  <span className="rounded-full bg-[#F1641E] px-2 py-0.5 text-xs font-semibold text-white">
+                    {unreadNotificationCount}
+                  </span>
+                ) : null}
+              </span>
             </NavLink>
             <NavLink to={`/owners/${activeOwner}/trash`} className={({ isActive }) => linkClassName(isActive)}>
               Çöp Kutusu

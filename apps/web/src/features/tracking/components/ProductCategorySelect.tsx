@@ -25,7 +25,7 @@ export function ProductCategorySelect({
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value === "" ? null : event.target.value)}
         disabled={disabled}
-        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm"
+        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#F1641E] disabled:cursor-not-allowed disabled:bg-slate-100"
       >
         <option value="">Kategorisiz</option>
         {categories.map((category) => (

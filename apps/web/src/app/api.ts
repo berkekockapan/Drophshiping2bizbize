@@ -135,6 +135,7 @@ export interface DetailAttribute {
 export interface NotificationItem {
   id: string;
   productId: string | null;
+  productTitle?: string | null;
   type: string;
   severity: string;
   title: string;
@@ -1327,6 +1328,20 @@ export async function downloadProductImage(ownerKey: OwnerKey, productId: string
 export async function fetchNotifications(ownerKey: OwnerKey, productId?: string): Promise<{ items: NotificationItem[] }> {
   const search = productId ? `?productId=${encodeURIComponent(productId)}` : "";
   const response = await fetchWithTimeout(`/owners/${ownerKey}/notifications${search}`);
+  return parseJson<{ items: NotificationItem[] }>(response);
+}
+
+export async function markNotificationRead(ownerKey: OwnerKey, notificationId: string): Promise<{ items: NotificationItem[] }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+  return parseJson<{ items: NotificationItem[] }>(response);
+}
+
+export async function clearNotifications(ownerKey: OwnerKey): Promise<{ items: NotificationItem[] }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/notifications`, {
+    method: "DELETE",
+  });
   return parseJson<{ items: NotificationItem[] }>(response);
 }
 

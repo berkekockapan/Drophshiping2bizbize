@@ -43,14 +43,18 @@ export function createNotificationsRepo(db: D1Database) {
     },
     async listNotifications(ownerKey: OwnerKey, productId: string | null = null) {
       const query = productId
-        ? `select id, product_id as productId, type, severity, title, body, read_at as readAt, created_at as createdAt
-           from notifications
-           where owner_key = ? and product_id = ?
-           order by created_at desc`
-        : `select id, product_id as productId, type, severity, title, body, read_at as readAt, created_at as createdAt
-           from notifications
-           where owner_key = ?
-           order by created_at desc`;
+        ? `select n.id, n.product_id as productId, n.type, n.severity, n.title, n.body, n.read_at as readAt, n.created_at as createdAt,
+                  p.title as productTitle
+           from notifications n
+           left join products p on p.id = n.product_id and p.owner_key = n.owner_key
+           where n.owner_key = ? and n.product_id = ?
+           order by n.created_at desc`
+        : `select n.id, n.product_id as productId, n.type, n.severity, n.title, n.body, n.read_at as readAt, n.created_at as createdAt,
+                  p.title as productTitle
+           from notifications n
+           left join products p on p.id = n.product_id and p.owner_key = n.owner_key
+           where n.owner_key = ?
+           order by n.created_at desc`;
 
       const statement = db.prepare(query);
       const result = productId
@@ -58,6 +62,31 @@ export function createNotificationsRepo(db: D1Database) {
         : await statement.bind(ownerKey).all();
 
       return result.results;
+    },
+    async markNotificationRead(ownerKey: OwnerKey, notificationId: string, now: Date) {
+      const result = await runWithWriteRetry(() =>
+        db
+          .prepare(
+            `update notifications
+             set read_at = coalesce(read_at, ?)
+             where owner_key = ? and id = ?`,
+          )
+          .bind(now.getTime(), ownerKey, notificationId)
+          .run(),
+      );
+
+      return ((result as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0;
+    },
+    async clearNotifications(ownerKey: OwnerKey) {
+      await runWithWriteRetry(() =>
+        db
+          .prepare(
+            `delete from notifications
+             where owner_key = ?`,
+          )
+          .bind(ownerKey)
+          .run(),
+      );
     },
   };
 }

@@ -273,6 +273,8 @@ describe("ProductDetailPage", () => {
     expect(await screen.findByText(/varyant görünümü/i)).toBeInTheDocument();
     expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
     expect(screen.getByText(/varyasyon matrisi/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/beden/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/renk/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/ürün başlığı/i).length).toBeGreaterThan(0);
     expect(screen.queryByRole("heading", { name: /urun maliyet gorunumu/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");

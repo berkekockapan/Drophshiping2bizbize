@@ -169,6 +169,7 @@ export function ProductDetailPage() {
             <VariantTable
               variants={detailQuery.data.variants}
               productTitle={detailQuery.data.product.title}
+              productAttributes={detailQuery.data.product.attributes}
               productImages={detailQuery.data.product.images}
               selectedVariantId={selectedVariantId}
               onVariantSelect={setSelectedVariantId}

@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  createProductCategory,
   fetchEtsyShops,
   fetchProductCategories,
   fetchSourceProductsView,
@@ -189,6 +190,7 @@ export function TrackingCenterPage() {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [shopAssignmentError, setShopAssignmentError] = useState<string | null>(null);
   const [categoryMutationError, setCategoryMutationError] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const trackingQuery = useQuery({
     queryKey: ["tracking-products", ownerKey, "dashboard"],
@@ -202,6 +204,14 @@ export function TrackingCenterPage() {
     enabled: Boolean(ownerKey),
     queryFn: async () => (await fetchProductCategories(ownerKey as OwnerKey)).items,
     ...liveSyncQueryOptions,
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (name: string) => createProductCategory(ownerKey as OwnerKey, name),
+    onSuccess: async () => {
+      setNewCategoryName("");
+      await queryClient.invalidateQueries({ queryKey: ["product-categories", ownerKey] });
+    },
   });
 
   const shopsQuery = useQuery({
@@ -484,6 +494,17 @@ export function TrackingCenterPage() {
   const assigningItemKey = shopAssignmentMutation.isPending ? shopAssignmentMutation.variables?.item.key ?? null : null;
   const categoryUpdatingItemKey = categoryMutation.isPending ? categoryMutation.variables?.item.key ?? null : null;
 
+  function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName || createCategoryMutation.isPending) {
+      return;
+    }
+
+    createCategoryMutation.mutate(trimmedName);
+  }
+
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Geçersiz owner seçimi.</p>;
   }
@@ -620,6 +641,34 @@ export function TrackingCenterPage() {
             Kategorisiz ({uncategorizedCount})
           </button>
         </div>
+
+        <form onSubmit={handleCreateCategory} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <label className="block text-sm font-medium text-slate-600" htmlFor="dashboard-new-category">
+              Yeni kategori adı
+              <input
+                id="dashboard-new-category"
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                placeholder="Örn. Seramik takılar"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#F1641E]"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={createCategoryMutation.isPending || newCategoryName.trim().length === 0}
+              className="rounded-2xl bg-[#F1641E] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#d95518] disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {createCategoryMutation.isPending ? "Ekleniyor..." : "Kategori ekle"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Oluşturduğunuz kategoriler, hem Trendyol takip kartlarında hem de kaynak ürün kartlarında kategori seçimi olarak görünür.
+          </p>
+          {createCategoryMutation.error instanceof Error ? (
+            <p className="mt-2 text-sm text-rose-600">{createCategoryMutation.error.message}</p>
+          ) : null}
+        </form>
       </div>
 
       <LiveSyncStatus
@@ -651,6 +700,8 @@ export function TrackingCenterPage() {
             item={item}
             shops={shopsQuery.data ?? []}
             categories={categoriesQuery.data ?? []}
+            isCategoryListLoading={categoriesQuery.isLoading}
+            hasCategoryListError={categoriesQuery.isError && !categoriesQuery.data}
             showAssignedShopLabel={!selectedShopId}
             isAssigningShop={assigningItemKey === item.key}
             isCategoryUpdating={categoryUpdatingItemKey === item.key}

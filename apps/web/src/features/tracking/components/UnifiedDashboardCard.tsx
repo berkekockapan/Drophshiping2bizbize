@@ -12,6 +12,8 @@ interface UnifiedDashboardCardProps {
   item: UnifiedDashboardItem;
   shops: EtsyShop[];
   categories: ProductCategory[];
+  isCategoryListLoading?: boolean;
+  hasCategoryListError?: boolean;
   showAssignedShopLabel: boolean;
   isAssigningShop?: boolean;
   isCategoryUpdating?: boolean;
@@ -24,6 +26,8 @@ export function UnifiedDashboardCard({
   item,
   shops,
   categories,
+  isCategoryListLoading = false,
+  hasCategoryListError = false,
   showAssignedShopLabel,
   isAssigningShop = false,
   isCategoryUpdating = false,
@@ -121,17 +125,23 @@ export function UnifiedDashboardCard({
           {shops.length === 0 ? <p className="text-xs text-slate-500">Atama için önce Etsy mağazası ekleyin.</p> : null}
 
           {canSetCategory ? (
-            categories.length > 0 ? (
-              <ProductCategorySelect
-                label={categoryLabel}
-                inputId={categoryInputId}
-                categories={categories}
-                value={categoryValue}
-                disabled={isCategoryUpdating}
-                onChange={(categoryId) => onCategoryChange(item, categoryId)}
-              />
-            ) : (
+            isCategoryListLoading ? (
               <p className="text-xs text-slate-500">Kategori listesi yükleniyor...</p>
+            ) : (
+              <div className="space-y-1">
+                <ProductCategorySelect
+                  label={categoryLabel}
+                  inputId={categoryInputId}
+                  categories={categories}
+                  value={categoryValue}
+                  disabled={isCategoryUpdating || hasCategoryListError}
+                  onChange={(categoryId) => onCategoryChange(item, categoryId)}
+                />
+                {hasCategoryListError ? <p className="text-xs text-rose-600">Kategori listesi yüklenemedi.</p> : null}
+                {!hasCategoryListError && categories.length === 0 ? (
+                  <p className="text-xs text-slate-500">Henüz kategori yok. Yukarıdan kategori oluşturun.</p>
+                ) : null}
+              </div>
             )
           ) : (
             <p className="text-xs text-slate-500">Kategori seçimi için önce takip kaydı oluşturun.</p>

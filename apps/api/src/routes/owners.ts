@@ -376,6 +376,32 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
     return c.json({ items: notifications });
   });
 
+  app.patch("/notifications/:notificationId/read", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const notificationsRepo = createNotificationsRepo(c.env.DB);
+    const updated = await notificationsRepo.markNotificationRead(ownerKey, c.req.param("notificationId"), new Date());
+    if (!updated) {
+      return c.json({ error: "Bildirim bulunamadi" }, 404);
+    }
+
+    const notifications = await notificationsRepo.listNotifications(ownerKey);
+    return c.json({ ok: true, items: notifications });
+  });
+
+  app.delete("/notifications", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    await createNotificationsRepo(c.env.DB).clearNotifications(ownerKey);
+    return c.json({ ok: true, items: [] });
+  });
+
   app.route("/products", createProductsRouter());
   app.route("/etsy-shops", createEtsyShopsRouter());
   app.route("/source-products", createSourceProductsRouter());

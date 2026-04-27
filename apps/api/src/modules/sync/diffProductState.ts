@@ -81,23 +81,37 @@ export interface ProductStateDiff {
   notifications: SyncNotification[];
 }
 
+function formatTryCents(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    minimumFractionDigits: 2,
+  }).format(value / 100);
+}
+
+function formatVariantLabel(variant: ParsedVariant) {
+  const options = [variant.option1, variant.option2, variant.option3].filter(Boolean).join(" / ");
+  return options || variant.variantKey;
+}
+
 function buildPriceNotification(previousPrice: number, nextPrice: number): SyncNotification {
   const increased = nextPrice > previousPrice;
   return {
     type: increased ? "PRICE_INCREASED" : "PRICE_DECREASED",
-    severity: "info",
-    title: increased ? "Price increased" : "Price decreased",
-    body: `Product price moved from ${previousPrice} to ${nextPrice}.`,
+    severity: increased ? "warning" : "info",
+    title: increased ? "Fiyat arttı" : "Fiyat düştü",
+    body: `Ürün fiyatı ${formatTryCents(previousPrice)} → ${formatTryCents(nextPrice)} olarak değişti.`,
   };
 }
 
 function buildStockNotification(variant: ParsedVariant): SyncNotification {
   const outOfStock = variant.stockState === "OUT_OF_STOCK";
+  const variantLabel = formatVariantLabel(variant);
   return {
     type: outOfStock ? "OUT_OF_STOCK" : "BACK_IN_STOCK",
     severity: outOfStock ? "warning" : "info",
-    title: outOfStock ? "Variant out of stock" : "Variant back in stock",
-    body: `Variant ${variant.variantKey} is now ${outOfStock ? "out of stock" : "available again"}.`,
+    title: outOfStock ? "Stok bitti" : "Stok geri geldi",
+    body: `${variantLabel} varyantı ${outOfStock ? "stokta yok" : "yeniden stokta"}.`,
   };
 }
 

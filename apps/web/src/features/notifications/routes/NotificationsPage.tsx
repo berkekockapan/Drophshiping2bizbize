@@ -51,21 +51,24 @@ export function NotificationsPage() {
   const clearMutation = useMutation({
     mutationFn: () => clearNotifications(ownerKey as OwnerKey),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey });
+      await queryClient.cancelQueries({ queryKey: ["notifications", ownerKey] });
       const previous = queryClient.getQueryData<{ items: NotificationItem[] }>(queryKey);
       queryClient.setQueryData<{ items: NotificationItem[] }>(queryKey, { items: [] });
+      queryClient.setQueryData<{ items: NotificationItem[] }>(["notifications", ownerKey, "sidebar"], { items: [] });
       return { previous };
     },
     onSuccess: (data) => {
       queryClient.setQueryData(queryKey, data);
+      queryClient.setQueryData(["notifications", ownerKey, "sidebar"], data);
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKey, context.previous);
+        queryClient.setQueryData(["notifications", ownerKey, "sidebar"], context.previous);
       }
     },
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey });
+      await queryClient.invalidateQueries({ queryKey: ["notifications", ownerKey] });
     },
   });
 

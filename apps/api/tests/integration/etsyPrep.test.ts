@@ -342,7 +342,7 @@ describe("etsy prep", () => {
     const payload = await response.json();
     expect(payload).toEqual(
       expect.objectContaining({
-        rulebookVersion: "etsy-prompt-pack-v6",
+        rulebookVersion: "etsy-prompt-pack-v7",
         systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
@@ -368,20 +368,19 @@ describe("etsy prep", () => {
       "Silently choose exactly 1 primary keyword angle and exactly 2 supporting keyword angles before drafting.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
-      "Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.",
+      "Prioritize Etsy Marketplace Insights data supplied by the user when available.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
-      "Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.",
+      "Internally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
-      "Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.",
-    );
-    expect(payload.chatGptResearchPromptPack.prompt).toContain("Do not reject a tag only because it is broad.");
-    expect(payload.chatGptResearchPromptPack.prompt).toContain(
-      "Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+      "Use 1-3 mild emojis total inside the description.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
-      "Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+      "The final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "No Etsy Marketplace Insights or Shop Stats search terms were supplied by the app for this product. Do not claim keyword volume or popularity.",
     );
     expect(payload.imagePromptPack.mainPrompt).toContain("Silent Quality Gate");
     expect(payload.imagePromptPack.variations).toHaveLength(10);

@@ -33,62 +33,62 @@ const detail = {
 } as unknown as EtsyPrepView;
 
 describe("buildChatGptResearchPromptPack", () => {
-  it("forces handbook + competitor research, truthful claim handling, and a stricter tag self-reject loop", () => {
+  it("adapts the approved ChatGPT research prompt with evidence priority, 1-3 emojis, and strict tag selection", () => {
     const pack = buildChatGptResearchPromptPack(detail);
 
     expect(pack.outputFormat).toBe("sectioned-text");
     expect(pack.researchMode).toBe("required");
     expect(pack.expectedSections).toEqual(["title", "description", "tags"]);
-    expect(pack.prompt).toContain("Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.");
     expect(pack.prompt).toContain(
-      "Review a meaningful set of live English-language Etsy competitor listings in the same product group before you write.",
+      "You are an Etsy SEO strategist, Etsy buyer-intent keyword researcher, and conversion-focused listing copywriter for English-language Etsy listings.",
+    );
+    expect(pack.prompt).toContain("Keyword Evidence Priority");
+    expect(pack.prompt).toContain("Prioritize Etsy Marketplace Insights data supplied by the user when available.");
+    expect(pack.prompt).toContain(
+      "Never claim that a keyword is the most searched, highest volume, or best keyword unless direct Etsy Marketplace Insights or Shop Stats data supports it.",
+    );
+    expect(pack.prompt).toContain(
+      "If web access is available, check current Etsy Seller Handbook or Etsy Help guidance on titles, tags, descriptions, attributes, and listing quality before drafting.",
+    );
+    expect(pack.prompt).toContain(
+      "If web access is available, review 10-20 live English-language Etsy listings in the same product group before drafting.",
+    );
+    expect(pack.prompt).toContain(
+      "If web access is not available, do not pretend that live research was completed; work only from supplied product facts, supplied keyword data, and Etsy best-practice rules.",
     );
     expect(pack.prompt).toContain(
       "Silently choose exactly 1 primary keyword angle and exactly 2 supporting keyword angles before drafting.",
     );
-    expect(pack.prompt).toContain("Reject any title draft that feels catalog-like, empty, or overextended.");
+    expect(pack.prompt).toContain("Do not ask clarification questions in this product-flow prompt");
+    expect(pack.prompt).toContain("Maximum title length: 140 characters.");
+    expect(pack.prompt).toContain("Target fewer than 15 words when possible.");
+    expect(pack.prompt).toContain("Each paragraph must be 80-115 words.");
+    expect(pack.prompt).toContain("Total description length must be 250-340 words.");
+    expect(pack.prompt).toContain("Use 1-3 mild emojis total inside the description.");
     expect(pack.prompt).toContain(
-      "Reject any description draft that is too short, too generic, or fails to naturally distribute the chosen tag logic.",
+      "Reject and revise if the description uses fewer than 1 or more than 3 emojis.",
     );
-    expect(pack.prompt).toContain("Generate 30 candidate Etsy search phrases first, then keep only the strongest 13.");
-    expect(pack.prompt).toContain("Use all 13 tags.");
-    expect(pack.prompt).toContain("Keep every tag at 20 characters or fewer.");
-    expect(pack.prompt).toContain("Every tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.");
-    expect(pack.prompt).toContain("No more than 4 tags may use the same main noun root such as bracelet.");
-    expect(pack.prompt).toContain("No more than 5 tags may repeat the same adjective root such as pink.");
-    expect(pack.prompt).toContain("Use truthful claims such as handmade when they are explicitly supported by product facts and improve buyer clarity.");
-    expect(pack.prompt).toContain("Do not call an item vintage unless the product facts explicitly confirm Etsy-vintage eligibility.");
-    expect(pack.prompt).toContain("Reject tags that combine a raw measurement with a generic noun unless the phrase sounds like a real Etsy buyer search.");
+    expect(pack.prompt).toContain("Internally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.");
+    expect(pack.prompt).toContain("Do not simply convert product attributes into tags.");
     expect(pack.prompt).toContain(
-      "Treat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.",
+      "Reject any tag that sounds like a database attribute, technical label, translated phrase, catalog filter, sentence fragment, or phrase made only to satisfy SEO coverage.",
     );
-    expect(pack.prompt).toContain("Do not reject a tag only because it is broad.");
+    expect(pack.prompt).toContain("Do not use standalone color-only tags.");
     expect(pack.prompt).toContain(
-      "Keep broader material or color tags only when they add distinct search intent not already covered by stronger product-type tags.",
+      "Use color in a maximum of 2 tags by default; allow 3 color-based tags only if supplied Etsy data or strong live-search evidence shows color is a major search driver.",
     );
     expect(pack.prompt).toContain(
-      "Do not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.",
+      "The final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.",
     );
     expect(pack.prompt).toContain(
-      "Gift-intent tags should use a clear recipient or occasion when supported by product facts; avoid vague material-plus-gift phrasing.",
-    );
-    expect(pack.prompt).toContain("Replace the weakest 3 tags before finalizing.");
-    expect(pack.prompt).toContain("Reject any tag set with awkward raw-size phrases such as 20 cm bracelet when a more natural buyer phrase is available.");
-    expect(pack.prompt).toContain(
-      "Reject any tag set where more than 2 tags rely on generic fallback nouns such as jewelry or accessory.",
+      "Replace the weakest 3 tags unless they are clearly supported by strong buyer intent or supplied Etsy data.",
     );
     expect(pack.prompt).toContain(
-      "Reject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+      "No Etsy Marketplace Insights or Shop Stats search terms were supplied by the app for this product. Do not claim keyword volume or popularity.",
     );
-    expect(pack.prompt).toContain("Reject a broad tag only when it adds no distinct buyer intent beyond stronger tags already in the set.");
-    expect(pack.prompt).toContain("Reject any tag set where more than 2 tags are minor rewrites of each other.");
-    expect(pack.prompt).toContain(
-      "Reject any tag set that misses recipient, use-case, or differentiator coverage when supported by product facts.",
-    );
-    expect(pack.prompt).toContain("Reject any output that uses vintage language without explicit proof that the item qualifies as vintage on Etsy.");
-    expect(pack.prompt).toContain("Before finalizing, silently reject outputs that copy weak competitor patterns.");
     expect(pack.prompt).toContain("Internal-only source brand hint:");
     expect(pack.prompt).toContain("EG BAGS");
     expect(pack.prompt).toContain("Return only the final answer in exactly 3 sections:");
+    expect(pack.prompt).toContain("Rulebook version: etsy-prompt-pack-v7");
   });
 });

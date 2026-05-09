@@ -247,7 +247,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        rulebookVersion: "etsy-prompt-pack-v6",
+        rulebookVersion: "etsy-prompt-pack-v7",
         generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
         productSnapshot: {
           productId: "prod_1",
@@ -268,7 +268,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
         },
         chatGptResearchPromptPack: {
           prompt:
-            "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.",
+            "If web access is available, check current Etsy Seller Handbook or Etsy Help guidance on titles, tags, descriptions, attributes, and listing quality before drafting.\nPrioritize Etsy Marketplace Insights data supplied by the user when available.\nUse 1-3 mild emojis total inside the description.\nInternally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.\nThe final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.\nReplace the weakest 3 tags unless they are clearly supported by strong buyer intent or supplied Etsy data.",
           outputFormat: "sectioned-text",
           researchMode: "required",
           expectedSections: ["title", "description", "tags"],
@@ -362,7 +362,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         provider: "openai-oauth",
-        rulebookVersion: "etsy-prompt-pack-v6",
+        rulebookVersion: "etsy-prompt-pack-v7",
         result: {
           title: "Handmade Oversize Hoodie",
           description: "Soft cotton hoodie for everyday wear.",
@@ -416,13 +416,13 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
   const imageCard = page.getByRole("heading", { name: /gorsel prompt pack/i }).locator("xpath=ancestor::section[1]");
 
   await expect(page.getByRole("heading", { name: /listing prompt pack/i })).toBeVisible();
-  await expect(page.getByText(/rulebook: etsy-prompt-pack-v6/i)).toBeVisible();
+  await expect(page.getByText(/rulebook: etsy-prompt-pack-v7/i)).toBeVisible();
   await expect(page.getByText(/chatgpt research mode/i)).toBeVisible();
   await expect(page.getByText(/system generate mode/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /chatgpt arastirma promptunu kopyala/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /sistem promptunu kopyala/i })).toBeVisible();
-  await expect(page.getByText(/generate 30 candidate etsy search phrases first/i)).toBeVisible();
-  await expect(page.getByText(/treat size tags as optional/i)).toBeVisible();
+  await expect(page.getByText(/at least 40 candidate etsy search phrases/i)).toBeVisible();
+  await expect(page.getByText(/use 1-3 mild emojis total inside the description/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /gorsel prompt pack/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /10 varyasyonu kopyala/i })).toBeVisible();
   await expect(listingCard.getByText(/2 özellik .* 1 varyant .* 1 referans görsel/i)).toBeVisible();
@@ -437,7 +437,7 @@ test("user opens Etsy prep from product detail, generates the prompt pack, and s
   await expect(page.getByLabel("Description")).toHaveValue("Soft cotton hoodie for everyday wear.");
   await expect(page.getByLabel("Tags")).toHaveValue("oversize hoodie, streetwear gift");
 
-  await page.getByRole("button", { name: /kaydet/i }).click();
+  await page.getByRole("button", { name: "Kaydet", exact: true }).click();
   await expect(page.getByText(/^Kaydedildi$/i)).toBeVisible();
 
   expect(savePayloads[0]?.generatedFields).toEqual(["title", "description", "tags"]);

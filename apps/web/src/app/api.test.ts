@@ -188,7 +188,7 @@ describe("app api", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          rulebookVersion: "etsy-prompt-pack-v6",
+          rulebookVersion: "etsy-prompt-pack-v7",
           generatedAt: 1774742400000,
           productSnapshot: {
             productId: "prod_1",
@@ -209,7 +209,7 @@ describe("app api", () => {
           },
           chatGptResearchPromptPack: {
             prompt:
-              "Check Etsy Seller Handbook guidance on listing quality and keyword strategy before drafting.\nGenerate 30 candidate Etsy search phrases first, then keep only the strongest 13.\nEvery tag must read like a natural Etsy buyer query, not a literal attribute dump or awkward translated phrase.\nTreat size tags as optional. Use a size-based tag only when the exact phrase sounds like a natural Etsy buyer search and is stronger than available material, style, recipient, or use-case tags.\nDo not reject a tag only because it is broad.\nDo not let generic fallback nouns such as jewelry or accessory dominate the tag set; keep them only when they add distinct search intent that a more specific product noun cannot express cleanly.\nReject weak generic tags such as everyday jewelry, wrist jewelry, or long stone bracelet when stronger product-led queries are available.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
+              "If web access is available, check current Etsy Seller Handbook or Etsy Help guidance on titles, tags, descriptions, attributes, and listing quality before drafting.\nPrioritize Etsy Marketplace Insights data supplied by the user when available.\nUse 1-3 mild emojis total inside the description.\nInternally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.\nThe final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.\nReturn only the final answer in exactly 3 sections:\n1. Title\n2. Description\n3. Tags",
             outputFormat: "sectioned-text",
             researchMode: "required",
             expectedSections: ["title", "description", "tags"],
@@ -232,7 +232,7 @@ describe("app api", () => {
       "/owners/berke/products/prod_1/etsy-prep/prompt-pack",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v6");
+    expect(result.rulebookVersion).toBe("etsy-prompt-pack-v7");
     expect(result.imagePromptPack.variations).toHaveLength(10);
   });
 

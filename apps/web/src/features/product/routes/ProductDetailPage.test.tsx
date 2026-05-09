@@ -366,7 +366,7 @@ describe("ProductDetailPage", () => {
 
       if (url.includes("/owners/berke/products/prod_1/etsy-prep/prompt-pack") && init?.method === "POST") {
         return jsonResponse({
-          rulebookVersion: "etsy-prompt-pack-v6",
+          rulebookVersion: "etsy-prompt-pack-v7",
           generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
           productSnapshot: {
             productId: "prod_1",

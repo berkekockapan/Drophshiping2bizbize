@@ -14,6 +14,11 @@ export interface EtsyShopRow {
   updatedAt: number;
 }
 
+export interface ProductEtsyShopRow extends EtsyShopRow {
+  productId: string;
+  assignedAt: number;
+}
+
 export function createEtsyShopsRepo(db: D1Database) {
   async function ensureSchema() {
     await runWithWriteRetry(async () => {
@@ -155,6 +160,51 @@ export function createEtsyShopsRepo(db: D1Database) {
         .all<(EtsyShopRow & { assignedAt: number })>();
 
       return result.results;
+    },
+    async listProductShopsForProducts(ownerKey: OwnerKey, productIds: string[]) {
+      await ensureSchema();
+
+      const uniqueProductIds = [...new Set(productIds)].filter(Boolean);
+      if (uniqueProductIds.length === 0) {
+        return new Map<string, ProductEtsyShopRow[]>();
+      }
+
+      const shopsByProductId = new Map<string, ProductEtsyShopRow[]>();
+      const chunkSize = 80;
+
+      for (let index = 0; index < uniqueProductIds.length; index += chunkSize) {
+        const chunk = uniqueProductIds.slice(index, index + chunkSize);
+        const placeholders = chunk.map(() => "?").join(", ");
+        const result = await db
+          .prepare(
+            `select ps.product_id as productId,
+                    s.id,
+                    s.owner_key as ownerKey,
+                    s.name,
+                    s.etsy_shop_url as etsyShopUrl,
+                    s.description,
+                    s.created_at as createdAt,
+                    s.updated_at as updatedAt,
+                    ps.created_at as assignedAt
+             from product_etsy_shops ps
+             join etsy_shops s on s.id = ps.shop_id and s.owner_key = ps.owner_key
+             join products p on p.id = ps.product_id and p.owner_key = ps.owner_key
+             where ps.owner_key = ?
+               and ps.product_id in (${placeholders})
+               and p.deleted_at is null
+             order by ps.product_id asc, ps.created_at asc, s.name asc`,
+          )
+          .bind(ownerKey, ...chunk)
+          .all<ProductEtsyShopRow>();
+
+        for (const row of result.results) {
+          const current = shopsByProductId.get(row.productId) ?? [];
+          current.push(row);
+          shopsByProductId.set(row.productId, current);
+        }
+      }
+
+      return shopsByProductId;
     },
     async listShopIdsForProduct(ownerKey: OwnerKey, productId: string) {
       await ensureSchema();

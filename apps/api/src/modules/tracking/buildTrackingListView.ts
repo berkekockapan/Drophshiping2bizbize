@@ -57,21 +57,20 @@ export async function buildTrackingListView(db: D1Database, ownerKey: OwnerKey, 
   const etsyShopsRepo = createEtsyShopsRepo(db);
   const items = await productsRepo.listTrackingCards(ownerKey, filters);
   const cards = toCardView(items);
-  const cardsWithShops = await Promise.all(
-    cards.map(async (item) => {
-      const shops = await etsyShopsRepo.listProductShops(ownerKey, item.id);
-      return {
-        ...item,
-        shops: shops.map((shop) => ({
-          id: shop.id,
-          name: shop.name,
-          etsyShopUrl: shop.etsyShopUrl,
-          description: shop.description,
-          assignedAt: shop.assignedAt,
-        })),
-      };
-    }),
+  const shopsByProductId = await etsyShopsRepo.listProductShopsForProducts(
+    ownerKey,
+    cards.map((item) => item.id),
   );
+  const cardsWithShops = cards.map((item) => ({
+    ...item,
+    shops: (shopsByProductId.get(item.id) ?? []).map((shop) => ({
+      id: shop.id,
+      name: shop.name,
+      etsyShopUrl: shop.etsyShopUrl,
+      description: shop.description,
+      assignedAt: shop.assignedAt,
+    })),
+  }));
 
   return {
     summary: await productsRepo.getTrackingSummary(ownerKey),

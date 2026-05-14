@@ -305,6 +305,7 @@ describe("etsy prep", () => {
           prompt: expect.stringContaining("Return ONLY valid JSON"),
         }),
       );
+      expect(finalEvent.prompt).toContain("Title must not mention material, color, or capacity.");
 
       const outputSchema = parseOutputSchema(finalEvent.prompt);
       expect(outputSchema).toEqual(
@@ -342,7 +343,7 @@ describe("etsy prep", () => {
     const payload = await response.json();
     expect(payload).toEqual(
       expect.objectContaining({
-        rulebookVersion: "etsy-prompt-pack-v7",
+        rulebookVersion: "etsy-prompt-pack-v9",
         systemListingPromptPack: expect.objectContaining({
           outputContract: {
             type: "json",
@@ -374,10 +375,19 @@ describe("etsy prep", () => {
       "Internally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Do not mention material, color, or capacity in the title.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Do not mention color or capacity in tags.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
       "Use 1-3 mild emojis total inside the description.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
       "The final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.",
+    );
+    expect(payload.chatGptResearchPromptPack.prompt).toContain(
+      "Reject and revise if the title mentions material, color, or capacity, or if any tag mentions color or capacity.",
     );
     expect(payload.chatGptResearchPromptPack.prompt).toContain(
       "No Etsy Marketplace Insights or Shop Stats search terms were supplied by the app for this product. Do not claim keyword volume or popularity.",
@@ -628,6 +638,7 @@ describe("etsy prep", () => {
     const finalEvent = lines.at(-1);
 
     expect(finalEvent).toEqual(expect.objectContaining({ type: "prompt_ready", field: "tags" }));
+    expect(finalEvent.prompt).toContain("Tags must not mention color or capacity.");
     expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "Örgü");
     expectKeywordAnglesToContainToken(finalEvent.context.signals.keywordAngles, "Şal");
   });

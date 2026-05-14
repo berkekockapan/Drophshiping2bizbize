@@ -84,9 +84,28 @@ function outputSchemaForField(field: EtsyPrepField) {
   };
 }
 
+function fieldSpecificRules(field: EtsyPrepField) {
+  if (field === "title") {
+    return [
+      "Title must not mention material, color, or capacity.",
+      "Do not use material-led, color-led, or capacity-led title angles even when those facts are present.",
+    ];
+  }
+
+  if (field === "tags") {
+    return [
+      "Tags must not mention color or capacity.",
+      "Reject color-led or capacity-led tags such as white coffee cup, 200 ml mug, pink bag, black wallet, gold necklace, 12 oz cup, or 1 liter bottle.",
+    ];
+  }
+
+  return [];
+}
+
 export async function buildEtsyPrepFieldPackage(input: EtsyPrepFieldPackageInput): Promise<EtsyPrepFieldPackage> {
   const signals = await fetchEtsyListingSignals(input.fetchImpl, input.field, input.product);
   const outputSchema = outputSchemaForField(input.field);
+  const rules = fieldSpecificRules(input.field);
 
   return {
     field: input.field,
@@ -94,6 +113,7 @@ export async function buildEtsyPrepFieldPackage(input: EtsyPrepFieldPackageInput
       "Return ONLY valid JSON.",
       `Field: ${input.field}`,
       `OUTPUT_SCHEMA: ${JSON.stringify(outputSchema)}`,
+      ...(rules.length > 0 ? ["Field Rules", ...rules.map((rule) => `- ${rule}`)] : []),
       `Source title: ${input.product.title ?? ""}`,
       `Signals: ${JSON.stringify(signals.keywordAngles)}`,
     ].join("\n"),

@@ -88,6 +88,7 @@ const researchPromptLines = [
   "",
   "Tag Rules",
   "- Internally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.",
+  "- Do not mention color or capacity in tags.",
   "- The final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.",
   "- Replace the weakest 3 tags unless they are clearly supported by strong buyer intent or supplied Etsy data.",
   "",
@@ -109,7 +110,7 @@ function createPromptPackPayload() {
   ].join("\n");
 
   return {
-    rulebookVersion: "etsy-prompt-pack-v7",
+    rulebookVersion: "etsy-prompt-pack-v9",
     generatedAt: Date.parse("2026-03-31T09:00:00.000Z"),
     productSnapshot: {
       productId: "prod_1",
@@ -193,7 +194,7 @@ describe("EtsyPrepWorkspace", () => {
       if (url.includes("/products/prod_1/etsy-prep/generate-listing-pack") && init?.method === "POST") {
         return jsonResponse({
           provider: "openai-oauth",
-          rulebookVersion: "etsy-prompt-pack-v7",
+          rulebookVersion: "etsy-prompt-pack-v9",
           result: {
             title: "Handmade Oversize Hoodie",
             description: "Soft cotton hoodie for everyday wear.",

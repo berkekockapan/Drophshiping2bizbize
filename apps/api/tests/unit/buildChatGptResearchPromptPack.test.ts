@@ -62,6 +62,7 @@ describe("buildChatGptResearchPromptPack", () => {
     expect(pack.prompt).toContain("Do not ask clarification questions in this product-flow prompt");
     expect(pack.prompt).toContain("Maximum title length: 140 characters.");
     expect(pack.prompt).toContain("Target fewer than 15 words when possible.");
+    expect(pack.prompt).toContain("Do not mention material, color, or capacity in the title.");
     expect(pack.prompt).toContain("Each paragraph must be 80-115 words.");
     expect(pack.prompt).toContain("Total description length must be 250-340 words.");
     expect(pack.prompt).toContain("Use 1-3 mild emojis total inside the description.");
@@ -69,17 +70,21 @@ describe("buildChatGptResearchPromptPack", () => {
       "Reject and revise if the description uses fewer than 1 or more than 3 emojis.",
     );
     expect(pack.prompt).toContain("Internally generate at least 40 candidate Etsy search phrases before selecting the final 13 tags.");
+    expect(pack.prompt).toContain("Do not mention color or capacity in tags.");
     expect(pack.prompt).toContain("Do not simply convert product attributes into tags.");
     expect(pack.prompt).toContain(
       "Reject any tag that sounds like a database attribute, technical label, translated phrase, catalog filter, sentence fragment, or phrase made only to satisfy SEO coverage.",
     );
-    expect(pack.prompt).toContain("Do not use standalone color-only tags.");
     expect(pack.prompt).toContain(
-      "Use color in a maximum of 2 tags by default; allow 3 color-based tags only if supplied Etsy data or strong live-search evidence shows color is a major search driver.",
+      "Reject color-led or capacity-led tags such as white coffee cup, 200 ml mug, pink bag, black wallet, gold necklace, 12 oz cup, or 1 liter bottle.",
+    );
+    expect(pack.prompt).toContain(
+      "Use 0 color-based tags in the final tag set, regardless of supplied Etsy data or live-search evidence.",
     );
     expect(pack.prompt).toContain(
       "The final 13 tags must be exactly 13 unique English tags, 20 characters or fewer each, and sound like natural Etsy buyer searches.",
     );
+    expect(pack.prompt).toContain("Reject and revise if the title mentions material, color, or capacity, or if any tag mentions color or capacity.");
     expect(pack.prompt).toContain(
       "Replace the weakest 3 tags unless they are clearly supported by strong buyer intent or supplied Etsy data.",
     );
@@ -89,6 +94,6 @@ describe("buildChatGptResearchPromptPack", () => {
     expect(pack.prompt).toContain("Internal-only source brand hint:");
     expect(pack.prompt).toContain("EG BAGS");
     expect(pack.prompt).toContain("Return only the final answer in exactly 3 sections:");
-    expect(pack.prompt).toContain("Rulebook version: etsy-prompt-pack-v7");
+    expect(pack.prompt).toContain("Rulebook version: etsy-prompt-pack-v9");
   });
 });

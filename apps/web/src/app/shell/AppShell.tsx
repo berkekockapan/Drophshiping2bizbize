@@ -56,6 +56,9 @@ export function AppShell({ children }: PropsWithChildren) {
             <NavLink to={`/owners/${activeOwner}/etsy-shops`} className={({ isActive }) => linkClassName(isActive)}>
               Etsy Mağazaları
             </NavLink>
+            <NavLink to={`/owners/${activeOwner}/prompt-library`} className={({ isActive }) => linkClassName(isActive)}>
+              Prompt Kütüphanesi
+            </NavLink>
             <NavLink to={`/owners/${activeOwner}/notifications`} className={({ isActive }) => linkClassName(isActive)}>
               <span className="flex items-center justify-between gap-3">
                 <span>Bildirimler</span>

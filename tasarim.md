@@ -86,6 +86,15 @@ Not: Ayni turuncu vurgu icin birden fazla hover tonu geciyor (`#d95518`, `#d9571
 - Acik/kapali durum `aria-expanded` ile erisilebilir olmali ve buton metni durumu acikca anlatmalidir (`Detaylari goster` / `Detaylari gizle`).
 - Detay icerigi acildiginda mevcut kart ritmi korunarak `mt-4` ve `space-y-*` bosluklariyla yerlestirilmelidir.
 
+### 4.7 Prompt kutuphanesi kartlari
+
+- Prompt kartlari standart kart desenini kullanmali: `rounded-3xl border border-slate-200 bg-white shadow-sm`.
+- Kartin gorsel bolumu `aspect-[4/3]` oraninda tutulmali; gorseller kirpilmadan `object-contain object-center` ile ortalanmali, gorsel yoksa acik slate placeholder kullanilmali.
+- Kart/gorsel tiklama davranisi prompt kopyalama oldugundan, kart uzerinde kisa bir `Tikla kopyala` rozeti bulunmali.
+- Master Prompt karti ayni kart sisteminde kalmali ancak turuncu vurgulu border/badge ile normal kartlardan ayrilmalidir.
+- Markdown prompt editoru icin ham metin alani + sade onizleme blogu birlikte gosterilmeli; kopyalama ham markdown metnini kullanmalidir.
+- Gorsel secme alani dosya secildiginde renkli durum ve dosya adi ile secimin basarili oldugunu belli etmelidir.
+
 ## 5) Tutarlilik Gozlemleri ve Teknik Borc
 
 - Tasarim tokenlari merkezi degil; Tailwind theme `extend` su an bos.

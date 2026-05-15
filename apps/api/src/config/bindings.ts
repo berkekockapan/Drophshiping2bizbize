@@ -11,6 +11,23 @@ export interface D1Database {
   exec?(query: string): Promise<unknown>;
 }
 
+
+export interface R2ObjectBody {
+  body: ReadableStream<Uint8Array>;
+  httpEtag?: string;
+  httpMetadata?: { contentType?: string };
+  writeHttpMetadata(headers: Headers): void;
+}
+
+export interface R2Bucket {
+  get(key: string): Promise<R2ObjectBody | null>;
+  put(
+    key: string,
+    value: ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array> | string,
+    options?: { httpMetadata?: { contentType?: string } },
+  ): Promise<unknown>;
+}
+
 export interface Queue<Body> {
   send(body: Body): Promise<void>;
 }
@@ -37,6 +54,7 @@ export interface RefreshJob {
 export interface Env {
   DB: D1Database;
   REFRESH_QUEUE: Queue<RefreshJob>;
+  PROMPT_IMAGES?: R2Bucket;
   OPENAI_OAUTH_CLIENT_ID?: string;
   OPENAI_OAUTH_CLIENT_SECRET?: string;
   OPENAI_OAUTH_REDIRECT_URI?: string;

@@ -655,6 +655,46 @@ export interface SaveProductVariantCostOverridePayload {
   manualShippingCost?: { amount: number; currency: "USD" | "TRY" } | null;
 }
 
+
+export type PromptLibraryCardType = "master" | "normal";
+
+export interface PromptLibraryCard {
+  id: string;
+  pageId: string;
+  ownerKey: OwnerKey;
+  cardType: PromptLibraryCardType;
+  title: string;
+  promptMarkdown: string;
+  imageR2Key: string | null;
+  imageContentType: string | null;
+  imageUrl: string | null;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PromptLibraryPage {
+  id: string;
+  ownerKey: OwnerKey;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+  cards: PromptLibraryCard[];
+}
+
+export interface PromptLibraryResponse {
+  pages: PromptLibraryPage[];
+}
+
+export interface PromptImageUploadResponse {
+  imageKey: string;
+  imageR2Key: string;
+  imageContentType: string;
+  imageUrl: string;
+}
+
 const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 const shouldPreferLocalProxy =
   import.meta.env.DEV &&
@@ -1607,6 +1647,138 @@ export async function patchSettings(payload: {
   });
 
   return parseJson<AppSettingsResponse>(response);
+}
+
+
+export function getPromptLibraryImageUrl(ownerKey: OwnerKey, imageKey: string) {
+  return toApiUrl(`/owners/${ownerKey}/prompt-library/images/${encodeURIComponent(imageKey)}`);
+}
+
+function withAbsolutePromptImageUrls(ownerKey: OwnerKey, payload: PromptLibraryResponse): PromptLibraryResponse {
+  return {
+    pages: payload.pages.map((page) => ({
+      ...page,
+      cards: page.cards.map((card) => ({
+        ...card,
+        imageUrl: card.imageR2Key ? getPromptLibraryImageUrl(ownerKey, card.imageR2Key) : null,
+      })),
+    })),
+  };
+}
+
+export async function fetchPromptLibrary(ownerKey: OwnerKey): Promise<PromptLibraryResponse> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library`);
+  return withAbsolutePromptImageUrls(ownerKey, await parseJson<PromptLibraryResponse>(response));
+}
+
+export async function createPromptLibraryPage(
+  ownerKey: OwnerKey,
+  payload: { title: string; description?: string | null },
+): Promise<{ page: PromptLibraryPage | null }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library/pages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await parseJson<{ page: PromptLibraryPage | null }>(response);
+  return result.page ? { page: withAbsolutePromptImageUrls(ownerKey, { pages: [result.page] }).pages[0] } : result;
+}
+
+export async function updatePromptLibraryPage(
+  ownerKey: OwnerKey,
+  pageId: string,
+  payload: { title?: string; description?: string | null },
+): Promise<{ page: PromptLibraryPage }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library/pages/${pageId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await parseJson<{ page: PromptLibraryPage }>(response);
+  return { page: withAbsolutePromptImageUrls(ownerKey, { pages: [result.page] }).pages[0] };
+}
+
+export async function deletePromptLibraryPage(ownerKey: OwnerKey, pageId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library/pages/${pageId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ confirm: true }),
+  });
+  return parseJson<{ ok: true }>(response);
+}
+
+export async function uploadPromptLibraryImage(ownerKey: OwnerKey, file: File): Promise<PromptImageUploadResponse> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await fetchWithTimeout(
+    `/owners/${ownerKey}/prompt-library/uploads`,
+    {
+      method: "POST",
+      body: formData,
+    },
+    60_000,
+  );
+  const result = await parseJson<PromptImageUploadResponse>(response);
+  return { ...result, imageUrl: getPromptLibraryImageUrl(ownerKey, result.imageR2Key) };
+}
+
+export async function createPromptLibraryCard(
+  ownerKey: OwnerKey,
+  pageId: string,
+  payload: { title: string; promptMarkdown: string; imageR2Key?: string | null; imageContentType?: string | null },
+): Promise<{ card: PromptLibraryCard }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library/pages/${pageId}/cards`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await parseJson<{ card: PromptLibraryCard }>(response);
+  return {
+    card: {
+      ...result.card,
+      imageUrl: result.card.imageR2Key ? getPromptLibraryImageUrl(ownerKey, result.card.imageR2Key) : null,
+    },
+  };
+}
+
+export async function updatePromptLibraryCard(
+  ownerKey: OwnerKey,
+  cardId: string,
+  payload: { title?: string; promptMarkdown?: string; imageR2Key?: string | null; imageContentType?: string | null },
+): Promise<{ card: PromptLibraryCard }> {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library/cards/${cardId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const result = await parseJson<{ card: PromptLibraryCard }>(response);
+  return {
+    card: {
+      ...result.card,
+      imageUrl: result.card.imageR2Key ? getPromptLibraryImageUrl(ownerKey, result.card.imageR2Key) : null,
+    },
+  };
+}
+
+export async function deletePromptLibraryCard(ownerKey: OwnerKey, cardId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/prompt-library/cards/${cardId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ confirm: true }),
+  });
+  return parseJson<{ ok: true }>(response);
 }
 
 export function formatPrice(cents: number | null | undefined) {

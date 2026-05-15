@@ -11,6 +11,10 @@ database_name = "dropshiping2bizbize-prod"
 database_id = "aab63623-ff50-4109-b927-e2fff3f45fbc"
 migrations_dir = "drizzle"
 
+[[r2_buckets]]
+binding = "PROMPT_IMAGES"
+bucket_name = "dropshiping2bizbize-prompt-images"
+
 [[queues.producers]]
 binding = "REFRESH_QUEUE"
 queue = "dropshiping2bizbize-refresh"
@@ -31,6 +35,10 @@ binding = "DB"
 database_name = "dropshiping2bizbize-dev"
 database_id = "ea8b4312-d2f8-47d0-91bd-8b10745c47ff"
 migrations_dir = "drizzle"
+
+[[env.dev.r2_buckets]]
+binding = "PROMPT_IMAGES"
+bucket_name = "dropshiping2bizbize-prompt-images-dev"
 
 [[env.dev.queues.producers]]
 binding = "REFRESH_QUEUE"

@@ -25,6 +25,7 @@ import { createCategoriesRouter } from "./categories";
 import { createDraftsRouter } from "./drafts";
 import { createEtsyShopsRouter } from "./etsyShops";
 import { createProductsRouter } from "./products";
+import { createPromptLibraryRouter } from "./promptLibrary";
 import { createSourceProductCategoriesRouter } from "./sourceProductCategories";
 import { createSourceProductsRouter } from "./sourceProducts";
 
@@ -402,6 +403,7 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
     return c.json({ ok: true, items: [] });
   });
 
+  app.route("/prompt-library", createPromptLibraryRouter());
   app.route("/products", createProductsRouter());
   app.route("/etsy-shops", createEtsyShopsRouter());
   app.route("/source-products", createSourceProductsRouter());

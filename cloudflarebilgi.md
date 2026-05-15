@@ -46,6 +46,12 @@ Kaynak: `C:\dropshipingtakip2\apps\api\wrangler.toml`
 - Prod queue: `dropshiping2bizbize-refresh`
 - Dev queue: `dropshiping2bizbize-refresh-dev`
 
+### R2
+- Prompt gorselleri binding: `PROMPT_IMAGES`
+- Prod bucket adi: `dropshiping2bizbize-prompt-images`
+- Dev bucket adi: `dropshiping2bizbize-prompt-images-dev`
+- Bu bucketlar prompt kutuphanesi gorselleri icindir; otomatik temizlik/silme akisi yoktur. Manuel silme onayi olmadan prompt/gorsel verisi kaldirilmaz.
+
 ### Cron
 - Prod cron: `0 * * * *`
 - Dev cron: yok

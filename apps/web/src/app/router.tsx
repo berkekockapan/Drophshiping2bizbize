@@ -8,6 +8,7 @@ import { EtsyShopsPage } from "../features/etsyShops/routes/EtsyShopsPage";
 import { ImageMetadataCleanerPage } from "../features/mediaMetadataCleaner/routes/ImageMetadataCleanerPage";
 import { NotificationsPage } from "../features/notifications/routes/NotificationsPage";
 import { ProductDetailPage } from "../features/product/routes/ProductDetailPage";
+import { PromptLibraryPage } from "../features/promptLibrary/routes/PromptLibraryPage";
 import { SourceProductDetailPage } from "../features/sourceProducts/routes/SourceProductDetailPage";
 import { SourceProductTrashPage } from "../features/sourceProducts/routes/SourceProductTrashPage";
 import { SourceProductsPage } from "../features/sourceProducts/routes/SourceProductsPage";
@@ -48,6 +49,8 @@ export function AppRouter() {
               <Route path="etsy-shops" element={<EtsyShopsPage />} />
               <Route path="etsy-shops/:shopId" element={<EtsyShopDetailPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="prompt-library" element={<PromptLibraryPage />} />
+              <Route path="prompt-library/:promptPageId" element={<PromptLibraryPage />} />
               <Route path="trash" element={<TrashPage />} />
             </Route>
             <Route path="/etsy-cost-calculator" element={<EtsyCostCalculatorPage />} />

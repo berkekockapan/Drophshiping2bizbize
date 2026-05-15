@@ -596,6 +596,78 @@ export const tariffKnowledgeCandidates = sqliteTable(
   }),
 );
 
+export const promptLibraryPages = sqliteTable(
+  "prompt_library_pages",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerActiveSortIdx: index("prompt_library_pages_owner_active_sort_idx").on(
+      table.ownerKey,
+      table.deletedAt,
+      table.sortOrder,
+      table.updatedAt,
+    ),
+  }),
+);
+
+export const promptLibraryCards = sqliteTable(
+  "prompt_library_cards",
+  {
+    id: text("id").primaryKey(),
+    pageId: text("page_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    cardType: text("card_type").notNull().default("normal"),
+    title: text("title").notNull(),
+    promptMarkdown: text("prompt_markdown").notNull().default(""),
+    imageR2Key: text("image_r2_key"),
+    imageContentType: text("image_content_type"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerPageActiveSortIdx: index("prompt_library_cards_owner_page_active_sort_idx").on(
+      table.ownerKey,
+      table.pageId,
+      table.deletedAt,
+      table.cardType,
+      table.sortOrder,
+      table.updatedAt,
+    ),
+    oneActiveMasterPerPage: uniqueIndex("prompt_library_cards_one_active_master_per_page")
+      .on(table.pageId)
+      .where(sql`${table.cardType} = 'master' and ${table.deletedAt} is null`),
+  }),
+);
+
+export const promptLibraryRevisions = sqliteTable(
+  "prompt_library_revisions",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    snapshotJson: text("snapshot_json").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    entityCreatedIdx: index("prompt_library_revisions_entity_created_idx").on(
+      table.entityType,
+      table.entityId,
+      table.createdAt,
+    ),
+  }),
+);
+
 export const schema = {
   products,
   productVariants,
@@ -627,6 +699,9 @@ export const schema = {
   sourceProductEtsyShops,
   etsyShops,
   productEtsyShops,
+  promptLibraryPages,
+  promptLibraryCards,
+  promptLibraryRevisions,
 };
 
 export const schemaTableNames = [
@@ -660,4 +735,7 @@ export const schemaTableNames = [
   "product_tariff_analysis_runs",
   "product_tariff_selection",
   "tariff_knowledge_candidates",
+  "prompt_library_pages",
+  "prompt_library_cards",
+  "prompt_library_revisions",
 ] as const;

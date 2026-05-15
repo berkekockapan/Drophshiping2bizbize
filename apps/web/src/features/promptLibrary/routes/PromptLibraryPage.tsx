@@ -615,7 +615,7 @@ export function PromptLibraryPage() {
               {pages.length === 0 ? (
                 <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                   <h2 className="text-xl font-semibold text-slate-950">Başlamak için ana başlık oluştur</h2>
-                  <p className="mt-2 text-sm text-slate-600">Ana başlık olu?turunca otomatik olarak i?ine girersin ve prompt kartlar?n? ekleyebilirsin.</p>
+                  <p className="mt-2 text-sm text-slate-600">Ana başlık oluşturunca otomatik olarak içine girersin ve prompt kartlarını ekleyebilirsin.</p>
                 </div>
               ) : null}
             </section>
@@ -623,7 +623,7 @@ export function PromptLibraryPage() {
 
           {isInsidePage && !selectedPage && !libraryQuery.isLoading ? (
             <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
-              <h2 className="text-xl font-semibold text-amber-900">Ana başlık bulunamad?</h2>
+              <h2 className="text-xl font-semibold text-amber-900">Ana başlık bulunamadı</h2>
               <p className="mt-2 text-sm text-amber-700">Bu başlık silinmiş veya mevcut değil.</p>
               <button
                 type="button"

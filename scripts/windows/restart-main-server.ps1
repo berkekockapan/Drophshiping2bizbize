@@ -378,11 +378,16 @@ function Deploy-CloudApi {
     try {
       Write-Log "Cloud D1 migrationlari uygulaniyor ($resolvedCloudD1ProdName)..."
       Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:migrate:api:prod") -FailureMessage "Cloud D1 migration uygulamasi basarisiz oldu"
+    } catch {
+      Write-Log "UYARI: Cloud D1 migration adimi basarisiz oldu; API kendi ekleyici schema kontroluyle devam edebilir."
+      Write-Log "UYARI DETAY: $($_.Exception.Message)"
+    }
 
+    try {
       Write-Log "Cloud API deploy baslatiliyor (wrangler deploy)..."
       Invoke-NativeCommand -FilePath "pnpm.cmd" -Arguments @("cf:deploy:api") -FailureMessage "Cloud API deploy basarisiz oldu"
     } catch {
-      Write-Log "UYARI: Cloud migration/deploy adimi basarisiz oldu; mevcut canli Worker ile devam edilecek."
+      Write-Log "UYARI: Cloud deploy adimi basarisiz oldu; mevcut canli Worker ile devam edilecek."
       Write-Log "UYARI DETAY: $($_.Exception.Message)"
     }
   } finally {

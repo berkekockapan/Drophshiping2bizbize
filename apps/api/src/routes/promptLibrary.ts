@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import type { Env } from "../config/bindings";
 import { ownerKeySchema, type OwnerKey } from "../contracts/owners";
-import { createPromptLibraryRepo } from "../db/repositories/promptLibraryRepo";
+import { createPromptLibraryRepo, ensurePromptLibrarySchema } from "../db/repositories/promptLibraryRepo";
 
 interface PagePayload {
   title?: unknown;
@@ -63,6 +63,14 @@ function withImageUrls<T extends { cards: Array<{ imageR2Key: string | null }> }
 
 export function createPromptLibraryRouter() {
   const app = new Hono<{ Bindings: Env }>();
+
+  app.use("*", async (c, next) => {
+    if (!c.req.path.includes("/images/") && !c.req.path.endsWith("/uploads")) {
+      await ensurePromptLibrarySchema(c.env.DB);
+    }
+
+    await next();
+  });
 
   app.get("/", async (c) => {
     const ownerKey = parseOwnerKey(c.req.param("ownerKey"));

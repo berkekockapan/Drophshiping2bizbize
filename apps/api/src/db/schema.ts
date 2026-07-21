@@ -127,6 +127,27 @@ export const sourceProductEtsyLinks = sqliteTable(
   }),
 );
 
+export const productEtsyLinks = sqliteTable(
+  "product_etsy_links",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    etsyUrl: text("etsy_url").notNull(),
+    etsyUrlNormalized: text("etsy_url_normalized").notNull(),
+    etsyListingId: text("etsy_listing_id"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerEtsyUrlUnique: uniqueIndex("product_etsy_links_owner_etsy_url_unique").on(
+      table.ownerKey,
+      table.etsyUrlNormalized,
+    ),
+    productCreatedIdx: index("product_etsy_links_product_id_idx").on(table.productId, table.createdAt),
+    ownerListingIdx: index("product_etsy_links_owner_listing_id_idx").on(table.ownerKey, table.etsyListingId),
+  }),
+);
+
 export const sourceProductEtsyShops = sqliteTable(
   "source_product_etsy_shops",
   {

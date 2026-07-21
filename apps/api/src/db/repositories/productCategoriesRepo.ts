@@ -91,6 +91,15 @@ export function createProductCategoriesRepo(db: D1Database) {
           .bind(now.getTime(), ownerKey, categoryId),
         db
           .prepare(
+            `update source_products
+             set user_category_id = null,
+                 updated_at = ?
+             where owner_key = ?
+               and user_category_id = ?`,
+          )
+          .bind(now.getTime(), ownerKey, categoryId),
+        db
+          .prepare(
             `delete from product_categories
              where owner_key = ?
                and id = ?`,

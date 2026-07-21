@@ -3,7 +3,14 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  addSourceProductEtsyLink,
+  addTrackedProductEtsyLink,
   createProductCategory,
+  deleteProductCategory,
+  deleteSourceProduct,
+  deleteSourceProductEtsyLink,
+  deleteTrackedProduct,
+  deleteTrackedProductEtsyLink,
   fetchEtsyShops,
   fetchProductCategories,
   fetchSourceProductsView,
@@ -26,6 +33,10 @@ import { buildUnifiedDashboardItems, type UnifiedDashboardItem } from "../lib/bu
 
 function isOwnerKey(value: string | undefined): value is OwnerKey {
   return ownerOptions.some((owner) => owner.key === value);
+}
+
+function normalizeCategoryName(value: string) {
+  return value.trim().toLocaleLowerCase("tr-TR");
 }
 
 function matchesSearch(item: UnifiedDashboardItem, search: string) {
@@ -190,6 +201,14 @@ export function TrackingCenterPage() {
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [shopAssignmentError, setShopAssignmentError] = useState<string | null>(null);
   const [categoryMutationError, setCategoryMutationError] = useState<string | null>(null);
+  const [etsyLinkMutationError, setEtsyLinkMutationError] = useState<{ itemKey: string; message: string } | null>(null);
+  const [etsyLinkDeleteError, setEtsyLinkDeleteError] = useState<{ itemKey: string; message: string } | null>(null);
+  const [cardDeleteError, setCardDeleteError] = useState<{ itemKey: string; message: string } | null>(null);
+  const [categoryDeleteCandidate, setCategoryDeleteCandidate] = useState<{
+    id: string;
+    key: string;
+    name: string;
+  } | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
 
   const trackingQuery = useQuery({
@@ -413,6 +432,136 @@ export function TrackingCenterPage() {
     },
   });
 
+  const etsyLinkMutation = useMutation({
+    mutationFn: async ({ item, etsyUrl }: { item: UnifiedDashboardItem; etsyUrl: string }) => {
+      if (!ownerKey) {
+        throw new Error("Geçersiz owner seçimi.");
+      }
+
+      if (item.sourceProduct) {
+        return addSourceProductEtsyLink(ownerKey, item.sourceProduct.id, { etsyUrl });
+      }
+
+      if (item.trackedProduct) {
+        return addTrackedProductEtsyLink(ownerKey, item.trackedProduct.id, etsyUrl);
+      }
+
+      throw new Error("Etsy linkinin bağlanacağı ürün kaydı bulunamadı.");
+    },
+    onSuccess: async () => {
+      setEtsyLinkMutationError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
+      ]);
+    },
+    onError: (error, variables) => {
+      setEtsyLinkMutationError({
+        itemKey: variables.item.key,
+        message: error instanceof Error ? error.message : "Etsy linki kaydedilemedi.",
+      });
+    },
+  });
+
+  const etsyLinkDeleteMutation = useMutation({
+    mutationFn: async ({
+      item,
+      etsyLink,
+    }: {
+      item: UnifiedDashboardItem;
+      etsyLink: UnifiedDashboardItem["etsyLinks"][number];
+    }) => {
+      if (!ownerKey) {
+        throw new Error("Geçersiz owner seçimi.");
+      }
+
+      const belongsToSourceProduct = item.sourceProduct?.linkedEtsyItems.some((link) => link.id === etsyLink.id);
+      if (belongsToSourceProduct && item.sourceProduct) {
+        return deleteSourceProductEtsyLink(ownerKey, item.sourceProduct.id, etsyLink.id);
+      }
+
+      if (item.trackedProduct) {
+        return deleteTrackedProductEtsyLink(ownerKey, item.trackedProduct.id, etsyLink.id);
+      }
+
+      if (item.sourceProduct) {
+        return deleteSourceProductEtsyLink(ownerKey, item.sourceProduct.id, etsyLink.id);
+      }
+
+      throw new Error("Etsy linkinin bağlı olduğu ürün kaydı bulunamadı.");
+    },
+    onSuccess: async () => {
+      setEtsyLinkDeleteError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
+      ]);
+    },
+    onError: (error, variables) => {
+      setEtsyLinkDeleteError({
+        itemKey: variables.item.key,
+        message: error instanceof Error ? error.message : "Etsy linki silinemedi.",
+      });
+    },
+  });
+
+  const cardDeleteMutation = useMutation({
+    mutationFn: async (item: UnifiedDashboardItem) => {
+      if (!ownerKey) {
+        throw new Error("Geçersiz owner seçimi.");
+      }
+
+      const operations: Array<Promise<void>> = [];
+      if (item.trackedProduct) {
+        operations.push(deleteTrackedProduct(ownerKey, item.trackedProduct.id));
+      }
+      if (item.sourceProduct) {
+        operations.push(deleteSourceProduct(ownerKey, item.sourceProduct.id));
+      }
+      if (operations.length === 0) {
+        throw new Error("Silinecek ürün kaydı bulunamadı.");
+      }
+
+      await Promise.all(operations);
+    },
+    onSuccess: async () => {
+      setCardDeleteError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey, "dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-trash", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products-trash", ownerKey] }),
+      ]);
+    },
+    onError: (error, item) => {
+      setCardDeleteError({
+        itemKey: item.key,
+        message: error instanceof Error ? error.message : "Kart silinemedi.",
+      });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: ({ id }: { id: string; key: string; name: string }) => deleteProductCategory(ownerKey as OwnerKey, id),
+    onSuccess: async (_result, category) => {
+      if (selectedTab === category.key) {
+        setSelectedTab("all");
+      }
+      setCategoryDeleteCandidate(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["product-categories", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-products", ownerKey] }),
+        queryClient.invalidateQueries({ queryKey: ["source-products", ownerKey] }),
+      ]);
+    },
+  });
+
   const dashboardItems = useMemo(
     () => buildUnifiedDashboardItems(sourceProductsQuery.data?.items ?? [], trackingQuery.data?.items ?? []),
     [sourceProductsQuery.data?.items, trackingQuery.data?.items],
@@ -427,7 +576,7 @@ export function TrackingCenterPage() {
   }, [dashboardItems, selectedShopId]);
 
   const tabs = useMemo(() => {
-    const categoryMap = new Map<string, { key: string; label: string; count: number }>();
+    const categoryMap = new Map<string, { key: string; label: string; count: number; categoryId: string | null }>();
 
     for (const item of shopScopedItems) {
       if (!item.categoryKey || !item.categoryLabel) {
@@ -438,6 +587,8 @@ export function TrackingCenterPage() {
         key: item.categoryKey,
         label: item.categoryLabel,
         count: 0,
+        categoryId:
+          (categoriesQuery.data ?? []).find((category) => normalizeCategoryName(category.name) === item.categoryKey)?.id ?? null,
       };
 
       current.count += 1;
@@ -445,7 +596,7 @@ export function TrackingCenterPage() {
     }
 
     return [...categoryMap.values()].sort((left, right) => left.label.localeCompare(right.label, "tr"));
-  }, [shopScopedItems]);
+  }, [categoriesQuery.data, shopScopedItems]);
 
   const shopCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -587,7 +738,7 @@ export function TrackingCenterPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <label className="block text-sm font-medium text-slate-600" htmlFor="dashboard-search">
-              Arama
+              Arama: ürün veya Etsy linki
             </label>
             <input
               id="dashboard-search"
@@ -596,6 +747,7 @@ export function TrackingCenterPage() {
               placeholder="Ürün, kategori, marka, kaynak URL veya Etsy linki ara"
               className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#F1641E]"
             />
+            <p className="mt-2 text-xs text-slate-500">Etsy linkinin tamamı veya ilan numarasıyla eşleşen kartlar da listelenir.</p>
           </div>
           <BulkRefreshControl ownerKey={ownerKey} />
         </div>
@@ -614,19 +766,39 @@ export function TrackingCenterPage() {
             Tümü ({shopScopedItems.length})
           </button>
           {tabs.map((tab) => (
-            <button
+            <div
               key={tab.key}
-              type="button"
-              onClick={() => setSelectedTab(tab.key)}
               className={[
-                "rounded-2xl px-4 py-2 text-sm font-medium transition",
-                selectedTab === tab.key
-                  ? "bg-[#051125] text-white"
-                  : "border border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300",
+                "inline-flex overflow-hidden rounded-2xl border",
+                selectedTab === tab.key ? "border-[#051125] bg-[#051125]" : "border-slate-200 bg-slate-50",
               ].join(" ")}
             >
-              {tab.label} ({tab.count})
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTab(tab.key)}
+                className={[
+                  "px-4 py-2 text-sm font-medium transition",
+                  selectedTab === tab.key ? "text-white" : "text-slate-700 hover:bg-white",
+                ].join(" ")}
+              >
+                {tab.label} ({tab.count})
+              </button>
+              {tab.categoryId ? (
+                <button
+                  type="button"
+                  aria-label={`${tab.label} kategorisini sil`}
+                  onClick={() => setCategoryDeleteCandidate({ id: tab.categoryId as string, key: tab.key, name: tab.label })}
+                  className={[
+                    "border-l px-3 py-2 text-sm font-semibold transition",
+                    selectedTab === tab.key
+                      ? "border-white/20 text-rose-200 hover:bg-white/10"
+                      : "border-slate-200 text-rose-700 hover:bg-rose-50",
+                  ].join(" ")}
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
           ))}
           <button
             type="button"
@@ -641,6 +813,36 @@ export function TrackingCenterPage() {
             Kategorisiz ({uncategorizedCount})
           </button>
         </div>
+
+        {categoryDeleteCandidate ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <p className="text-sm font-semibold text-rose-800">
+              “{categoryDeleteCandidate.name}” kategorisi silinsin mi?
+            </p>
+            <p className="mt-1 text-xs text-rose-700">Bu kategorideki ürünler silinmez; Kategorisiz durumuna taşınır.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCategoryDeleteCandidate(null)}
+                disabled={deleteCategoryMutation.isPending}
+                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteCategoryMutation.mutate(categoryDeleteCandidate)}
+                disabled={deleteCategoryMutation.isPending}
+                className="rounded-2xl bg-rose-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-rose-300"
+              >
+                {deleteCategoryMutation.isPending ? "Siliniyor..." : "Kategoriyi sil"}
+              </button>
+            </div>
+            {deleteCategoryMutation.error instanceof Error ? (
+              <p className="mt-2 text-sm text-rose-700">{deleteCategoryMutation.error.message}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <form onSubmit={handleCreateCategory} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -705,6 +907,16 @@ export function TrackingCenterPage() {
             showAssignedShopLabel={!selectedShopId}
             isAssigningShop={assigningItemKey === item.key}
             isCategoryUpdating={categoryUpdatingItemKey === item.key}
+            isEtsyLinkAdding={etsyLinkMutation.isPending && etsyLinkMutation.variables?.item.key === item.key}
+            etsyLinkError={etsyLinkMutationError?.itemKey === item.key ? etsyLinkMutationError.message : null}
+            deletingEtsyLinkId={
+              etsyLinkDeleteMutation.isPending && etsyLinkDeleteMutation.variables?.item.key === item.key
+                ? etsyLinkDeleteMutation.variables.etsyLink.id
+                : null
+            }
+            etsyLinkDeleteError={etsyLinkDeleteError?.itemKey === item.key ? etsyLinkDeleteError.message : null}
+            isCardDeleting={cardDeleteMutation.isPending && cardDeleteMutation.variables?.key === item.key}
+            cardDeleteError={cardDeleteError?.itemKey === item.key ? cardDeleteError.message : null}
             onAssignShop={(selectedItem, shopId) => {
               setShopAssignmentError(null);
               shopAssignmentMutation.mutate({ item: selectedItem, shopId });
@@ -712,6 +924,18 @@ export function TrackingCenterPage() {
             onCategoryChange={(selectedItem, categoryId) => {
               setCategoryMutationError(null);
               categoryMutation.mutate({ item: selectedItem, categoryId });
+            }}
+            onAddEtsyLink={async (selectedItem, etsyUrl) => {
+              setEtsyLinkMutationError(null);
+              await etsyLinkMutation.mutateAsync({ item: selectedItem, etsyUrl });
+            }}
+            onDeleteEtsyLink={async (selectedItem, etsyLink) => {
+              setEtsyLinkDeleteError(null);
+              await etsyLinkDeleteMutation.mutateAsync({ item: selectedItem, etsyLink });
+            }}
+            onDeleteCard={async (selectedItem) => {
+              setCardDeleteError(null);
+              await cardDeleteMutation.mutateAsync(selectedItem);
             }}
           />
         ))}

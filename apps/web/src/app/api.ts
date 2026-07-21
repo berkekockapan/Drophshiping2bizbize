@@ -111,6 +111,11 @@ export interface TrackingItem {
   isFavorite: boolean;
   userCategory?: ProductCategory | null;
   shops?: EtsyShop[];
+  etsyLinks?: Array<{
+    id: string;
+    title: string;
+    url: string;
+  }>;
   lastCheckedAt?: number | null;
 }
 
@@ -1264,6 +1269,38 @@ export async function addSourceProductEtsyLink(
   });
 
   return parseJson<SourceProductDetailResponse>(response);
+}
+
+export async function addTrackedProductEtsyLink(ownerKey: OwnerKey, productId: string, etsyUrl: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-links`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ etsyUrl }),
+  });
+
+  return parseJson<{
+    etsyLink: {
+      id: string;
+      productId: string;
+      ownerKey: OwnerKey;
+      etsyUrl: string;
+      etsyUrlNormalized: string;
+      etsyListingId: string | null;
+      createdAt: number;
+    };
+  }>(response);
+}
+
+export async function deleteTrackedProductEtsyLink(ownerKey: OwnerKey, productId: string, etsyLinkId: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/etsy-links/${etsyLinkId}`, {
+    method: "DELETE",
+  });
+
+  if (response.status !== 204) {
+    await assertOkResponse(response);
+  }
 }
 
 export async function deleteSourceProductEtsyLink(ownerKey: OwnerKey, sourceProductId: string, etsyLinkId: string) {

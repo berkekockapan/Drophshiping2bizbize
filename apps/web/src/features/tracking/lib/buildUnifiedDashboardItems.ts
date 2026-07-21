@@ -71,6 +71,22 @@ function getDisplayCategory(sourceProduct: SourceProductItem | null, trackedProd
   };
 }
 
+function mergeEtsyLinks(sourceProduct: SourceProductItem | null, trackedProduct: TrackingItem | null) {
+  const links = [...(sourceProduct?.linkedEtsyItems ?? []), ...(trackedProduct?.etsyLinks ?? [])];
+  const seen = new Set<string>();
+
+  return links.filter((link) => {
+    const listingId = link.url.match(/\/listing\/(\d+)/i)?.[1];
+    const key = listingId ? `listing:${listingId}` : link.url.trim().toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
 function createUnifiedItem(sourceProduct: SourceProductItem | null, trackedProduct: TrackingItem | null): UnifiedDashboardItem {
   const category = getDisplayCategory(sourceProduct, trackedProduct);
 
@@ -85,7 +101,7 @@ function createUnifiedItem(sourceProduct: SourceProductItem | null, trackedProdu
     categoryKey: category.key,
     sourceCategoryLabel: sourceProduct?.sourceCategory?.name ?? null,
     trackingCategoryLabel: trackedProduct?.userCategory?.name ?? sourceProduct?.userCategory?.name ?? null,
-    etsyLinks: sourceProduct?.linkedEtsyItems ?? [],
+    etsyLinks: mergeEtsyLinks(sourceProduct, trackedProduct),
     assignedShops: (trackedProduct?.shops ?? sourceProduct?.shops ?? []).map((shop) => ({ id: shop.id, name: shop.name })),
     sourceProduct,
     trackedProduct,
@@ -128,6 +144,7 @@ export function buildUnifiedDashboardItems(sourceProducts: SourceProductItem[], 
       matchedItem.categoryLabel = category.label;
       matchedItem.categoryKey = category.key;
       matchedItem.trackingCategoryLabel = trackedProduct.userCategory?.name ?? matchedItem.sourceProduct?.userCategory?.name ?? null;
+      matchedItem.etsyLinks = mergeEtsyLinks(matchedItem.sourceProduct, trackedProduct);
       matchedItem.assignedShops = (trackedProduct.shops ?? matchedItem.sourceProduct?.shops ?? []).map((shop) => ({
         id: shop.id,
         name: shop.name,

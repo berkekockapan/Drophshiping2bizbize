@@ -46,6 +46,7 @@ const trackingItems: TrackingItem[] = [
     isFavorite: false,
     userCategory: null,
     shops: [{ id: "shop_nordic", name: "Nordic Lane", etsyShopUrl: "https://www.etsy.com/shop/nordiclane", description: null }],
+    etsyLinks: [{ id: "tracked_etsy", title: "998877665", url: "https://www.etsy.com/listing/998877665/takipsel-kupa" }],
     lastCheckedAt: 1710000000000,
   },
 ];
@@ -245,10 +246,16 @@ describe("TrackingCenterPage", () => {
     expect(screen.queryByText(/takipsel kupa/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /tümü \(3\)/i }));
-    await user.type(screen.getByLabelText(/arama/i), "kupa");
+    const searchInput = screen.getByLabelText(/arama/i);
+    await user.type(searchInput, "kupa");
 
     expect(await screen.findByText(/takipsel kupa/i)).toBeInTheDocument();
     expect(screen.queryByText(/kaynak canta/i)).not.toBeInTheDocument();
+
+    await user.clear(searchInput);
+    await user.type(searchInput, "998877665");
+    expect(await screen.findByText(/takipsel kupa/i)).toBeInTheDocument();
+    expect(screen.queryByText(/oversize hoodie/i)).not.toBeInTheDocument();
   });
 
   it("filters products by selected etsy shop", async () => {
@@ -764,6 +771,7 @@ describe("TrackingCenterPage", () => {
     };
 
     const createCategorySpy = vi.fn();
+    const deleteCategorySpy = vi.fn();
     const trackedPatchSpy = vi.fn();
     const sourcePatchSpy = vi.fn();
 
@@ -792,6 +800,14 @@ describe("TrackingCenterPage", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
+      }
+
+      if (url.endsWith("/owners/berke/categories/cat_seramik") && method === "DELETE") {
+        deleteCategorySpy();
+        categoriesState.splice(0, categoriesState.length);
+        trackingState[0].userCategory = null;
+        sourceOnlyProducts.items[0].userCategory = null;
+        return new Response(null, { status: 204 });
       }
 
       if (url.includes("/owners/berke/categories")) {
@@ -877,6 +893,89 @@ describe("TrackingCenterPage", () => {
 
     expect(sourcePatchSpy).toHaveBeenCalledWith({ categoryId: "cat_seramik" });
     expect(trackedPatchSpy).toHaveBeenCalledWith({ categoryId: "cat_seramik" });
+
+    const deleteCategoryButton = await screen.findByRole("button", { name: /seramik kategorisini sil/i });
+    await user.click(deleteCategoryButton);
+    expect(deleteCategorySpy).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /^kategoriyi sil$/i }));
+    await waitFor(() => expect(deleteCategorySpy).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("button", { name: /seramik kategorisini sil/i })).not.toBeInTheDocument();
+  });
+
+  it("deletes a tracked Etsy link and moves a confirmed card to trash", async () => {
+    const user = userEvent.setup();
+    let trackingState: TrackingItem[] = [
+      {
+        ...trackingItems[1],
+        etsyLinks: [{ id: "tracked_etsy", title: "998877665", url: "https://www.etsy.com/listing/998877665/takipsel-kupa" }],
+      },
+    ];
+    const deleteLinkSpy = vi.fn();
+    const deleteCardSpy = vi.fn();
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url.includes("/owners/berke/products/refresh-runs/active")) {
+        return new Response(JSON.stringify({ run: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/owners/berke/etsy-shops")) {
+        return new Response(JSON.stringify(etsyShopsPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/owners/berke/categories")) {
+        return new Response(JSON.stringify(categoriesPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/owners/berke/source-products")) {
+        return new Response(JSON.stringify({ items: [], filters: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/owners/berke/products/prod_2/etsy-links/tracked_etsy") && method === "DELETE") {
+        deleteLinkSpy();
+        trackingState = trackingState.map((item) => ({ ...item, etsyLinks: [] }));
+        return new Response(null, { status: 204 });
+      }
+      if (url.endsWith("/owners/berke/products/prod_2") && method === "DELETE") {
+        deleteCardSpy();
+        trackingState = [];
+        return new Response(null, { status: 204 });
+      }
+      if (url.includes("/owners/berke/products")) {
+        return new Response(JSON.stringify(buildTrackingPayloadFrom(trackingState, null)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    renderWithProviders(<TrackingCenterPage />, {
+      route: "/owners/berke/products",
+      path: "/owners/:ownerKey/products",
+    });
+
+    expect(await screen.findByRole("heading", { name: /takipsel kupa/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /998877665 etsy linkini sil/i }));
+    await user.click(screen.getByRole("button", { name: /^linki sil$/i }));
+    await waitFor(() => expect(deleteLinkSpy).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("link", { name: "998877665" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^kartı sil$/i }));
+    await user.click(screen.getByRole("button", { name: /kartı çöp kutusuna taşı/i }));
+    await waitFor(() => expect(deleteCardSpy).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("heading", { name: /takipsel kupa/i })).not.toBeInTheDocument();
   });
 
 });

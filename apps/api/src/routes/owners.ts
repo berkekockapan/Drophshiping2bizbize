@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createSourceProductEtsyLinkRequestSchema } from "../../../../packages/shared/src/contracts/sourceProducts";
 import { ownerKeySchema } from "../contracts/owners";
 
 import type { Env } from "../config/bindings";
@@ -7,7 +8,12 @@ import { createNotificationsRepo } from "../db/repositories/notificationsRepo";
 import { ParseError } from "../modules/scraping/parseErrors";
 import { buildActiveManualRefreshRunView, buildManualRefreshRunView } from "../modules/tracking/buildManualRefreshRunView";
 import { buildTrackingListView, buildTrashListView } from "../modules/tracking/buildTrackingListView";
+import {
+  addTrackedProductEtsyLink,
+  DuplicateTrackedProductEtsyLinkError,
+} from "../modules/tracking/addTrackedProductEtsyLink";
 import { deleteTrackedProduct } from "../modules/tracking/deleteTrackedProduct";
+import { deleteTrackedProductEtsyLink } from "../modules/tracking/deleteTrackedProductEtsyLink";
 import { permanentlyDeleteTrackedProduct } from "../modules/tracking/permanentlyDeleteTrackedProduct";
 import {
   DuplicateProductError,
@@ -313,6 +319,51 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
     }
 
     return c.json(result);
+  });
+
+  app.post("/products/:productId/etsy-links", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req.json().catch(() => null);
+    const parsed = createSourceProductEtsyLinkRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "Gecerli bir etsyUrl gereklidir" }, 400);
+    }
+
+    try {
+      const etsyLink = await addTrackedProductEtsyLink(
+        c.env.DB,
+        ownerKey,
+        c.req.param("productId"),
+        parsed.data.etsyUrl,
+      );
+      return etsyLink ? c.json({ etsyLink }, 201) : c.json({ error: "Kayit bulunamadi" }, 404);
+    } catch (error) {
+      if (error instanceof DuplicateTrackedProductEtsyLinkError) {
+        return c.json({ error: "Bu Etsy link zaten bir takip kaydina bagli.", code: "ETSY_LINK_DUPLICATE" }, 409);
+      }
+
+      throw error;
+    }
+  });
+
+  app.delete("/products/:productId/etsy-links/:etsyLinkId", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const deleted = await deleteTrackedProductEtsyLink(
+      c.env.DB,
+      ownerKey,
+      c.req.param("productId"),
+      c.req.param("etsyLinkId"),
+    );
+
+    return deleted ? c.body(null, 204) : c.json({ error: "Kayit bulunamadi" }, 404);
   });
 
   app.delete("/products/:productId", async (c) => {

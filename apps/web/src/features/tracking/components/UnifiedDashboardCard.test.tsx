@@ -71,6 +71,9 @@ describe("UnifiedDashboardCard", () => {
         showAssignedShopLabel
         onAssignShop={() => {}}
         onCategoryChange={() => {}}
+        onAddEtsyLink={async () => {}}
+        onDeleteEtsyLink={async () => {}}
+        onDeleteCard={async () => {}}
       />,
       {
         route: "/owners/berke/products",
@@ -134,6 +137,9 @@ describe("UnifiedDashboardCard", () => {
         showAssignedShopLabel
         onAssignShop={() => {}}
         onCategoryChange={() => {}}
+        onAddEtsyLink={async () => {}}
+        onDeleteEtsyLink={async () => {}}
+        onDeleteCard={async () => {}}
       />,
       {
         route: "/owners/berke/products",
@@ -173,6 +179,9 @@ describe("UnifiedDashboardCard", () => {
         showAssignedShopLabel={false}
         onAssignShop={onAssignShop}
         onCategoryChange={() => {}}
+        onAddEtsyLink={async () => {}}
+        onDeleteEtsyLink={async () => {}}
+        onDeleteCard={async () => {}}
       />,
       {
         route: "/owners/berke/products",
@@ -183,5 +192,76 @@ describe("UnifiedDashboardCard", () => {
     await user.selectOptions(within(document.body).getByLabelText(/etsy mağazası/i), "shop_2");
 
     expect(onAssignShop).toHaveBeenCalledWith(expect.objectContaining({ key: "item_1" }), "shop_2");
+  });
+
+  it("adds an Etsy link from inside the product card", async () => {
+    const user = userEvent.setup();
+    const onAddEtsyLink = vi.fn(async () => {});
+
+    renderWithProviders(
+      <UnifiedDashboardCard
+        ownerKey="berke"
+        item={{ ...baseItem, etsyLinks: [], sourceProduct: null }}
+        shops={[]}
+        categories={categories}
+        showAssignedShopLabel
+        onAssignShop={() => {}}
+        onCategoryChange={() => {}}
+        onAddEtsyLink={onAddEtsyLink}
+        onDeleteEtsyLink={async () => {}}
+        onDeleteCard={async () => {}}
+      />,
+      {
+        route: "/owners/berke/products",
+        path: "/owners/:ownerKey/products",
+      },
+    );
+
+    await user.click(within(document.body).getByRole("button", { name: /^etsy linki ekle$/i }));
+    await user.type(within(document.body).getByLabelText(/etsy ürün linki/i), "https://www.etsy.com/listing/998877665/item");
+    await user.click(within(document.body).getByRole("button", { name: /etsy linkini kaydet/i }));
+
+    expect(onAddEtsyLink).toHaveBeenCalledWith(
+      expect.objectContaining({ trackedProduct: expect.objectContaining({ id: "prod_1" }) }),
+      "https://www.etsy.com/listing/998877665/item",
+    );
+  });
+
+  it("requires confirmation before deleting an Etsy link or the card", async () => {
+    const user = userEvent.setup();
+    const onDeleteEtsyLink = vi.fn(async () => {});
+    const onDeleteCard = vi.fn(async () => {});
+
+    renderWithProviders(
+      <UnifiedDashboardCard
+        ownerKey="berke"
+        item={baseItem}
+        shops={[]}
+        categories={categories}
+        showAssignedShopLabel
+        onAssignShop={() => {}}
+        onCategoryChange={() => {}}
+        onAddEtsyLink={async () => {}}
+        onDeleteEtsyLink={onDeleteEtsyLink}
+        onDeleteCard={onDeleteCard}
+      />,
+      {
+        route: "/owners/berke/products",
+        path: "/owners/:ownerKey/products",
+      },
+    );
+
+    await user.click(within(document.body).getByRole("button", { name: /123456789 etsy linkini sil/i }));
+    expect(onDeleteEtsyLink).not.toHaveBeenCalled();
+    await user.click(within(document.body).getByRole("button", { name: /^linki sil$/i }));
+    expect(onDeleteEtsyLink).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "item_1" }),
+      expect.objectContaining({ id: "etsy_1" }),
+    );
+
+    await user.click(within(document.body).getByRole("button", { name: /^kartı sil$/i }));
+    expect(onDeleteCard).not.toHaveBeenCalled();
+    await user.click(within(document.body).getByRole("button", { name: /kartı çöp kutusuna taşı/i }));
+    expect(onDeleteCard).toHaveBeenCalledWith(expect.objectContaining({ key: "item_1" }));
   });
 });

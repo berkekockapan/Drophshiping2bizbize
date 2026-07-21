@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { formatDateTime, type EtsyShop, type ProductCategory } from "../../../app/api";
@@ -17,8 +18,17 @@ interface UnifiedDashboardCardProps {
   showAssignedShopLabel: boolean;
   isAssigningShop?: boolean;
   isCategoryUpdating?: boolean;
+  isEtsyLinkAdding?: boolean;
+  etsyLinkError?: string | null;
+  deletingEtsyLinkId?: string | null;
+  etsyLinkDeleteError?: string | null;
+  isCardDeleting?: boolean;
+  cardDeleteError?: string | null;
   onAssignShop: (item: UnifiedDashboardItem, shopId: string | null) => void;
   onCategoryChange: (item: UnifiedDashboardItem, categoryId: string | null) => void;
+  onAddEtsyLink: (item: UnifiedDashboardItem, etsyUrl: string) => Promise<void>;
+  onDeleteEtsyLink: (item: UnifiedDashboardItem, etsyLink: UnifiedDashboardItem["etsyLinks"][number]) => Promise<void>;
+  onDeleteCard: (item: UnifiedDashboardItem) => Promise<void>;
 }
 
 export function UnifiedDashboardCard({
@@ -31,9 +41,22 @@ export function UnifiedDashboardCard({
   showAssignedShopLabel,
   isAssigningShop = false,
   isCategoryUpdating = false,
+  isEtsyLinkAdding = false,
+  etsyLinkError = null,
+  deletingEtsyLinkId = null,
+  etsyLinkDeleteError = null,
+  isCardDeleting = false,
+  cardDeleteError = null,
   onAssignShop,
   onCategoryChange,
+  onAddEtsyLink,
+  onDeleteEtsyLink,
+  onDeleteCard,
 }: UnifiedDashboardCardProps) {
+  const [isEtsyFormOpen, setIsEtsyFormOpen] = useState(false);
+  const [etsyUrl, setEtsyUrl] = useState("");
+  const [etsyLinkToDelete, setEtsyLinkToDelete] = useState<UnifiedDashboardItem["etsyLinks"][number] | null>(null);
+  const [isCardDeleteConfirmOpen, setIsCardDeleteConfirmOpen] = useState(false);
   const sourceDetailHref = item.sourceProduct ? `/owners/${ownerKey}/source-products/${item.sourceProduct.id}` : null;
   const trackedDetailHref = item.trackedProduct ? `/owners/${ownerKey}/products/${item.trackedProduct.id}` : null;
   const primaryDetailHref = trackedDetailHref ?? sourceDetailHref;
@@ -46,6 +69,47 @@ export function UnifiedDashboardCard({
     ? `tracking-category-${item.trackedProduct.id}`
     : `source-product-category-${item.sourceProduct?.id ?? item.key}`;
   const categoryLabel = item.trackedProduct ? "Takip kategorisi" : "Kategori";
+
+  async function handleAddEtsyLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedUrl = etsyUrl.trim();
+    if (!trimmedUrl || isEtsyLinkAdding) {
+      return;
+    }
+
+    try {
+      await onAddEtsyLink(item, trimmedUrl);
+      setEtsyUrl("");
+      setIsEtsyFormOpen(false);
+    } catch {
+      // Hata, kart içindeki kalıcı geri bildirim alanında gösterilir.
+    }
+  }
+
+  async function handleDeleteEtsyLink() {
+    if (!etsyLinkToDelete || deletingEtsyLinkId) {
+      return;
+    }
+
+    try {
+      await onDeleteEtsyLink(item, etsyLinkToDelete);
+      setEtsyLinkToDelete(null);
+    } catch {
+      // Hata, Etsy linkleri alanında gösterilir.
+    }
+  }
+
+  async function handleDeleteCard() {
+    if (isCardDeleting) {
+      return;
+    }
+
+    try {
+      await onDeleteCard(item);
+    } catch {
+      // Hata, kart silme onay alanında gösterilir.
+    }
+  }
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -103,6 +167,16 @@ export function UnifiedDashboardCard({
         </div>
 
         <div className="flex min-w-[240px] flex-col items-stretch gap-2">
+          <div className="mb-1 flex justify-end">
+            <button
+              type="button"
+              aria-expanded={isCardDeleteConfirmOpen}
+              onClick={() => setIsCardDeleteConfirmOpen((current) => !current)}
+              className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+            >
+              Kartı sil
+            </button>
+          </div>
           <label className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400" htmlFor={`shop-assign-${item.key}`}>
             Etsy mağazası
           </label>
@@ -157,6 +231,34 @@ export function UnifiedDashboardCard({
         </div>
       </div>
 
+      {isCardDeleteConfirmOpen ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+          <p className="text-sm font-semibold text-rose-800">Bu kartı silmek istediğinizden emin misiniz?</p>
+          <p className="mt-1 text-xs text-rose-700">
+            Varsa kaynak ve takip kayıtları çöp kutusuna taşınır; gerektiğinde geri yükleyebilirsiniz.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCardDeleteConfirmOpen(false)}
+              disabled={isCardDeleting}
+              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteCard}
+              disabled={isCardDeleting}
+              className="rounded-2xl bg-rose-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-rose-300"
+            >
+              {isCardDeleting ? "Siliniyor..." : "Kartı çöp kutusuna taşı"}
+            </button>
+          </div>
+          {cardDeleteError ? <p className="mt-2 text-sm text-rose-700">{cardDeleteError}</p> : null}
+        </div>
+      ) : null}
+
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Kayıt Durumu</p>
@@ -203,22 +305,65 @@ export function UnifiedDashboardCard({
           ) : (
             <div className="mt-3 flex flex-wrap gap-2">
               {item.etsyLinks.map((etsyLink) => (
-                <a
-                  key={etsyLink.id}
-                  href={etsyLink.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 transition hover:border-amber-300 hover:bg-amber-100"
-                >
-                  {etsyLink.title}
-                </a>
+                <span key={etsyLink.id} className="inline-flex overflow-hidden rounded-2xl border border-amber-200 bg-amber-50">
+                  <a
+                    href={etsyLink.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 text-xs font-medium text-amber-800 transition hover:bg-amber-100"
+                  >
+                    {etsyLink.title}
+                  </a>
+                  <button
+                    type="button"
+                    aria-label={`${etsyLink.title} Etsy linkini sil`}
+                    onClick={() => setEtsyLinkToDelete(etsyLink)}
+                    className="border-l border-amber-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                  >
+                    Sil
+                  </button>
+                </span>
               ))}
             </div>
           )}
+
+          {etsyLinkToDelete ? (
+            <div className="mt-3 rounded-2xl border border-rose-200 bg-white p-3">
+              <p className="text-xs font-semibold text-rose-800">Bu Etsy linki silinsin mi?</p>
+              <p className="mt-1 break-all text-xs text-slate-500">{etsyLinkToDelete.url}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEtsyLinkToDelete(null)}
+                  disabled={Boolean(deletingEtsyLinkId)}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteEtsyLink}
+                  disabled={Boolean(deletingEtsyLinkId)}
+                  className="rounded-2xl bg-rose-700 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-rose-300"
+                >
+                  {deletingEtsyLinkId === etsyLinkToDelete.id ? "Siliniyor..." : "Linki sil"}
+                </button>
+              </div>
+              {etsyLinkDeleteError ? <p className="mt-2 text-xs text-rose-700">{etsyLinkDeleteError}</p> : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          aria-expanded={isEtsyFormOpen}
+          onClick={() => setIsEtsyFormOpen((current) => !current)}
+          className="rounded-2xl bg-[#F1641E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95518]"
+        >
+          {isEtsyFormOpen ? "Etsy linki eklemeyi kapat" : "Etsy linki ekle"}
+        </button>
         {sourceDetailHref ? (
           <Link
             to={sourceDetailHref}
@@ -233,6 +378,34 @@ export function UnifiedDashboardCard({
           </Link>
         ) : null}
       </div>
+
+      {isEtsyFormOpen ? (
+        <form onSubmit={handleAddEtsyLink} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label className="block text-sm font-medium text-slate-600" htmlFor={`etsy-link-${item.key}`}>
+              Etsy ürün linki
+              <input
+                id={`etsy-link-${item.key}`}
+                type="url"
+                required
+                value={etsyUrl}
+                onChange={(event) => setEtsyUrl(event.target.value)}
+                placeholder="https://www.etsy.com/listing/..."
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#F1641E]"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={isEtsyLinkAdding || etsyUrl.trim().length === 0}
+              className="rounded-2xl bg-[#051125] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0a1831] disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isEtsyLinkAdding ? "Kaydediliyor..." : "Etsy linkini kaydet"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Etsy ürün sayfasının bağlantısını yapıştırın; bağlantı bu kartta kalıcı olarak gösterilir.</p>
+          {etsyLinkError ? <p className="mt-2 text-sm text-rose-600">{etsyLinkError}</p> : null}
+        </form>
+      ) : null}
     </article>
   );
 }

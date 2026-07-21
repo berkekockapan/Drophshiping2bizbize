@@ -13,7 +13,7 @@ const productWithVariantsHtml = readFileSync(
 
 describe("product categories", () => {
   it("keeps categories owner-scoped, filters tracking lists, and unassigns products on delete", async () => {
-    const { env } = createTestEnv();
+    const { env, sqlite } = createTestEnv();
     const fetchImpl = async () => new Response(productWithVariantsHtml, { status: 200 });
     const app = createApp({ fetchImpl });
 
@@ -93,6 +93,24 @@ describe("product categories", () => {
       },
       env,
     );
+    sqlite
+      .prepare(
+        `insert into source_products (
+          id, owner_key, source_title, source_url, source_url_normalized, source_platform,
+          user_category_id, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        "source_category_test",
+        "berke",
+        "Kategori test kaynak ürünü",
+        "https://shopier.com/category-test",
+        "https://shopier.com/category-test",
+        "SHOPIER",
+        renamedCategory.id,
+        Date.now(),
+        Date.now(),
+      );
     const deleted = await app.request(
       `http://localhost/owners/berke/categories/${renamedCategory.id}`,
       { method: "DELETE" },
@@ -129,6 +147,9 @@ describe("product categories", () => {
     });
     expect(crossOwnerAssign.status).toBe(404);
     expect(deleted.status).toBe(204);
+    expect(
+      sqlite.prepare("select user_category_id as userCategoryId from source_products where id = ?").get("source_category_test"),
+    ).toEqual({ userCategoryId: null });
     expect((await detailAfterDelete.json()) as { product: { userCategory: null } }).toEqual(
       expect.objectContaining({
         product: expect.objectContaining({ userCategory: null }),

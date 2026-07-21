@@ -79,6 +79,7 @@ describe("buildUnifiedDashboardItems", () => {
         isFavorite: false,
         userCategory: null,
         shops: [],
+        etsyLinks: [{ id: "tracked_etsy", title: "998877665", url: "https://www.etsy.com/listing/998877665" }],
         lastCheckedAt: null,
       },
     ]);
@@ -91,6 +92,7 @@ describe("buildUnifiedDashboardItems", () => {
         categoryLabel: null,
         sourceProduct: null,
         assignedShops: [],
+        etsyLinks: [{ id: "tracked_etsy", title: "998877665", url: "https://www.etsy.com/listing/998877665" }],
       }),
     );
     expect(items[0]?.trackedProduct?.id).toBe("prod_2");

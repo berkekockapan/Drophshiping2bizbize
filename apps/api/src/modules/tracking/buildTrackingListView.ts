@@ -2,6 +2,7 @@ import type { OwnerKey } from "../../contracts/owners";
 
 import type { D1Database } from "../../config/bindings";
 import { createEtsyShopsRepo } from "../../db/repositories/etsyShopsRepo";
+import { createProductEtsyLinksRepo } from "../../db/repositories/productEtsyLinksRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 
 export interface TrackingFilters {
@@ -55,12 +56,14 @@ function toCardView<
 export async function buildTrackingListView(db: D1Database, ownerKey: OwnerKey, filters: TrackingFilters = {}) {
   const productsRepo = createProductsRepo(db);
   const etsyShopsRepo = createEtsyShopsRepo(db);
+  const productEtsyLinksRepo = createProductEtsyLinksRepo(db);
   const items = await productsRepo.listTrackingCards(ownerKey, filters);
   const cards = toCardView(items);
-  const shopsByProductId = await etsyShopsRepo.listProductShopsForProducts(
-    ownerKey,
-    cards.map((item) => item.id),
-  );
+  const productIds = cards.map((item) => item.id);
+  const [shopsByProductId, etsyLinksByProductId] = await Promise.all([
+    etsyShopsRepo.listProductShopsForProducts(ownerKey, productIds),
+    productEtsyLinksRepo.listForProducts(ownerKey, productIds),
+  ]);
   const cardsWithShops = cards.map((item) => ({
     ...item,
     shops: (shopsByProductId.get(item.id) ?? []).map((shop) => ({
@@ -69,6 +72,11 @@ export async function buildTrackingListView(db: D1Database, ownerKey: OwnerKey, 
       etsyShopUrl: shop.etsyShopUrl,
       description: shop.description,
       assignedAt: shop.assignedAt,
+    })),
+    etsyLinks: (etsyLinksByProductId.get(item.id) ?? []).map((link) => ({
+      id: link.id,
+      title: link.etsyListingId ?? link.etsyUrl,
+      url: link.etsyUrl,
     })),
   }));
 

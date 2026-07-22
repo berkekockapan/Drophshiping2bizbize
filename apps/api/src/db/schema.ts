@@ -221,6 +221,36 @@ export const productVariants = sqliteTable(
   }),
 );
 
+export const productLinkedVariants = sqliteTable(
+  "product_linked_variants",
+  {
+    id: text("id").primaryKey(),
+    parentProductId: text("parent_product_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    trendyolUrl: text("trendyol_url").notNull(),
+    trendyolUrlNormalized: text("trendyol_url_normalized").notNull(),
+    sourceProductId: text("source_product_id"),
+    title: text("title").notNull(),
+    brand: text("brand"),
+    descriptionRaw: text("description_raw"),
+    attributesRaw: text("attributes_raw"),
+    imagesRaw: text("images_raw"),
+    currentPrice: integer("current_price"),
+    currentStockState: text("current_stock_state").notNull(),
+    lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => ({
+    ownerUrlUnique: uniqueIndex("product_linked_variants_owner_url_unique").on(
+      table.ownerKey,
+      table.trendyolUrlNormalized,
+    ),
+    parentCreatedIdx: index("product_linked_variants_parent_created_idx").on(table.parentProductId, table.createdAt),
+    ownerParentIdx: index("product_linked_variants_owner_parent_idx").on(table.ownerKey, table.parentProductId),
+  }),
+);
+
 export const productCurrentState = sqliteTable("product_current_state", {
   productId: text("product_id").primaryKey(),
   currentPrice: integer("current_price"),

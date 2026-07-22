@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("product detail shows variant visuals and updates selected variant details", async ({ page }) => {
+test("product detail manages persistent manually linked color variants", async ({ page }) => {
   const detailPayload = {
     product: {
       id: "prod_1",
@@ -28,6 +28,7 @@ test("product detail shows variant visuals and updates selected variant details"
       lastCheckedAt: Date.parse("2026-03-28T10:00:00.000Z"),
       shops: [],
     },
+    linkedVariants: [],
     variants: [
       {
         id: "var_1",
@@ -134,6 +135,33 @@ test("product detail shows variant visuals and updates selected variant details"
         return new Response(JSON.stringify({ run: null }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
 
+      if (url.endsWith("/owners/berke/products/prod_1/linked-variants") && init?.method === "POST") {
+        const linkedVariant = {
+          id: "linked_blue",
+          trendyolUrl: "https://www.trendyol.com/example/blue-p-456",
+          sourceProductId: "456",
+          title: "Oversize Hoodie Mavi",
+          brand: "North Apparel",
+          descriptionRaw: "Mavi renk seçeneği.",
+          attributes: [{ key: "Renk", value: "Mavi" }],
+          images: ["https://cdn.example.com/hoodie-blue.jpg"],
+          currentPrice: 45990,
+          currentStockState: "IN_STOCK",
+          lastCheckedAt: Date.parse("2026-03-28T10:00:00.000Z"),
+          createdAt: Date.parse("2026-03-28T10:00:00.000Z"),
+        };
+        detailPayload.linkedVariants = [linkedVariant];
+        return new Response(JSON.stringify({ linkedVariant }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/owners/berke/products/prod_1/linked-variants/linked_blue") && init?.method === "DELETE") {
+        detailPayload.linkedVariants = [];
+        return new Response(null, { status: 204 });
+      }
+
       if (url.includes("/owners/berke/products/prod_1")) {
         return new Response(JSON.stringify(detailPayload), { status: 200, headers: { "Content-Type": "application/json" } });
       }
@@ -155,13 +183,22 @@ test("product detail shows variant visuals and updates selected variant details"
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
 
-  await expect(page.getByText(/varyant görünümü/i)).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /görsel/i })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /ürün başlığı/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /oversize hoodie/i })).toBeVisible();
+  await expect(page.getByText(/varyant görünümü/i)).toHaveCount(0);
+  await expect(page.getByText(/stokta olan varyasyon/i)).toHaveCount(0);
+  await expect(page.getByText(/varyasyon matrisi/i)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /urun maliyet gorunumu/i })).toHaveCount(0);
 
-  await page.getByRole("button", { name: /varyant sec: m \/ siyah/i }).click();
+  await page.getByRole("button", { name: /varyant ekle/i }).click();
+  await page.getByRole("textbox", { name: /trendyol ürün linki/i }).fill("https://www.trendyol.com/example/blue-p-456");
+  await page.getByRole("button", { name: /^kaydet$/i }).click();
+  await expect(page.getByText("Oversize Hoodie Mavi")).toBeVisible();
 
-  await expect(page.getByText("M / Siyah").first()).toBeVisible();
-  await expect(page.getByText(/429,90/).first()).toBeVisible();
+  await page.getByRole("button", { name: /oversize hoodie mavi/i }).click();
+  await expect(page.getByText("Mavi renk seçeneği.")).toBeVisible();
+  await expect(page.getByText(/459,90/).last()).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: /^sil$/i }).click();
+  await expect(page.getByText("Oversize Hoodie Mavi")).toHaveCount(0);
 });

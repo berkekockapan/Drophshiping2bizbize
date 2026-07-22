@@ -5,6 +5,7 @@ import { createEtsyShopsRepo } from "../../db/repositories/etsyShopsRepo";
 import { createHistoryRepo } from "../../db/repositories/historyRepo";
 import { createNotificationsRepo } from "../../db/repositories/notificationsRepo";
 import { createProductVariantCostOverridesRepo } from "../../db/repositories/productVariantCostOverridesRepo";
+import { createProductLinkedVariantsRepo } from "../../db/repositories/productLinkedVariantsRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 import { createRefreshAuditRepo } from "../../db/repositories/refreshAuditRepo";
 import { createTariffAnalysisRepo } from "../../db/repositories/tariffAnalysisRepo";
@@ -94,6 +95,7 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const tariffAnalysisRepo = createTariffAnalysisRepo(db);
   const tariffSelectionRepo = createTariffSelectionRepo(db);
   const overridesRepo = createProductVariantCostOverridesRepo(db);
+  const linkedVariantsRepo = createProductLinkedVariantsRepo(db);
   const tariffCatalogRepo = createTariffCatalogRepo(db);
   const detail = await productsRepo.getProductDetail(ownerKey, productId);
 
@@ -121,6 +123,7 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
   const tariffSelection = await tariffSelectionRepo.getSelection(productId);
   const overrides = await overridesRepo.listByProductId(productId);
   const productShops = await etsyShopsRepo.listProductShops(ownerKey, productId);
+  const linkedVariantRows = await linkedVariantsRepo.listByParent(ownerKey, productId);
   const { userCategoryId, userCategoryName, ...product } = detail.product;
   const attributes = safeParseJson(detail.product.attributesRaw) ?? [];
   const images = safeParseJson(detail.product.imagesRaw);
@@ -166,6 +169,20 @@ export async function buildProductDetailView(db: D1Database, ownerKey: OwnerKey,
       })),
     },
     currentState: detail.currentState,
+    linkedVariants: linkedVariantRows.map((variant) => ({
+      id: variant.id,
+      trendyolUrl: variant.trendyolUrl,
+      sourceProductId: variant.sourceProductId,
+      title: variant.title,
+      brand: variant.brand,
+      descriptionRaw: variant.descriptionRaw,
+      attributes: safeParseJson(variant.attributesRaw) ?? [],
+      images: safeParseJson(variant.imagesRaw) ?? [],
+      currentPrice: variant.currentPrice,
+      currentStockState: variant.currentStockState,
+      lastCheckedAt: variant.lastCheckedAt,
+      createdAt: variant.createdAt,
+    })),
     variants,
     priceHistory,
     stockHistory,

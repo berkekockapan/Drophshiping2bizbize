@@ -11,7 +11,6 @@ import { ChangeTimeline } from "../components/ChangeTimeline";
 import { ProductShopAssignmentPanel } from "../components/ProductShopAssignmentPanel";
 import { ProductSummary } from "../components/ProductSummary";
 import { ProductTariffPanel } from "../components/ProductTariffPanel";
-import { VariantTable } from "../components/VariantTable";
 
 function isOwnerKey(value: string | undefined): value is OwnerKey {
   return ownerOptions.some((owner) => owner.key === value);
@@ -23,7 +22,6 @@ export function ProductDetailPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"overview" | "prep">("overview");
   const [hasOpenedPrep, setHasOpenedPrep] = useState(false);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const detailHasLoadedRef = useRef(false);
   const [hasBackgroundRefreshError, setHasBackgroundRefreshError] = useState(false);
   const [shopMutationError, setShopMutationError] = useState<string | null>(null);
@@ -56,7 +54,6 @@ export function ProductDetailPage() {
     setMode("overview");
     setHasOpenedPrep(false);
     setShopMutationError(null);
-    setSelectedVariantId(null);
   }, [ownerKey, productId]);
 
   const shopsMutation = useMutation({
@@ -82,33 +79,6 @@ export function ProductDetailPage() {
     detailHasLoadedRef.current = true;
     setHasBackgroundRefreshError(false);
   }, [detailQuery.dataUpdatedAt, detailQuery.data]);
-
-  useEffect(() => {
-    if (!detailQuery.data) {
-      return;
-    }
-
-    const variants = detailQuery.data.variants;
-    if (variants.length === 0) {
-      if (selectedVariantId !== null) {
-        setSelectedVariantId(null);
-      }
-      return;
-    }
-
-    const hasCurrent = selectedVariantId ? variants.some((variant) => variant.id === selectedVariantId) : false;
-    if (hasCurrent) {
-      return;
-    }
-
-    const preferredId =
-      detailQuery.data.costContext.selectedVariantId &&
-      variants.some((variant) => variant.id === detailQuery.data.costContext.selectedVariantId)
-        ? detailQuery.data.costContext.selectedVariantId
-        : variants[0].id;
-
-    setSelectedVariantId(preferredId);
-  }, [detailQuery.data, selectedVariantId]);
 
   if (!ownerKey) {
     return <p className="text-sm text-rose-600">Owner bulunamadı.</p>;
@@ -140,8 +110,6 @@ export function ProductDetailPage() {
           <ProductSummary
             ownerKey={ownerKey}
             detail={detailQuery.data}
-            selectedVariantId={selectedVariantId}
-            onVariantSelect={setSelectedVariantId}
             action={
               mode === "overview" ? (
                 <button
@@ -166,14 +134,6 @@ export function ProductDetailPage() {
           <ProductTariffPanel ownerKey={ownerKey} productId={productId} analysis={detailQuery.data.tariffAnalysis} />
 
           <div className="space-y-6" hidden={mode !== "overview"} aria-hidden={mode !== "overview"}>
-            <VariantTable
-              variants={detailQuery.data.variants}
-              productTitle={detailQuery.data.product.title}
-              productAttributes={detailQuery.data.product.attributes}
-              productImages={detailQuery.data.product.images}
-              selectedVariantId={selectedVariantId}
-              onVariantSelect={setSelectedVariantId}
-            />
             <ChangeTimeline items={detailQuery.data.changeTimeline} />
           </div>
 

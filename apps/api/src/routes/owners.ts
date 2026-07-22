@@ -6,6 +6,12 @@ import type { Env } from "../config/bindings";
 import { createEtsyShopsRepo } from "../db/repositories/etsyShopsRepo";
 import { createNotificationsRepo } from "../db/repositories/notificationsRepo";
 import { ParseError } from "../modules/scraping/parseErrors";
+import {
+  addProductLinkedVariant,
+  DuplicateProductLinkedVariantError,
+  InvalidProductLinkedVariantUrlError,
+  ParentProductLinkedVariantError,
+} from "../modules/tracking/addProductLinkedVariant";
 import { buildActiveManualRefreshRunView, buildManualRefreshRunView } from "../modules/tracking/buildManualRefreshRunView";
 import { buildTrackingListView, buildTrashListView } from "../modules/tracking/buildTrackingListView";
 import {
@@ -13,6 +19,7 @@ import {
   DuplicateTrackedProductEtsyLinkError,
 } from "../modules/tracking/addTrackedProductEtsyLink";
 import { deleteTrackedProduct } from "../modules/tracking/deleteTrackedProduct";
+import { deleteProductLinkedVariant } from "../modules/tracking/deleteProductLinkedVariant";
 import { deleteTrackedProductEtsyLink } from "../modules/tracking/deleteTrackedProductEtsyLink";
 import { permanentlyDeleteTrackedProduct } from "../modules/tracking/permanentlyDeleteTrackedProduct";
 import {
@@ -319,6 +326,68 @@ export function createOwnersRouter(options: CreateTrackedProductOptions = {}) {
     }
 
     return c.json(result);
+  });
+
+  app.post("/products/:productId/linked-variants", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const body = await c.req.json<{ trendyolUrl?: string }>().catch(() => null);
+    if (!body?.trendyolUrl) {
+      return c.json({ error: "Gecerli bir trendyolUrl gereklidir" }, 400);
+    }
+
+    try {
+      const linkedVariant = await addProductLinkedVariant(
+        c.env,
+        ownerKey,
+        c.req.param("productId"),
+        body.trendyolUrl,
+        options,
+      );
+
+      return linkedVariant ? c.json({ linkedVariant }, 201) : c.json({ error: "Kayit bulunamadi" }, 404);
+    } catch (error) {
+      if (error instanceof DuplicateProductLinkedVariantError) {
+        return c.json({ error: error.message, code: "LINKED_VARIANT_DUPLICATE" }, 409);
+      }
+
+      if (error instanceof ParentProductLinkedVariantError) {
+        return c.json({ error: error.message, code: "LINKED_VARIANT_IS_PARENT" }, 409);
+      }
+
+      if (error instanceof InvalidProductLinkedVariantUrlError) {
+        return c.json({ error: error.message, code: "LINKED_VARIANT_URL_INVALID" }, 400);
+      }
+
+      if (error instanceof ParseError) {
+        return c.json({ error: `Trendyol sayfasi ayrıştırılamadı (${error.code})` }, 422);
+      }
+
+      if (error instanceof Error) {
+        return c.json({ error: error.message }, 502);
+      }
+
+      return c.json({ error: "Beklenmeyen bir hata olustu" }, 500);
+    }
+  });
+
+  app.delete("/products/:productId/linked-variants/:linkedVariantId", async (c) => {
+    const ownerKey = parseOwnerKey(c.req.param("ownerKey"));
+    if (!ownerKey) {
+      return c.json({ error: "Kayit bulunamadi" }, 404);
+    }
+
+    const deleted = await deleteProductLinkedVariant(
+      c.env.DB,
+      ownerKey,
+      c.req.param("productId"),
+      c.req.param("linkedVariantId"),
+    );
+
+    return deleted ? c.body(null, 204) : c.json({ error: "Kayit bulunamadi" }, 404);
   });
 
   app.post("/products/:productId/etsy-links", async (c) => {

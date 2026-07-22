@@ -1,6 +1,7 @@
 import type { OwnerKey } from "../../contracts/owners";
 
 import type { D1Database } from "../../config/bindings";
+import { createProductLinkedVariantsRepo } from "../../db/repositories/productLinkedVariantsRepo";
 import { createProductsRepo } from "../../db/repositories/productsRepo";
 
 export type DownloadProductImageAsJpgResult =
@@ -94,8 +95,25 @@ export async function downloadProductImageAsJpg(
   const normalizedTargetUrl = normalizeUrl(targetUrl);
   const imageUrls = parseImageUrls(snapshot.imagesRaw);
 
-  if (!normalizedTargetUrl || !imageUrls || !imageUrls.includes(normalizedTargetUrl)) {
+  if (!normalizedTargetUrl) {
     return { kind: "invalid-image" };
+  }
+
+  let downloadTitle: string | null = null;
+
+  if (imageUrls?.includes(normalizedTargetUrl)) {
+    downloadTitle = snapshot.title;
+  } else {
+    const linkedVariants = await createProductLinkedVariantsRepo(db).listByParent(ownerKey, productId);
+    const linkedVariant = linkedVariants.find((variant) =>
+      parseImageUrls(variant.imagesRaw)?.includes(normalizedTargetUrl),
+    );
+
+    if (!linkedVariant) {
+      return { kind: "invalid-image" };
+    }
+
+    downloadTitle = linkedVariant.title;
   }
 
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -118,7 +136,7 @@ export async function downloadProductImageAsJpg(
     }
 
     const bytes = await upstreamResponse.arrayBuffer();
-    const filename = buildFilename(snapshot.title);
+    const filename = buildFilename(downloadTitle);
 
     return {
       kind: "ok",

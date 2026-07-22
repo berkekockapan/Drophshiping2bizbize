@@ -224,9 +224,9 @@ const settingsPayload = {
   etsyCostCalculator: null,
 };
 
-function jsonResponse(payload: unknown) {
+function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
-    status: 200,
+    status,
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -245,7 +245,7 @@ describe("ProductDetailPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses owner-scoped detail endpoint and renders variant-first detail blocks", async () => {
+  it("uses owner-scoped detail endpoint without rendering the removed variant summary flow", async () => {
     installMockLocalStorage();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
@@ -270,12 +270,11 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByText(/varyant görünümü/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /oversize hoodie/i })).toBeInTheDocument();
+    expect(screen.queryByText(/varyant görünümü/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/stokta olan varyasyon/i)).not.toBeInTheDocument();
     expect(screen.getByText(/gtip \/ abd vergi analizi/i)).toBeInTheDocument();
-    expect(screen.getByText(/varyasyon matrisi/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/beden/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/renk/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/ürün başlığı/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/varyasyon matrisi/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /urun maliyet gorunumu/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /ürün listesine dön/i })).toHaveAttribute("href", "/owners/berke/products");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/owners/berke/products/prod_1"), expect.anything());
@@ -449,11 +448,17 @@ describe("ProductDetailPage", () => {
     );
   });
 
-  it("updates selected variant details when the user clicks another variant", async () => {
+  it("adds, expands, downloads images, persists and explicitly deletes manually linked color variants", async () => {
     installMockLocalStorage();
     const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const createObjectUrlSpy = vi.fn(() => "blob:linked-variant-image");
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectUrlSpy });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    let linkedVariants: Array<Record<string, unknown>> = [];
 
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
 
       if (url.endsWith("/settings")) {
@@ -464,8 +469,39 @@ describe("ProductDetailPage", () => {
         return jsonResponse(etsyShopsPayload);
       }
 
+      if (url.endsWith("/linked-variants") && init?.method === "POST") {
+        const linkedVariant = {
+          id: "linked_1",
+          trendyolUrl: "https://www.trendyol.com/example/blue-p-456",
+          sourceProductId: "456",
+          title: "Oversize Hoodie Mavi",
+          brand: "North Apparel",
+          descriptionRaw: "Mavi renk seçeneği.",
+          attributes: [{ key: "Renk", value: "Mavi" }],
+          images: ["https://cdn.example.com/hoodie-blue.jpg"],
+          currentPrice: 45990,
+          currentStockState: "IN_STOCK",
+          lastCheckedAt: Date.parse("2026-03-20T10:00:00.000Z"),
+          createdAt: Date.parse("2026-03-20T10:00:00.000Z"),
+        };
+        linkedVariants = [linkedVariant, ...linkedVariants];
+        return jsonResponse({ linkedVariant }, 201);
+      }
+
+      if (url.endsWith("/linked-variants/linked_1") && init?.method === "DELETE") {
+        linkedVariants = linkedVariants.filter((variant) => variant.id !== "linked_1");
+        return new Response(null, { status: 204 });
+      }
+
+      if (url.includes("/images/download?")) {
+        return new Response(new Blob(["jpg"], { type: "image/jpeg" }), {
+          status: 200,
+          headers: { "Content-Disposition": 'attachment; filename="oversize-hoodie-mavi.jpg"' },
+        });
+      }
+
       if (url.includes("/owners/berke/products/prod_1")) {
-        return jsonResponse(productDetailPayload);
+        return jsonResponse({ ...productDetailPayload, linkedVariants });
       }
 
       throw new Error(`Unhandled request: ${url}`);
@@ -476,13 +512,30 @@ describe("ProductDetailPage", () => {
       path: "/owners/:ownerKey/products/:productId",
     });
 
-    expect(await screen.findByText(/seçili varyant/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/l \/ siyah/i).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/henüz manuel renk varyantı eklenmedi/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /varyant ekle/i }));
+    await user.type(
+      screen.getByRole("textbox", { name: /trendyol ürün linki/i }),
+      "https://www.trendyol.com/example/blue-p-456",
+    );
+    await user.click(screen.getByRole("button", { name: /^kaydet$/i }));
 
-    await user.click(screen.getByRole("button", { name: /varyant sec: m \/ siyah/i }));
+    expect(await screen.findByText("Oversize Hoodie Mavi")).toBeInTheDocument();
+    expect(screen.queryByText(/henüz manuel renk varyantı eklenmedi/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /oversize hoodie mavi/i }));
+    expect(screen.getByText("Mavi renk seçeneği.")).toBeInTheDocument();
+    expect(screen.getAllByText(/459,90/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /oversize hoodie mavi 1\. görseli jpg indir/i }));
+    await waitFor(() => expect(createObjectUrlSpy).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/owners/berke/products/prod_1/images/download?url=https%3A%2F%2Fcdn.example.com%2Fhoodie-blue.jpg"),
+      expect.anything(),
+    );
 
-    expect(screen.getAllByText(/m \/ siyah/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/429,90/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /^sil$/i }));
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("Oversize Hoodie Mavi"));
+    await waitFor(() => expect(screen.queryByText("Oversize Hoodie Mavi")).not.toBeInTheDocument());
+    expect(screen.getByText(/henüz manuel renk varyantı eklenmedi/i)).toBeInTheDocument();
   });
 
   it("keeps tariff selection flow working without the removed cost panel", async () => {

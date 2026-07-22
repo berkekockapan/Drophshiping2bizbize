@@ -313,6 +313,21 @@ export interface ProductCostContext {
   };
 }
 
+export interface ProductLinkedVariant {
+  id: string;
+  trendyolUrl: string;
+  sourceProductId: string | null;
+  title: string;
+  brand: string | null;
+  descriptionRaw: string | null;
+  attributes: DetailAttribute[];
+  images: string[];
+  currentPrice: number | null;
+  currentStockState: string;
+  lastCheckedAt: number;
+  createdAt: number;
+}
+
 export interface ProductDetailResponse {
   product: {
     id: string;
@@ -341,6 +356,7 @@ export interface ProductDetailResponse {
     lastCheckedAt: number | null;
     shops: EtsyShop[];
   };
+  linkedVariants: ProductLinkedVariant[];
   variants: Array<{
     id: string;
     variantKey: string;
@@ -1129,8 +1145,30 @@ export async function fetchProductDetail(ownerKey: OwnerKey, productId: string):
       ...payload.currentState,
       shops: Array.isArray(payload.currentState?.shops) ? payload.currentState.shops : [],
     },
+    linkedVariants: Array.isArray(payload.linkedVariants) ? payload.linkedVariants : [],
     tariffAnalysis: normalizeTariffAnalysis(payload.tariffAnalysis),
   };
+}
+
+export async function addProductLinkedVariant(ownerKey: OwnerKey, productId: string, trendyolUrl: string) {
+  const response = await fetchWithTimeout(`/owners/${ownerKey}/products/${productId}/linked-variants`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trendyolUrl }),
+  });
+
+  return parseJson<{ linkedVariant: { id: string } }>(response);
+}
+
+export async function deleteProductLinkedVariant(ownerKey: OwnerKey, productId: string, linkedVariantId: string) {
+  const response = await fetchWithTimeout(
+    `/owners/${ownerKey}/products/${productId}/linked-variants/${linkedVariantId}`,
+    { method: "DELETE" },
+  );
+
+  if (response.status !== 204) {
+    await assertOkResponse(response);
+  }
 }
 
 export async function runProductTariffAnalysis(ownerKey: OwnerKey, productId: string) {

@@ -14,6 +14,11 @@ export const addTrackedProductSchema = z.object({
 });
 export type AddTrackedProductRequest = z.infer<typeof addTrackedProductSchema>;
 
+export const addProductLinkedVariantSchema = z.object({
+  trendyolUrl: z.string().url(),
+});
+export type AddProductLinkedVariantRequest = z.infer<typeof addProductLinkedVariantSchema>;
+
 export const trackingListItemSchema = z.object({
   id: z.string().min(1),
   ownerKey: ownerKeySchema,

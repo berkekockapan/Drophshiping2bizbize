@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../../src/index";
+import { createProductLinkedVariantsRepo } from "../../src/db/repositories/productLinkedVariantsRepo";
 import { createTrackedProduct } from "../../src/modules/tracking/createTrackedProduct";
 import { createTestEnv } from "../support/sqlite";
 
@@ -28,7 +29,7 @@ describe("product image download", () => {
       },
     );
 
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
       new Response(new Uint8Array([255, 216, 255, 217]), {
         status: 200,
         headers: { "content-type": "image/jpeg" },
@@ -56,6 +57,35 @@ describe("product image download", () => {
     expect(invalidResponse.status).toBe(400);
     expect(invalidResponse.headers.get("access-control-allow-origin")).toBe("*");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    await createProductLinkedVariantsRepo(env.DB).create({
+      id: "linked_blue",
+      parentProductId: seeded.product.id,
+      ownerKey: "berke",
+      trendyolUrl: "https://www.trendyol.com/north-apparel/oversize-hoodie-blue-p-456",
+      trendyolUrlNormalized: "https://www.trendyol.com/north-apparel/oversize-hoodie-blue-p-456",
+      sourceProductId: "456",
+      title: "Oversize Hoodie Mavi",
+      brand: "North Apparel",
+      descriptionRaw: null,
+      attributesRaw: "[]",
+      imagesRaw: JSON.stringify(["https://cdn.example.com/hoodie-blue-1.jpg"]),
+      currentPrice: 45990,
+      currentStockState: "IN_STOCK",
+      lastCheckedAt: Date.parse("2026-03-20T01:00:00.000Z"),
+      createdAt: Date.parse("2026-03-20T01:00:00.000Z"),
+      updatedAt: Date.parse("2026-03-20T01:00:00.000Z"),
+    });
+
+    const linkedVariantResponse = await app.request(
+      `http://localhost/owners/berke/products/${seeded.product.id}/images/download?url=https://cdn.example.com/hoodie-blue-1.jpg`,
+      undefined,
+      env,
+    );
+
+    expect(linkedVariantResponse.status).toBe(200);
+    expect(linkedVariantResponse.headers.get("content-disposition")).toContain("oversize-hoodie-mavi.jpg");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
   it("returns CORS headers for preflight requests", async () => {

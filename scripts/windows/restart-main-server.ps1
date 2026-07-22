@@ -452,6 +452,12 @@ function Start-ServiceWindowsCloud {
     throw "Cloud API hazir olmadi: $apiHealthUrl"
   }
 
+  $productDashboardUrl = "$ResolvedCloudApiBaseUrl/owners/berke/products"
+  Write-Log "Cloud API urun dashboard kontrolu yapiliyor..."
+  if ((Wait-HttpEndpoint -Label "Cloud API urun dashboard" -Url $productDashboardUrl) -eq $false) {
+    throw "Cloud API urun dashboard hazir olmadi: $productDashboardUrl"
+  }
+
   Write-Log "WEB preview penceresi aciliyor (VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl)..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $webCmd | Out-Null
   if ((Wait-HttpEndpoint -Label "WEB Preview" -Url $webLocalUrl) -eq $false) {

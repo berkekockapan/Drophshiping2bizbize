@@ -56,6 +56,7 @@ Describe "restart-main-server Cloud mode" {
   It "builds the web app against the cloud URL and serves preview on 4175" {
     Mock Start-Process {}
     Mock Wait-HttpEndpoint {}
+    Mock Wait-FirstProductDetailEndpoint {}
     Mock Wait-NgrokPublicUrl { "https://cloud.ngrok.app" }
 
     $result = Start-ServiceWindowsCloud `
@@ -71,6 +72,10 @@ Describe "restart-main-server Cloud mode" {
 
     Assert-MockCalled Wait-HttpEndpoint -Times 1 -ParameterFilter {
       $Label -eq "Cloud API" -and $Url -eq "https://dropshiping2bizbize-api.workers.dev/health"
+    }
+
+    Assert-MockCalled Wait-FirstProductDetailEndpoint -Times 1 -ParameterFilter {
+      $CloudApiBaseUrl -eq "https://dropshiping2bizbize-api.workers.dev" -and $OwnerKey -eq "berke"
     }
 
     Assert-MockCalled Wait-HttpEndpoint -Times 1 -ParameterFilter {
@@ -190,4 +195,3 @@ Describe "restart-main-server Cloud deploy" {
     }
   }
 }
-

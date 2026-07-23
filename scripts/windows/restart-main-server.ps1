@@ -457,6 +457,7 @@ function Start-ServiceWindowsCloud {
   if ((Wait-HttpEndpoint -Label "Cloud API urun dashboard" -Url $productDashboardUrl) -eq $false) {
     throw "Cloud API urun dashboard hazir olmadi: $productDashboardUrl"
   }
+  Wait-FirstProductDetailEndpoint -CloudApiBaseUrl $ResolvedCloudApiBaseUrl -OwnerKey "berke"
 
   Write-Log "WEB preview penceresi aciliyor (VITE_API_BASE_URL=$ResolvedCloudApiBaseUrl)..."
   Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $webCmd | Out-Null
@@ -517,6 +518,47 @@ function Wait-HttpEndpoint {
   }
 
   throw "$Label hazir olmadi: $Url. Son hata: $lastError"
+}
+
+function Wait-FirstProductDetailEndpoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$CloudApiBaseUrl,
+    [Parameter(Mandatory = $true)][string]$OwnerKey,
+    [int]$TimeoutSeconds = 120
+  )
+
+  $dashboardUrl = "$($CloudApiBaseUrl.TrimEnd('/'))/owners/$OwnerKey/products"
+  Write-Log "Cloud API urun detay kontrolu yapiliyor..."
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  $lastError = $null
+
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $dashboard = Invoke-RestMethod -Uri $dashboardUrl -TimeoutSec 8 -ErrorAction Stop
+      $firstProduct = @($dashboard.items) | Where-Object {
+        $_ -and -not [string]::IsNullOrWhiteSpace([string]$_.id)
+      } | Select-Object -First 1
+
+      if (-not $firstProduct) {
+        Write-Log "Cloud API urun detay kontrolu atlandi: aktif urun bulunamadi."
+        return
+      }
+
+      $productId = [System.Uri]::EscapeDataString([string]$firstProduct.id)
+      $detailUrl = "$($CloudApiBaseUrl.TrimEnd('/'))/owners/$OwnerKey/products/$productId"
+      $response = Invoke-WebRequest -Uri $detailUrl -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+      if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) {
+        Write-Log "Cloud API urun detay ucu hazir."
+        return
+      }
+    } catch {
+      $lastError = $_.Exception.Message
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  throw "Cloud API urun detay ucu hazir olmadi. Son hata: $lastError"
 }
 
 function Wait-NgrokPublicUrl {
@@ -614,5 +656,4 @@ function Main {
 if (-not $RestartMainServerSkipMain) {
   Main
 }
-
 

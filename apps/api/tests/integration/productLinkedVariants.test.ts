@@ -12,6 +12,33 @@ const productHtml = readFileSync(
 );
 
 describe("product linked variants", () => {
+  it("repairs a missing linked-variant schema before returning product detail", async () => {
+    const { env, sqlite } = createTestEnv();
+    const fetchImpl = async () => new Response(productHtml, { status: 200 });
+    const app = createApp({ fetchImpl });
+    const parent = await createTrackedProduct(
+      env,
+      { ownerKey: "berke", trendyolUrl: "https://www.trendyol.com/brand/runtime-schema-p-99" },
+      { fetchImpl },
+    );
+
+    sqlite.exec("drop table product_linked_variants");
+
+    const response = await app.request(
+      `http://localhost/owners/berke/products/${parent.product.id}`,
+      undefined,
+      env,
+    );
+    const detail = (await response.json()) as { linkedVariants: unknown[] };
+    const recreatedTable = sqlite
+      .prepare("select name from sqlite_master where type = 'table' and name = 'product_linked_variants'")
+      .get() as { name: string } | undefined;
+
+    expect(response.status).toBe(200);
+    expect(recreatedTable?.name).toBe("product_linked_variants");
+    expect(detail.linkedVariants).toEqual([]);
+  });
+
   it("persists multiple manually linked Trendyol products and deletes only the explicitly selected record", async () => {
     const { env } = createTestEnv();
     const fetchImpl = async () => new Response(productHtml, { status: 200 });

@@ -22,8 +22,57 @@ export interface ProductLinkedVariantRecord {
 }
 
 export function createProductLinkedVariantsRepo(db: D1Database) {
+  async function ensureSchema() {
+    await runWithWriteRetry(async () => {
+      await db
+        .prepare(
+          `create table if not exists product_linked_variants (
+             id text primary key,
+             parent_product_id text not null,
+             owner_key text not null check (owner_key in ('berke', 'kaan')),
+             trendyol_url text not null,
+             trendyol_url_normalized text not null,
+             source_product_id text,
+             title text not null,
+             brand text,
+             description_raw text,
+             attributes_raw text,
+             images_raw text,
+             current_price integer,
+             current_stock_state text not null,
+             last_checked_at integer not null,
+             created_at integer not null default (unixepoch() * 1000),
+             updated_at integer not null default (unixepoch() * 1000)
+           )`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create unique index if not exists product_linked_variants_owner_url_unique
+             on product_linked_variants (owner_key, trendyol_url_normalized)`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists product_linked_variants_parent_created_idx
+             on product_linked_variants (parent_product_id, created_at desc)`,
+        )
+        .run();
+
+      await db
+        .prepare(
+          `create index if not exists product_linked_variants_owner_parent_idx
+             on product_linked_variants (owner_key, parent_product_id)`,
+        )
+        .run();
+    });
+  }
+
   return {
     async getParent(ownerKey: OwnerKey, productId: string) {
+      await ensureSchema();
       return db
         .prepare(
           `select id, trendyol_url as trendyolUrl
@@ -36,6 +85,7 @@ export function createProductLinkedVariantsRepo(db: D1Database) {
     },
 
     async findByNormalizedUrl(ownerKey: OwnerKey, trendyolUrlNormalized: string) {
+      await ensureSchema();
       return db
         .prepare(
           `select id, parent_product_id as parentProductId
@@ -48,6 +98,7 @@ export function createProductLinkedVariantsRepo(db: D1Database) {
     },
 
     async create(input: ProductLinkedVariantRecord) {
+      await ensureSchema();
       await runWithWriteRetry(async () => {
         await db
           .prepare(
@@ -82,6 +133,7 @@ export function createProductLinkedVariantsRepo(db: D1Database) {
     },
 
     async listByParent(ownerKey: OwnerKey, parentProductId: string) {
+      await ensureSchema();
       const rows = await db
         .prepare(
           `select v.id, v.parent_product_id as parentProductId, v.owner_key as ownerKey,
@@ -102,6 +154,7 @@ export function createProductLinkedVariantsRepo(db: D1Database) {
     },
 
     async delete(ownerKey: OwnerKey, parentProductId: string, linkedVariantId: string) {
+      await ensureSchema();
       const existing = await db
         .prepare(
           `select id
